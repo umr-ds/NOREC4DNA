@@ -294,10 +294,8 @@ def main(file="logo.jpg", repeats=5):
     csv = [
         "filename, overhead, codecName, number_of_chunks, dec_input, invalid_drop, seed, result, time_needed"
     ]
-    # file = "logo.jpg"  # "ma_pruefOrd.pdf"  # "OUT_raptor.pdf" #"b_lq.webm1"  # "b_mq.webm" #
     scale = 1.0
     name = "ERROR"
-    # for droprate in np.arange(0.01, 0.02, 0.01):
     for mode in ["Online", "LT", "LTIdeal", "RU10"]:
         for overhead in [
             0.05,
@@ -313,7 +311,7 @@ def main(file="logo.jpg", repeats=5):
             0.55,
             0.60,
         ]:
-            for repeat in range(repeats):
+            for _ in range(repeats):
                 rnd = get_random_int(math.pow(2, 31) - 1)
                 chunk_size = 100
                 insert_header = True
@@ -376,7 +374,6 @@ def main(file="logo.jpg", repeats=5):
                             + str(time_needed)
                     )
                 except Exception as ex:
-                    # raise ex
                     line = (
                             str(file)
                             + ","
@@ -406,7 +403,6 @@ def main(file="logo.jpg", repeats=5):
                     + str(time.strftime("%Y-%m-%d_%H-%M", time.localtime()))
                     + ".csv"
             )
-            # dtimenow = get_random_int(math.pow(2, 20))
 
             with open("DNA_" + dtimeno, "w") as f:
                 for line in lines:
@@ -450,7 +446,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     profile = bool(args.profile)
     filename = str(args.file)
-    # mode = str(args.mode)
     repreats = int(args.repeats)
     if profile:
         from pycallgraph import PyCallGraph

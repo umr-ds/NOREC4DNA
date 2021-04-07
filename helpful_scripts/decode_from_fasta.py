@@ -81,15 +81,11 @@ with open(infile, "r") as in_file:
                                           number_of_chunks_len_format="",
                                           packet_len_format="H",
                                           id_len_format="I")
-        # maybe we should save packet?!
-        # dill_decoder = dill.dumps(decoder)
-        ###
         cores = multiprocessing.cpu_count()
         if spare1core:
             cores = cores - 1
         p = multiprocessing.Pool(cores)
         list_of_lists = p.map(partial(reconstruct_Packets), split(raw_packet_list, cores))
-        # list_of_lists = [reconstruct_Packets(x, dill_decoder=dill_decoder) for x in split(raw_packet_list, cores)]
         l = []
         map(l.extend, list_of_lists)
         print(len(l))

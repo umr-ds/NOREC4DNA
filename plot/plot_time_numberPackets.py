@@ -19,7 +19,6 @@ def custom_round(x, base=5):
 'seaborn-muted', 'seaborn-white', 'seaborn-pastel']
 """
 
-# fname = 'sim2017-12-22_19-35.csv'
 fname = "../csvs/merge.csv"  # union.csv_comb'
 df = pd.read_csv(fname, delimiter=", ", engine="python", index_col=False)
 fname2 = "../csvs/merge_einzeln.csv"  # union.csv_comb'
@@ -47,7 +46,6 @@ font = {"family": "normal", "size": 14}
 axis_font = {"size": "14"}
 matplotlib.rc("font", **font)
 
-##### Nach codecName und number_of_chunks Gruppiert #####
 plt.rc("axes", prop_cycle=(
         cycler("color",
                ["m", "m", "r", "r", "r", "r", "g", "g", "g", "g", "b", "b", "b", "b", "y", "y", "y", "y", "k", "k", "k",
@@ -57,7 +55,6 @@ plt.rc("axes", prop_cycle=(
 
 plt.rc("grid", c="0.5", ls=":", lw=1)
 
-##### Nur nach codecName Gruppiert #####
 tmp1 = (df.groupby(["droprate", "codecName"]).mean().unstack().plot(y="result", title="Erfolgsrate bzgl. droprate"))
 plt.show(block=False)
 

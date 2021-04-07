@@ -240,6 +240,3 @@ if __name__ == "__main__":
     # main()
     erlich_zielinski_robust_soliton_dist()
     vergleich()
-    # onlineDist()
-    # OnlineVergleich()
-    # raptorDistNeu()

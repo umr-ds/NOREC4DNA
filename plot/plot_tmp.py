@@ -67,11 +67,9 @@ def plot(fname):
     plt.close()
 
 
-# fname = 'sim2017-12-22_19-35.csv'
 name1 = "raptor_800_801_vorkommen_je_chunk.csv"  # union.csv_comb'
 name2 = "lt_robust_700_935_vorkommen_je_chunk.csv"
 name3 = "lt_ideal_700_935_vorkommen_je_chunk.csv"
 name4 = "raptor_700_701_vorkommen_je_chunk.csv"
 name5 = "online_388_485_vorkommen_je_chunk.csv"
-# for name in [name1, name2, name3, name4, name5]:
 plot("ALL")

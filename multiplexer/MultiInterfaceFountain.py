@@ -1,7 +1,7 @@
 import socket
 import multiprocessing
 
-from MultiInterfaceBase import MultiInterfaceBase
+from multiplexer.MultiInterfaceBase import MultiInterfaceBase
 from norec4dna import RU10Encoder, reed_solomon_encode
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from multiplex_OLD import Multiplexer

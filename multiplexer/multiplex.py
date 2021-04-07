@@ -325,9 +325,6 @@ class MultiplexChannel:
 
 
 if __name__ == '__main__':
-    # mlt = Multiplex('../.INFILES/Dorn', 50, 3, 1)
-    # used = mlt.all_chunks_used()
-    # print()
     file = '.INFILES/Dorn'
     cmp_file = 'tests/cmp_dorn'
 

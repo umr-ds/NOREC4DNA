@@ -51,8 +51,6 @@ def g():
     return [f(a) for a in np.arange(1.0, 5.0, 0.0001)]
 
 
-# plt.plot(g())
-# plt.grid(True)
 manager = plt.get_current_fig_manager()
 manager.resize(*manager.window.maxsize())
 plt.show(block=False)

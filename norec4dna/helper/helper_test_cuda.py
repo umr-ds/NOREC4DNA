@@ -7,12 +7,8 @@ from random import random
 from functools import reduce
 from numba import jit, vectorize, cuda
 
-os.environ[
-    "NUMBAPRO_NVVM"
-] = r"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.1\nvvm\bin\nvvm64_32_0.dll"
-os.environ[
-    "NUMBAPRO_LIBDEVICE"
-] = r"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.1\nvvm\libdevice"
+os.environ["NUMBAPRO_NVVM"] = r"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.1\nvvm\bin\nvvm64_32_0.dll"
+os.environ["NUMBAPRO_LIBDEVICE"] = r"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.1\nvvm\libdevice"
 
 
 @jit(nogil=True)

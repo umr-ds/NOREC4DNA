@@ -364,8 +364,6 @@ if __name__ == "__main__":
             name, result, numberOfEncodedPackets, dropedCount, solvedCount, timeNeeded, number_of_chunks = blackboxRU10Test(
                 file, number_of_chunks=number_of_chunks, droprate=droprate, seed=rnd
             )
-            # name, result, numberOfEncodedPackets, dropedCount, solvedCount, timeNeeded, number_of_chunks = blackboxOnlineTest(file, number_of_chunks=number_of_chunks, droprate=droprate, seed=rnd)
-            # name, result, numberOfEncodedPackets, dropedCount, solvedCount, timeNeeded, number_of_chunks = blackboxTest(file, number_of_chunks=number_of_chunks, droprate=droprate, seed=rnd)
             line = (
                     str(file)
                     + ", "
@@ -387,14 +385,9 @@ if __name__ == "__main__":
                     + ", "
                     + str(timeNeeded)
             )
-            # except (Exception):
-            #    print("Error...")
-            #    line = str(file) + ", " + str(name) + ", " + str(number_of_chunks) + ", " + "ERROR" + ", " + str(droprate) + ", " + "ERROR" + ", " + str(rnd) + ", " + "ERROR" + ", " + "ERROR"
-            # finally:
             print(line)
             csv.append(line)
     dtimeno = "sim" + str(time.strftime("%Y-%m-%d_%H-%M", time.localtime())) + ".csv"
-    # dtimenow = get_random_int(math.pow(2, 20))
     with open(dtimeno, "w") as f:
         for line in csv:
             f.write(line + "\n")

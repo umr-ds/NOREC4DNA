@@ -69,17 +69,11 @@ class Watcher:
                 target = decoder.headerChunk.get_file_name().decode()
             except:
                 target = ""
-            print(
-                "{} skipped, target file {} has already been decoded.".format(
-                    filename, target
-                )
-            )
+            print("{} skipped, target file {} has already been decoded.".format(filename, target))
             return
         print(
-            "{} : {} bytes for crc16(filename) = {} - RSSI= {}, SNR={}".format(
-                command, payload_size, crc16_name, rssi, snr
-            )
-        )
+            "{} : {} bytes for crc16(filename) = {} - RSSI= {}, SNR={}".format(command, payload_size, crc16_name, rssi,
+                                                                               snr))
 
         self.decoder_to_filename[crc16_name].append(filename)
         packet = decoder.parse_raw_packet(binary_payload[2:], use_crc=self.use_crc)
@@ -87,10 +81,8 @@ class Watcher:
             decoder.input_new_packet(packet)
         if decoder.number_of_chunks != 0 and decoder.GEPP.n >= decoder.number_of_chunks:
             print(
-                "received {} Packets for File consisting of {} chunks.".format(
-                    decoder.GEPP.n, decoder.number_of_chunks
-                )
-            )
+                "received {} Packets for File consisting of {} chunks.".format(decoder.GEPP.n,
+                                                                               decoder.number_of_chunks))
         if decoder.GEPP.isPotentionallySolvable() and decoder.solve():
             decoder.saveDecodedFile()
             if remove_finished:
@@ -109,10 +101,7 @@ class Watcher:
 
     def run(self):
         event_handler = Handler()
-        event_handler.register(
-            "modified",
-            lambda x: self.handle_data(self.load_file(x), x, remove_finished=True),
-        )
+        event_handler.register("modified", lambda x: self.handle_data(self.load_file(x), x, remove_finished=True), )
         self.observer.schedule(event_handler, self.DIRECTORY_TO_WATCH, recursive=False)
         self.observer.start()
         try:

@@ -32,9 +32,7 @@ class GradientDescentOptimizer:
                save_number_of_chunks_in_packet=False, mode_1_bmp=False, chunk_size=50):
         packets_needed = 0
         packets = dict()
-        # chunk_size = 50  # Chunksize 50, mit reedsolomon auf 6 repairsymbols
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
-        # number_of_chunks = 350
         dist = RaptorDistribution(number_of_chunks)
         dist.f = self.X
         dist.d = self.d
@@ -73,9 +71,6 @@ class GradientDescentOptimizer:
                 # we dont want to break, we want to generate #chunks * XXX packets!
                 # break
         print("Packets created: " + str(sum([len(x) for x in packets.values()])))
-        # print("averaged error")
-        # print(sum([sum(x) for x in self.packets.values()]) / sum([len(x) for x in self.packets.values()]))
-        # print(sum([sum(x) for x in self.packets.values()]) / len([1 for x in self.packets.values() if len(x) > 0]))
         return packets, (packets_needed - number_of_chunks) / 100.0
 
     def compute_cost(self, c_size_list=None, file_list=None):
@@ -87,7 +82,6 @@ class GradientDescentOptimizer:
         n = 0
         for p_tmp in range(45):
             degree_packet_costs[p_tmp] = list()
-        # degree_packet_costs, n = self.encode(self.FILENAME, True, nocode, False, False, False, chunk_size=50)
         for enc_file in file_list:
             for c_size in c_size_list:
                 degree_packet_costs1, n1 = self.encode(enc_file, True, nocode, False, False, False, chunk_size=c_size)
@@ -101,8 +95,6 @@ class GradientDescentOptimizer:
             if len(degree_packet_costs[deg]) > 0:
                 avg_err_per_degree[deg] = sum(degree_packet_costs[deg]) / len(degree_packet_costs[deg])
                 used_degrees += 1
-        # tobesummed = np.power(((X @ theta.T) - y), 2)
-        # return np.sum(tobesummed) / (2 * self.runs)  # len(X)
         avg_err_per_degree[0] -= n
         summed_error = sum(avg_err_per_degree + n) / used_degrees
         if summed_error <= self.current_min:
@@ -179,11 +171,9 @@ def main(gd_runs=100):
     plt.rcParams["figure.dpi"] = fig_dpi
     """
     res = []
-    for i in range(1):
+    for _ in range(1):
         y = np.ones(len(X) - 1)
         alpha = np.random.uniform(0.0001, 0.25, 1)
-        # theta = np.random.uniform(0, .1, len(X) - 1)  # np.zeros(len(X))
-        # print(y)
         new_x, tmp = opt.gradient_descent(X, y, alpha)
         for x in tmp:
             if DO_PLOT:
@@ -206,7 +196,7 @@ def main(gd_runs=100):
             plt.ylim(0, 1.5)
             with open('reses', 'wb') as picke_out:
                 pickle.dump(res, picke_out)
-            rand_str = ''.join(random.choice(string.ascii_lowercase) for i in range(12))
+            rand_str = ''.join(random.choice(string.ascii_lowercase) for _ in range(12))
             with writer.saving(fig, "tmp/dist_development_gd_" + rand_str + ".mp4", 500):
                 for xx in res:
                     for x in xx[0]:
@@ -238,7 +228,7 @@ if __name__ == "__main__":
         cores = cores - 1
     p = multiprocessing.Pool(cores)
     param = [None] * cores
-    a = p.map(main, [runs for x in range(cores)])
+    a = p.map(main, [runs for _ in range(cores)])
     X = list(y for x in a for y in x[0][0])
     tmp = list(y for x in a for y in x[0][1])
     print("Absolute min:")

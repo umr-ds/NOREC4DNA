@@ -105,7 +105,6 @@ class FastDNARules:
             self.active_rules = active_rules
 
     def check_and_add_mers(self, data, length=19):
-        # TODO should this be rolling or non-rolling?
         chunks = [data[i:i + length] for i in range(0, len(data), length)]
         self.tmp_nineteen_mers.clear_all()
         res = 0.0

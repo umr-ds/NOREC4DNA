@@ -26,10 +26,7 @@ def custom_round(x, base=5):
 
 
 def plot():
-    # name6 = '../../../CSV/brauchbar/ALL_DNA_DOUBLE1006/o_out_simple.csv'
     name6 = "../../../../CSV/brauchbar/ALL_DNA_VERGLEICH/Orange_out_new.csv"
-    axis_font = {"size": "20"}
-    # matplotlib.rc('font', **font)
 
     df6 = pd.read_csv(name6, delimiter=",", engine="python",
                       usecols=["filename", "overhead", "number_of_chunks", "Decoder Input", "invalid_drop",
@@ -76,7 +73,6 @@ def plot():
     plt.close()
 
     for name, df6 in df6.groupby(["Kodierung"]):
-        mark = itertools.cycle(["o", "v", "P", "*", "h", "D", "X", "d", "|"])
         linest = itertools.cycle(["--", "-"])
         color = itertools.cycle(["m", "m", "r", "r", "g", "g", "b", "b", "y", "y", "k", "k", "c", "c"])
         fig, axs = plt.subplots(1, 1)
@@ -126,8 +122,6 @@ def plot2():
     # old = DNA_random_bytes_0_0.0_sim2018-07-12_20-36
     fname = ("../../../../Masterarbeit/Code/DNA_random_bytes_0_0.0_sim2018-07-13_01-10.csv")
     df6 = pd.read_csv(fname, delimiter=",", engine="python", index_col=False)
-    # usecols=["filename", "overhead", "number_of_chunks", "Decoder Input", "invalid_drop", "Seed",
-    # "Ergebnis", "Sekunden", "createdPackets", "DropRate", "Kodierung", "Versuch", "group"],
 
     fig, axs = plt.subplots(1, 1)
     df6.boxplot(column="Overall_Dropchance")  # , by=['Ergebnis', 'group'])

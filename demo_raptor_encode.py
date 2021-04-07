@@ -24,7 +24,6 @@ class demo_raptor_encode:
                save_as_fasta=True):
         # Chunksize 50, mit reedsolomon auf 6 repairsymbols
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
-        # number_of_chunks = 350
         dist = RaptorDistribution(number_of_chunks)
         if asdna:
             rules = FastDNARules()

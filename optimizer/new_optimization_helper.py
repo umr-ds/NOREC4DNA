@@ -28,10 +28,6 @@ def kill_sig(signal_number, frame):
     sys.exit()
 
 
-# signal.signal(signal.SIGHUP, read_sig)
-# signal.signal(signal.SIGKILL, kill_sig)
-
-
 def create_packets_e_prob(start_num: int, normed_dist: ndarray, number_of_packets: int, rules=None):
     dist_obj = RaptorDistribution(__NUM_CHUNKS)
     dist_obj.f = normed_dist

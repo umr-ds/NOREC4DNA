@@ -19,8 +19,6 @@ class demo_encode:
     def encode(file, error_correction=nocode):
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size=CHUNK_SIZE,
                                                                                  insert_header=INSERT_HEADER)
-        # dist = IdealSolitonDistribution(number_of_chunks, seed=2)
-        # dist = RobustSolitonDistribution(number_of_chunks,)
         print("Number of Chunks=%s" % number_of_chunks)
         dist = ErlichZielinskiRobustSolitonDistribution(number_of_chunks, seed=2)
         encoder = LTEncoder(file, number_of_chunks, dist, insert_header=INSERT_HEADER, rules=DNARules_ErlichZielinski(),

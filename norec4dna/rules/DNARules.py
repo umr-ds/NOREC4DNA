@@ -5,10 +5,10 @@ from norec4dna.rules.RuleParser import shouldDropMax, shouldDrop, gc_content
 try:
     from cdnarules import repeatRegion as rRegion
     from cdnarules import smallRepeatRegion as smallrRegion
-except:
+except ImportError as ex:
     print("C Module failed to load, falling back to slow mode")
-    from ..helper.fallback_code import r_region as rRegion
-    from ..helper.fallback_code import small_r_region as smallrRegion
+    from norec4dna.helper.fallback_code import r_region as rRegion
+    from norec4dna.helper.fallback_code import small_r_region as smallrRegion
 
 
 class DNARules:
@@ -169,19 +169,20 @@ class DNARules:
         :param ch: The nucleotide to check for.
         :return: The dropchance based on the number of occurences of the given nucleotide.
         """
+        preamble = "charCountBiggerEqualThanX("
         return shouldDrop(
             data,
             [
-                ("charCountBiggerEqualThanX(" + ch + ",20)", 0.002),
-                ("charCountBiggerEqualThanX(" + ch + ",40)", 0.002),
-                ("charCountBiggerEqualThanX(" + ch + ",60)", 0.002),
-                ("charCountBiggerEqualThanX(" + ch + ",80)", 0.002),
-                ("charCountBiggerEqualThanX(" + ch + ",100)", 0.002),
-                ("charCountBiggerEqualThanX(" + ch + ",120)", 0.002),
-                ("charCountBiggerEqualThanX(" + ch + ",140)", 0.002),
-                ("charCountBiggerEqualThanX(" + ch + ",160)", 0.002),
-                ("charCountBiggerEqualThanX(" + ch + ",180)", 0.002),
-                ("charCountBiggerEqualThanX(" + ch + ",200)", 0.002),
+                (preamble + ch + ",20)", 0.002),
+                (preamble + ch + ",40)", 0.002),
+                (preamble + ch + ",60)", 0.002),
+                (preamble + ch + ",80)", 0.002),
+                (preamble + ch + ",100)", 0.002),
+                (preamble + ch + ",120)", 0.002),
+                (preamble + ch + ",140)", 0.002),
+                (preamble + ch + ",160)", 0.002),
+                (preamble + ch + ",180)", 0.002),
+                (preamble + ch + ",200)", 0.002),
             ],
         )
 
@@ -195,19 +196,20 @@ class DNARules:
         :param ch: The nucleotide to check for.
         :return: The dropchance based on the number of occurences of the given nucleotide.
         """
+        preamble = "charCountBiggerEqualThanX("
         return shouldDrop(
             data,
             [
-                ("charCountBiggerEqualThanX(" + ch + ",20)", 0.001),
-                ("charCountBiggerEqualThanX(" + ch + ",40)", 0.001),
-                ("charCountBiggerEqualThanX(" + ch + ",60)", 0.001),
-                ("charCountBiggerEqualThanX(" + ch + ",80)", 0.001),
-                ("charCountBiggerEqualThanX(" + ch + ",100)", 0.001),
-                ("charCountBiggerEqualThanX(" + ch + ",120)", 0.001),
-                ("charCountBiggerEqualThanX(" + ch + ",140)", 0.001),
-                ("charCountBiggerEqualThanX(" + ch + ",160)", 0.001),
-                ("charCountBiggerEqualThanX(" + ch + ",180)", 0.001),
-                ("charCountBiggerEqualThanX(" + ch + ",200)", 0.001),
+                (preamble + ch + ",20)", 0.001),
+                (preamble + ch + ",40)", 0.001),
+                (preamble + ch + ",60)", 0.001),
+                (preamble + ch + ",80)", 0.001),
+                (preamble + ch + ",100)", 0.001),
+                (preamble + ch + ",120)", 0.001),
+                (preamble + ch + ",140)", 0.001),
+                (preamble + ch + ",160)", 0.001),
+                (preamble + ch + ",180)", 0.001),
+                (preamble + ch + ",200)", 0.001),
             ],
         )
 

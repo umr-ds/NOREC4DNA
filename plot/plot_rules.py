@@ -32,7 +32,6 @@ def custom_round(x, base=5):
 'seaborn-muted', 'seaborn-white', 'seaborn-pastel']
 """
 
-# fname = 'sim2017-12-22_19-35.csv'
 fname = "D:/Users/thejanky/Desktop/Uni/WS 17-18/CSV/recent/ALL_DNA_SINGLE_0906/ALL_DNA_SIMPLE_025_schritte/dna_abc.csv"
 df = pd.read_csv(fname, delimiter=",", engine="python", index_col=False,
                  usecols=["Algorithm", "A_Permutation", "T_Permutation", "C_Permutation", "G_Permutation",
@@ -44,7 +43,6 @@ font = {"family": "normal", "size": 14}
 axis_font = {"size": "14"}
 matplotlib.rc("font", **font)
 
-# Nach codecName und number_of_chunks gruppiert
 plt.rc("axes",
        prop_cycle=(cycler("color",
                           ["m", "m", "r", "r", "r", "c", "c", "g", "g", "g", "g", "b", "b", "b", "b", "y", "y", "y",

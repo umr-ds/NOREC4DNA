@@ -27,11 +27,6 @@ def custom_round(x, base=5):
 
 def plot():
     name6 = "../../../../CSV/brauchbar/ALL_DNA_DOUBLE1006/o_out_simple.csv"
-    # name6 = '../../../../CSV/brauchbar/ALL_DNA_05scale_second/Orange_out_new.csv'
-    # font = {'family': 'normal',
-    #        'size': 20}
-    axis_font = {"size": "20"}
-    # matplotlib.rc('font', **font)
 
     df6 = pd.read_csv(name6, delimiter=",", engine="python",
                       usecols=["filename", "overhead", "number_of_chunks", "Decoder Input", "invalid_drop", "Seed",

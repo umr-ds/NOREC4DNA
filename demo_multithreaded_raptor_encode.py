@@ -78,11 +78,8 @@ if __name__ == "__main__":
     _save_number_of_chunks = args.save_number_of_chunks
     _error_correction = get_error_correction_encode(args.error_correction, _repair_symbols)
     print("File to encode: " + str(_file))
-    # demo = demo_raptor_encode()
 
     from multiprocessing import Process
-
-    # encode(None, file, asdna, error_correction=error_correction)
 
     cores = multiprocessing.cpu_count()
 

@@ -5,7 +5,7 @@ import os, typing
 try:
     from cdnarules import byte2QUATS as b2quats
     from cdnarules import getQUAT
-except:
+except ImportError:
     print("C Module failed to load, falling back to slow mode")
 
 

@@ -170,7 +170,7 @@ def test_suite4(as_dna, chunk_size, dna_rules, error_correction):
     assert decoder.corrupt == 1
     assert not decoder.is_decoded()
     os.remove(file)
-    with pytest.raises(AssertionError) as err:
+    with pytest.raises(AssertionError):
         decoder.saveDecodedFile(print_to_output=False)
     assert not (os.path.exists(file) and filecmp.cmp(file, cmp_file))
     shutil.rmtree(out_dir)

@@ -1,4 +1,4 @@
-# fountaindna [![Build Status](https://travis-ci.com/thejanky/fountaindna.svg?token=ChxYCfqxwUJpgKstks1n&branch=master)](https://travis-ci.com/thejanky/fountaindna) [![codecov](https://codecov.io/gh/thejanky/fountaindna/branch/master/graph/badge.svg?token=WglFq3uNTI)](https://codecov.io/gh/thejanky/fountaindna)
+# NOREC4DNA [![Build Status](https://travis-ci.com/thejanky/fountaindna.svg?token=ChxYCfqxwUJpgKstks1n&branch=master)](https://travis-ci.com/thejanky/fountaindna) [![codecov](https://codecov.io/gh/thejanky/fountaindna/branch/master/graph/badge.svg?token=WglFq3uNTI)](https://codecov.io/gh/thejanky/fountaindna)
 
 NOREC4DNA is an all-in-one Suite for analyzing, testing and converting Data into DNA-Chunks to use for a
 DNA-Storage-System using integrated DNA-Rules as well as the MOSLA DNA-Simulation-API.
@@ -22,7 +22,7 @@ NOREC4DNA implements LT, Online, and Raptor (RU10) Fountain Codes.
 ### Using docker
 
 + Building the docker container from source:
-    - ````git clone git@github.com:thejanky/fountaindna.git````
+    - ````git clone git@github.com:umr-ds/NOREC4DNA.git````
     - ```docker build . --tag norec4dna```
 + pulling the container from Dockerhub:
     - TBA once NOREC4DNA is available on Dockerhub
@@ -30,7 +30,7 @@ NOREC4DNA implements LT, Online, and Raptor (RU10) Fountain Codes.
 ### From source
 
 + Clone the repository:
-    - ````git clone git@github.com:thejanky/fountaindna.git````
+    - ````git clone git@github.com:umr-ds/NOREC4DNA.git````
 
 
 + OPTIONAL create a virtual environment (recommended):

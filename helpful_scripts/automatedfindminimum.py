@@ -482,10 +482,10 @@ class AutomatedFindMinimum:
         # Get and add the optimal new packets without exceeding the overhead_limit
         if chunk_min_occ is None:
             packet_dist = self.get_packet_dist(decoding_packets_bool_arrays, number_of_chunks)
-            sum = 0
+            _sum = 0
             for occ in packet_dist:
-                sum += occ
-            chunk_min_occ = math.floor((sum / len(packet_dist)) * 0.9)
+                _sum += occ
+            chunk_min_occ = math.floor((_sum / len(packet_dist)) * 0.9)
             print("-> No minimum chunk occurence set. The calculated values is " + str(
                 chunk_min_occ) + " (90% of the average occurence).")
         no_new_packets = math.floor(number_of_chunks * overhead_lim)

@@ -27,10 +27,6 @@ def custom_round(x, base=5):
 
 def plot():
     name6 = "ALL_DNA_SINGLE_0906/o_out_simple.csv"
-    # font = {'family': 'normal',
-    #        'size': 20}
-    axis_font = {"size": "20"}
-    # matplotlib.rc('font', **font)
 
     df6 = pd.read_csv(name6, delimiter=",", engine="python",
                       usecols=["filename", "overhead", "number_of_chunks", "dec_input", "invalid_drop", "seed",
@@ -63,7 +59,7 @@ def plot():
     print(df6["encodedPackets"])
     df6["Fehlerwahrscheinlichkeit"] = df6["invalid_drop"] / df6["encodedPackets"]
 
-    df6.boxplot(column="error probability", by=["Kodierung"])  # rot=17.5,
+    df6.boxplot(column="error probability", by=["Kodierung"])
     plt.title("Average of dropped packets")
     plt.xlabel("")
     plt.suptitle("")

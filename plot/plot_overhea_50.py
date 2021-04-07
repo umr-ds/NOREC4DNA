@@ -19,7 +19,6 @@ def custom_round(x, base=5):
 'seaborn-muted', 'seaborn-white', 'seaborn-pastel']
 """
 
-# fname = 'sim2017-12-22_19-35.csv'
 fname = "../csvs/merge.csv"  # union.csv_comb'
 df = pd.read_csv(fname, delimiter=", ", engine="python", index_col=False)
 fname2 = "../csvs/merge_einzeln.csv"  # union.csv_comb'
@@ -35,8 +34,6 @@ df["result"] = df["result"].astype(int)  # ([' result'])) #.cast('int')
 df["codecName"] = df["codecName"].astype(str)
 df["Overhead"] = ((df["numberOfEncodedPackets"] - df["number_of_chunks"]) - df["droppedCount"]).apply(
     lambda x: custom_round(x, base=50))
-# # print(type(df.groupby(["codecName"])))
-# # print(dir(df.groupby(["codecName"])))
 df_einzeln.sort_values(by=["codecName", "numberOfEncodedPackets", "number_of_chunks"], inplace=True)  # , 'droprate'
 df_einzeln["result"] = df_einzeln["result"].astype(int)
 df_einzeln["codecName"] = df_einzeln["codecName"].astype(str)

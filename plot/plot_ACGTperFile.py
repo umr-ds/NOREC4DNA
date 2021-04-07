@@ -16,7 +16,6 @@ plt.rcParams["svg.fonttype"] = "none"
 
 
 def main(text, out_filename, group: int = 32):
-    # path = "path/to/dir/*.csv"
     sumA = None
     sumT = None
     sumG = None

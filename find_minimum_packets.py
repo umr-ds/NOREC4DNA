@@ -128,9 +128,8 @@ def save_packets_fasta(packets, out_file, file_ending, clear_output=True, seed_i
         for f in files:
             try:
                 os.remove(f)
-            except:
-                print("error")
-                pass
+            except Exception as ex:
+                print("Error: ", ex)
     i = 0
     if not os.path.exists(out_file):
         os.makedirs(out_file)
@@ -155,9 +154,8 @@ def save_packets(packets, out_file, file_ending, clear_output=True, seed_is_file
         for f in files:
             try:
                 os.remove(f)
-            except:
-                print("error")
-                pass
+            except Exception as ex:
+                print("Error: ", ex)
     i = 0
     if not os.path.exists(out_file):
         os.makedirs(out_file)

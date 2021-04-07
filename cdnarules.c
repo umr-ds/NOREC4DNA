@@ -133,7 +133,7 @@ static bool isSolvable(PyArrayObject* A) {
 
 static PyObject* elimination(PyObject *self, PyObject *args)
 {
-   PyArrayObject *A, *b, *packet_mapping; //TODO fix packet_mapping not used!
+   PyArrayObject *A, *b, *packet_mapping; //packet_mapping not used!
 
    if (!PyArg_ParseTuple(args, "O!O!O!", &PyArray_Type, &A, &PyArray_Type, &b, &PyArray_Type, &packet_mapping)) {
       PyErr_BadArgument();

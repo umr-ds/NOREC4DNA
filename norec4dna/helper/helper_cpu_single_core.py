@@ -7,7 +7,7 @@ import typing
 
 try:
     from cdnarules import xorArray as xor_intern
-except:
+except ImportError:
     from norec4dna.helper.fallback_code import xor_intern
 
 
@@ -75,7 +75,7 @@ try:
 
     def bitSet(x: int, b: int) -> bool:
         return bitSet_c(int(x), int(b))
-except:
+except ImportError:
     print("BitSet - C Module failed to load, falling back to slow mode")
     from norec4dna.helper.fallback_code import bitSet
 
@@ -85,7 +85,7 @@ try:
 
     def bitsSet(x: numpy.uint64) -> int:
         return bitsSet_c(int(x))
-except:
+except ImportError:
     print("BitsSet - C Module failed to load, falling back to slow mode")
     from norec4dna.helper.fallback_code import bitsSet
 
@@ -95,13 +95,13 @@ try:
 
     def grayCode(x: int):
         return grayCode_c(int(x))
-except:
+except ImportError:
     print("Gray-Code - C Module failed to load, falling back to slow mode")
 
     from norec4dna.helper.fallback_code import grayCode
 
 try:
     from cdnarules import buildGraySequence
-except:
+except ImportError:
     print("Graysequence - C Module failed to load, falling back to slow mode")
     from norec4dna.helper.fallback_code import buildGraySequence

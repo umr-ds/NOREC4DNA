@@ -117,12 +117,10 @@ def fasta_cluster_and_remove_index(split_index_position: str, split_index_length
             first_line = in_file.readline()
             if not first_line:
                 break
-            # error_prob, seed = first_line[1:].replace("\n", "").split("_")
             line = in_file.readline()
             if not line:
                 break
             dna_str = line.replace("\n", "")
-            # .append((error_prob, seed, dna_str))
             if split_index_position == "start":
                 bin_number, base_str = base_str_to_int(dna_str[:split_index_length]), dna_str[split_index_length:]
             else:

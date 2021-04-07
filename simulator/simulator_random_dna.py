@@ -52,7 +52,7 @@ def blackbox(file, number_of_chunks, seed, overhead, leng=100):
     start = time.time()
     name = "random_bytes"
     no_packets = int(math.ceil(number_of_chunks * (1.0 + overhead)))
-    packets = [create_packet(leng) for x in range(no_packets)]
+    packets = [create_packet(leng) for _ in range(no_packets)]
     result = True
     correct = 0
     for elem in packets:
@@ -88,7 +88,7 @@ def main(file="logo.jpg", repeats=50):
         else:
             number_of_chunks = 800
         number_repair_symbols = int(math.floor((file_size // number_of_chunks) * overhead))
-        for repeat in range(repeats):
+        for _ in range(repeats):
             rnd = get_random_int(math.pow(2, 31) - 1)
 
             try:
@@ -101,8 +101,7 @@ def main(file="logo.jpg", repeats=50):
                 )
                 line = (str(file) + "," + str(overhead) + "," + str(name) + "," + str(number_of_chunks) + "," + str(
                     invalid_drop) + "," + str(rnd) + "," + str(result) + "," + str(time_needed))
-            except Exception as ex:
-                raise ex
+            except Exception:
                 line = (str(file) + "," + str(overhead) + "," + str(name) + "," + str(
                     number_of_chunks) + "," + "ERROR" + "," + str(rnd) + "," + "ERROR" + "," + "ERROR")
             print(line)

@@ -82,14 +82,10 @@ def main(file="logo.jpg", repeats=5):
     csv = [
         "filename, overhead, codecName, number_of_chunks, invalid_drop, seed, result, time_needed"
     ]
-    # file = "logo.jpg"  # "ma_pruefOrd.pdf"  # "OUT_raptor.pdf" #"b_lq.webm1"  # "b_mq.webm"
     name = "ERROR"
     mode = "ReedSolomon"
     file_size = get_file_size(file)
-    for overhead in np.arange(
-            0.05, 0.1, 0.005
-    ):  # [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60]:
-
+    for overhead in np.arange(0.05, 0.1, 0.005):
         chunk_size = 100
         insert_header = True
         if chunk_size != 0:
@@ -100,7 +96,7 @@ def main(file="logo.jpg", repeats=5):
             number_of_chunks = 800
         number_repair_symbols = int(math.floor((file_size // number_of_chunks) * overhead))
         print("No_repair_symbols=" + str(number_repair_symbols))
-        for repeat in range(repeats):
+        for _ in range(repeats):
             rnd = get_random_int(math.pow(2, 31) - 1)
 
             try:
@@ -128,7 +124,7 @@ def main(file="logo.jpg", repeats=5):
                         + ","
                         + str(time_needed)
                 )
-            except Exception as ex:
+            except Exception:
                 line = (
                         str(file)
                         + ","

@@ -100,40 +100,6 @@ class BPDecoder(Decoder):
         self.queue.append(packet)
         return degree
 
-    """
-    def reduceOnes(self, packet: Packet) -> bool:
-        fin = False
-        if packet.degree == 1:
-            for i in [i for i in self.degreeToPacket.keys() if i > 1]:
-                if not isinstance(self.degreeToPacket[i], set):
-                    self.degreeToPacket[i] = set()
-                for p in self.degreeToPacket[i].copy():
-                    p_used = p.get_used_packets()
-                    pack_used = packet.get_used_packets()
-                    if pack_used.issubset(p_used):
-                        self.degreeToPacket[i].remove(p)
-                        res = self.compareAndReduce(p, packet)
-                        if res:
-                            return True
-        degree: int = packet.get_degree()
-        if 1 not in self.degreeToPacket.keys() or not isinstance(self.degreeToPacket[1], set):
-            self.degreeToPacket[1] = set()
-        # use other of degree 1 to reduce this packet
-        for p in self.degreeToPacket[1].copy():
-            p_used = p.get_used_packets()
-            pack_used = packet.get_used_packets()
-            if len(pack_used) > len(p_used) and p_used.issubset(pack_used):
-                try:
-                    self.degreeToPacket[degree].remove(packet)
-                    degree = self.compareAndReduce(packet, p)
-                    if isinstance(degree, bool) and degree is True:
-                        return degree
-                except:
-                    continue
-                    # If we already reduced a Packet with the same used_packets, there is no need to do it again
-        return fin or self.is_decoded()
-    """
-
     def reduceAll(self, packet: Packet) -> bool:
         # lookup all packets for this to solve with ( when this packet has a subset of used Packets)
         fin: bool = False
@@ -165,5 +131,5 @@ class BPDecoder(Decoder):
                             return degree
                     except:
                         continue
-                        # If we already reduced a Packet with the same used_packets, there is no need to do it again
+                    # If we already reduced a Packet with the same used_packets, there is no need to do it again
         return fin or self.is_decoded()

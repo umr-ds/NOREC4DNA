@@ -142,46 +142,20 @@ def blackboxOnlineTest(file, number_of_chunks=800, seed=2, overhead=0.20, scale_
     dist = OnlineDistribution(epsilon, seed)
     number_of_chunks = dist.get_size()
     algo_type.clear()
-    algo_type.append(
-        "Online_" + str(number_of_chunks) + "_" + str(dist.get_config_string())
-    )
-    print(
-        bcolors.OK
-        + "Starting Blackbox Test with "
-        + str(number_of_chunks)
-        + " Chunks"
-        + bcolors.ENDC
-    )
-    # pseudo = Online_decoder.pseudo_decoder(number_of_chunks)
+    algo_type.append("Online_" + str(number_of_chunks) + "_" + str(dist.get_config_string()))
+    print(bcolors.OK + "Starting Blackbox Test with " + str(number_of_chunks) + " Chunks" + bcolors.ENDC)
     encoder = OnlineEncoder(file, number_of_chunks, dist, epsilon, quality)
     encoder.set_overhead_limit(overhead)
-    #  pseudo_decoder=pseudo)  # , chunk_size=chunk_size)
     decoder = OnlineDecoder.pseudo_decoder(number_of_chunks)
     decoder.set_read_all_before_decode(True)
 
-    result, dec_input, invalid_drop = blackbox(
-        encoder, decoder, scale_first=scale_first, scale_second=scale_second
-    )
+    result, dec_input, invalid_drop = blackbox(encoder, decoder, scale_first=scale_first, scale_second=scale_second)
     end = time.time() - start
-    print(
-        bcolors.BLUE
-        + "Blackbox-Decode "
-        + (bcolors.OK + "successful" if result else bcolors.ERR + "NOT successful")
-        + bcolors.END
-        + bcolors.BLUE
-        + " after "
-        + str(round(end, 4))
-        + " sec."
-        + bcolors.ENDC
-    )
-    return [
-        "Online_eps=" + str(epsilon) + "_quality=" + str(quality),
-        result,
-        number_of_chunks,
-        dec_input,
-        invalid_drop,
-        round(end, 4),
-    ]
+    print(bcolors.BLUE + "Blackbox-Decode " + (
+        bcolors.OK + "successful" if result else bcolors.ERR + "NOT successful") + bcolors.END + bcolors.BLUE
+          + " after " + str(round(end, 4)) + " sec." + bcolors.ENDC)
+    return ["Online_eps=" + str(epsilon) + "_quality=" + str(quality), result, number_of_chunks, dec_input,
+            invalid_drop, round(end, 4), ]
 
 
 def blackboxLTTest(file, number_of_chunks=800, seed=2, chunk_size=0, overhead=0.20, scale_first=1.0, scale_second=1.0):
@@ -192,15 +166,11 @@ def blackboxLTTest(file, number_of_chunks=800, seed=2, chunk_size=0, overhead=0.
         + " Chunks"
         + bcolors.ENDC
     )
-    # number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
     start = time.time()
     dist = RobustSolitonDistribution(S=number_of_chunks, delta=overhead, seed=seed)
     algo_type.clear()
     algo_type.append("LT_" + str(number_of_chunks) + "_" + str(dist.get_config_string()))
-    # pseudo = LT_decoder.pseudo_decoder(number_of_chunks)
-    encoder = LTEncoder(
-        file, number_of_chunks, dist, chunk_size=chunk_size
-    )  # , pseudo_decoder=pseudo)
+    encoder = LTEncoder(file, number_of_chunks, dist, chunk_size=chunk_size)
     encoder.set_overhead_limit(overhead)
     decoder = LTDecoder.pseudo_decoder(number_of_chunks)
     decoder.set_read_all_before_decode(True)
@@ -220,14 +190,7 @@ def blackboxLTTest(file, number_of_chunks=800, seed=2, chunk_size=0, overhead=0.
         + " sec."
         + bcolors.ENDC
     )
-    return [
-        dist.get_config_string(),
-        result,
-        number_of_chunks,
-        dec_input,
-        invalid_drop,
-        round(end, 4),
-    ]
+    return [dist.get_config_string(), result, number_of_chunks, dec_input, invalid_drop, round(end, 4), ]
 
 
 def blackboxLTIdealTest(
@@ -239,29 +202,16 @@ def blackboxLTIdealTest(
         scale_first=1.0,
         scale_second=1.0,
 ):
-    print(
-        bcolors.OK
-        + "Starting Blackbox Test with "
-        + str(number_of_chunks)
-        + " Chunks"
-        + bcolors.ENDC
-    )
-    # number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
+    print(bcolors.OK + "Starting Blackbox Test with " + str(number_of_chunks) + " Chunks" + bcolors.ENDC)
     start = time.time()
     dist = IdealSolitonDistribution(S=number_of_chunks, seed=seed)
     algo_type.clear()
     algo_type.append("LT_" + str(number_of_chunks) + "_" + str(dist.get_config_string()))
-    # pseudo = LT_decoder.pseudo_decoder(number_of_chunks)
-    encoder = LTEncoder(
-        file, number_of_chunks, dist, chunk_size=chunk_size
-    )  # , pseudo_decoder=pseudo)
+    encoder = LTEncoder(file, number_of_chunks, dist, chunk_size=chunk_size)
     encoder.set_overhead_limit(overhead)
     decoder = LTDecoder.pseudo_decoder(number_of_chunks)
     decoder.set_read_all_before_decode(True)
-
-    result, dec_input, invalid_drop = blackbox(
-        encoder, decoder, scale_first=scale_first, scale_second=scale_second
-    )
+    result, dec_input, invalid_drop = blackbox(encoder, decoder, scale_first=scale_first, scale_second=scale_second)
     end = time.time() - start
     print(
         bcolors.BLUE
@@ -300,15 +250,11 @@ def blackboxRU10Test(
         + " Chunks"
         + bcolors.ENDC
     )
-    # number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
     start = time.time()
     dist = RaptorDistribution(number_of_chunks)
     algo_type.clear()
     algo_type.append("RU10_" + str(number_of_chunks) + "_" + str(dist.get_config_string()))
-    # pseudo = RU10Decoder.pseudo_decoder()
-    encoder = RU10Encoder(
-        file, number_of_chunks, dist, chunk_size=chunk_size
-    )  # , pseudo_decoder=pseudo
+    encoder = RU10Encoder(file, number_of_chunks, dist, chunk_size=chunk_size)
     encoder.set_overhead_limit(overhead)
     decoder = RU10Decoder.pseudo_decoder(number_of_chunks)
     decoder.set_read_all_before_decode(True)
@@ -351,7 +297,7 @@ def main(file="logo.jpg", repeats=5):
     scale_second = 0.5
     for mode in ["RU10", "LT", "LTIdeal", "Online"]:
         for overhead in [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, ]:
-            for repeat in range(repeats):
+            for _ in range(repeats):
                 rnd = get_random_int(math.pow(2, 31) - 1)
                 chunk_size = 100
                 insert_header = True
@@ -427,19 +373,10 @@ def main(file="logo.jpg", repeats=5):
                     )
                 except Exception as ex:
                     raise ex
-                    # line = (str(file) + "," + str(overhead) + "," + str(name) + "," + str(
-                    #    number_of_chunks) + "," + "ERROR" + "," + "ERROR" + "," + str(
-                    #    rnd) + "," + "ERROR" + "," + "ERROR")
                 print(line)
                 csv.append(line)
-            dtimeno = (
-                    mode
-                    + "_"
-                    + str(overhead)
-                    + "_sim"
-                    + str(time.strftime("%Y-%m-%d_%H-%M", time.localtime()))
-                    + ".csv"
-            )
+            dtimeno = (mode + "_" + str(overhead) + "_sim" + str(
+                time.strftime("%Y-%m-%d_%H-%M", time.localtime())) + ".csv")
 
             with open("DNA_" + dtimeno, "w") as f:
                 for line in lines:
@@ -477,13 +414,9 @@ if __name__ == "__main__":
         help="Number of repeats the Simulator should run (default=5)",
         default=5,
     )
-    # parser.add_argument('-m', '--mode',
-    #                    help='Mode in which the simulator should run. Choose from=[LT(default),Online,Raptor]',
-    #                    default='LT')
     args = parser.parse_args()
     profile = bool(args.profile)
     filename = str(args.file)
-    # mode = str(args.mode)
     repeats = int(args.repeats)
     if profile:
         from pycallgraph import PyCallGraph
@@ -505,4 +438,3 @@ if __name__ == "__main__":
         main(filename, repeats)
 else:
     print(bcolors.WARN + "[!] WARNING: RUN THIS SCRIPT DIRECTLY!" + bcolors.ENDC)
-# file = "logo.jpg"  # "ma_pruefOrd.pdf"  # "OUT_raptor.pdf" #"b_lq.webm1"  # "b_mq.webm" #

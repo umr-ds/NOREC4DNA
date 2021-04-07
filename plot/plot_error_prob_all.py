@@ -73,13 +73,6 @@ def plot_error_prob_for_all(smaller_x: int = 40):
     sns.despine(ax=ax_box, left=True)
     f.show()
     f.savefig(f"05_color_ru_created_error_dist_%i.pdf" % smaller_x, bbox_inches="tight")
-    # plt.plot(tmp)
-    # plt.show()
-    # pd.DataFrame(tmp).plot(kind='density')  # or pd.Series()
-
-    # plt.show()
-    # plt.hist(tmp)
-    # plt.show()
 
 
 if __name__ == "__main__":

@@ -29,7 +29,6 @@ def custom_round(x, base=5):
 'seaborn-muted', 'seaborn-white', 'seaborn-pastel']
 """
 
-# fname = 'sim2017-12-22_19-35.csv'
 fname = "../../../../CSV/brauchbar/merge_postprocessed.csv"  # union.csv_comb'
 df = pd.read_csv(fname, delimiter=",", engine="python", index_col=False)
 fname2 = "../../../../CSV/brauchbar/merge_postprocessed.csv"  # union.csv_comb'

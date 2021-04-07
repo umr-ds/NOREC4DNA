@@ -78,12 +78,7 @@ def xor_mask(data, len_format="I", mask=0b10101010101010101010101010101010):
 
 
 # bitSet returns true if x has the b'th bit set
-@vectorize(
-    ["boolean(uint32, uint32)", "boolean(uint64, uint64)"],
-    nopython=True,
-    # target="parallel",
-    cache=cache,
-)
+@vectorize(["boolean(uint32, uint32)", "boolean(uint64, uint64)"], nopython=True, cache=cache, )
 def bitSet(x, b):
     return ((x >> b) & 1) == 1
 
@@ -91,7 +86,7 @@ def bitSet(x, b):
 # bitsSet returns how many bits in x are set.
 # This algorithm basically uses shifts and ANDs to sum up the bits in
 # a tree fashion.
-@vectorize(["int64(uint64)", "int64(uint32)"], nopython=True, cache=cache)  # target="parallel",
+@vectorize(["int64(uint64)", "int64(uint32)"], nopython=True, cache=cache)
 def bitsSet(x):  # x is of type uint64 !
     x -= (x >> numpy.uint64(1)) & numpy.uint64(0x5555555555555555)
     x = (x & numpy.uint64(0x3333333333333333)) + ((x >> numpy.uint64(2)) & numpy.uint64(0x3333333333333333))
@@ -103,16 +98,13 @@ def bitsSet(x):  # x is of type uint64 !
 # grayCode calculates the gray code representation of the input argument
 # The Gray code is a binary representation in which successive values differ
 # by exactly one bit. See http://en.wikipedia.org/wiki/Gray_code
-@vectorize(
-    ["uint64(uint64)", "uint64(uint32)", "uint64(float64)"],
-    nopython=True, cache=cache, )  # target="parallel",
+@vectorize(["uint64(uint64)", "uint64(uint32)", "uint64(float64)"], nopython=True, cache=cache, )
 def grayCode(x):
     return numpy.bitwise_xor((numpy.uint64(x) >> numpy.uint64(1)), numpy.uint64(x))
 
 
 # buildGraySequence returns a sequence (in ascending order) of "length" Gray numbers,
 # all of which have exactly "b" bits set.
-# @jit("int32[:](int32,int32)", cache=cache)
 def buildGraySequence(length, b):
     s = numpy.empty(length, dtype=numpy.int32)
     i = 0

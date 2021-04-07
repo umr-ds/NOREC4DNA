@@ -97,10 +97,9 @@ def longestSequenceOfChar_python(text: typing.AnyStr, char_x="*") -> typing.Tupl
         if i < n - 1 and text[i] == text[i + 1]:
             curr += 1
         else:
-            if curr > c:
-                if text[i] == char_x or char_x == "*":
-                    c = curr
-                    res = text[i]
+            if curr > c and (text[i] == char_x or char_x == "*"):
+                c = curr
+                res = text[i]
             curr = 1
         i += 1
     return res, c

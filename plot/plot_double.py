@@ -19,7 +19,6 @@ def custom_round(x, base=5):
 'seaborn-muted', 'seaborn-white', 'seaborn-pastel']
 """
 
-# fname = 'sim2017-12-22_19-35.csv'
 fname = (
     "../../../../CSV/ALL_DNA_DOUBLE_RU10FAST/ALL_DNA_DOUBLE_RU10FAST/merge.csv"
 )  # union.csv_comb'

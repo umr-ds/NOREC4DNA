@@ -24,7 +24,7 @@ class ConfigReadAndExecute:
 
     # @staticmethod
     def __decode(self, filename, ru10_decode_conf):
-        algorithm = ru10_decode_conf.get("algorithm")  # todo test (special parameters might be needed for online/lt)
+        algorithm = ru10_decode_conf.get("algorithm")
         number_of_chunks = ru10_decode_conf.getint("number_of_chunks", None)
         e_correction = ru10_decode_conf.get("error_correction", "nocode")  # optional
         repair_symbols = ru10_decode_conf.getint("repair_symbols", 2)  # optional

@@ -214,7 +214,7 @@ def main(file="../../main.pdf", mode="LT", repreats=5):
     # "OUT_raptor.pdf" #"b_lq.webm1"  # "b_mq.webm" #
     name = "ERROR"
     # for droprate in np.arange(0.01, 0.02, 0.01):
-    for repeat in range(repreats):
+    for _ in range(repreats):
         rnd = get_random_int(math.pow(2, 31) - 1)
         chunk_size = 20
         insert_header = True
@@ -306,7 +306,6 @@ def main(file="../../main.pdf", mode="LT", repreats=5):
         print(line)
         csv.append(line)
     dtimeno = "sim" + str(time.strftime("%Y-%m-%d_%H-%M", time.localtime())) + ".csv"
-    # dtimenow = get_random_int(math.pow(2, 20))
     with open(dtimeno, "w") as f:
         for line in csv:
             f.write(line + "\n")

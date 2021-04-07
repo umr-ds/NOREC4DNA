@@ -14,11 +14,8 @@ def main():
     for number_of_chunks in [500, 600, 700, 800, 900, 1000, 1100, 1200]:
         # for epsilon in [0.03]:
         for overhead in np.arange(0.05, 0.50, 0.01):
-            for repeats in range(3):
-                quality = 5
+            for _ in range(3):
                 dist = RobustSolitonDistribution(S=number_of_chunks)
-                # dna_rules = DNARules()
-                # infer number_of_chunks form Distribution:
                 encoder = LTEncoder(file, number_of_chunks, dist)
                 encoder.set_overhead_limit(overhead)
                 encoder.encode_to_packets()

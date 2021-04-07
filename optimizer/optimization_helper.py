@@ -334,11 +334,9 @@ def compute_cost(dist_lst, c_size_list=None, file_list=None, fast=False, diff_li
             n += n1
     n = 1.0 * n / (len(c_size_list) + 1)
     avg_err_per_degree = np.zeros(41)
-    # used_degrees = 0
     for deg in degree_packet_costs.keys():
         if len(degree_packet_costs[deg]) > 0:
             avg_err_per_degree[deg] = sum(degree_packet_costs[deg]) / len(degree_packet_costs[deg])
-            # used_degrees += 1
     avg_err_per_degree[0] -= n
     rel_degs = [0] * len(avg_err_per_degree)
     no_rel_degs = 0
@@ -347,7 +345,6 @@ def compute_cost(dist_lst, c_size_list=None, file_list=None, fast=False, diff_li
             rel_degs[x - 1] = avg_err_per_degree[x - 1]
             no_rel_degs += 1
     summed_error = sum(rel_degs) / no_rel_degs
-    # return avg_err_per_degree + n - summed_error, max(0.0, summed_error)
     return avg_err_per_degree + n, max(0.0, summed_error)
 
 
