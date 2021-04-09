@@ -64,7 +64,7 @@ if __name__ == "__main__":
         parser.add_argument("--use_header_chunk", required=False, action="store_true")
         args = parser.parse_args()
         _file = args.filename
-        _repair_symbols = args.repairsymbols
+        _repair_symbols = args.repair_symbols
         _mode_1_bmp = args.as_mode_1_bmp
         _number_of_chunks = args.number_of_chunks
         _last_split_smaller = args.last_split_smaller
