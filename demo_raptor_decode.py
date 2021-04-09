@@ -30,11 +30,12 @@ class demo_decode:
         x.decode(id_len_format=id_len_format,
                  number_of_chunks_len_format=number_of_chunks_len_format, packet_len_format=packet_len_format,
                  crc_len_format=crc_len_format)
+        x.solve(partial=True)
         if mode_1_bmp:
             return x.mode_1_bmp_decode()
         else:
             return x.saveDecodedFile(null_is_terminator=null_is_terminator, print_to_output=False,
-                                     return_file_name=True)
+                                     return_file_name=True, partial_decoding=True)
 
 
 if __name__ == "__main__":

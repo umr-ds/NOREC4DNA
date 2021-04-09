@@ -93,14 +93,10 @@ def fix_(in_file, out_file_str):
     rule = FastDNARules()
     with open(in_file, "r") as inf:
         lines = inf.readlines()
-    for i in range(0, 70000, 2): #len(lines)
-        info_line = lines[i]
-        line = lines[i + 1].strip()
+    for line in lines[1::2]:
+        line = line.strip()
         if len(line) != 164:
             continue
-        size = info_line.split("=")[1].strip().replace(";", "")
-        if int(size) < 2:
-            break
         err_prob = rule.apply_all_rules(line)
         if err_prob < 1.0:
             correct.append((line, err_prob))

@@ -237,7 +237,7 @@ class RU10Decoder(Decoder):
             # and self.GEPP.n % 5 == 0:  # Nur alle 5 Packete versuch starten
             if self.debug:
                 print("current size: " + str(self.GEPP.n))
-            return self.GEPP.solve()
+            return self.GEPP.solve(partial=False)
         return False
 
     # Correct
@@ -312,12 +312,12 @@ class RU10Decoder(Decoder):
                 res.append((self.ldpcANDhalf[packet.getNumberOfLDPCBlocks() + i].getBoolArrayUsedAndLDPCPackets()))
         return res
 
-    def solve(self) -> bool:
+    def solve(self, partial=False) -> bool:
         """
         Calls GEPP.solve()
         :return: True: If GEPP was able to solve the matrix. False: Else.
         """
-        return self.GEPP.solve()
+        return self.GEPP.solve(partial=partial)
 
     def getSolvedCount(self) -> int:
         return self.GEPP.getSolvedCount()
@@ -470,20 +470,28 @@ class RU10Decoder(Decoder):
         return res
 
     def saveDecodedFile(self, last_chunk_len_format: str = "I", null_is_terminator: bool = False,
-                        print_to_output: bool = True, return_file_name=False) -> typing.Union[bytes, str]:
+                        print_to_output: bool = True, return_file_name=False, partial_decoding: bool = True) -> \
+            typing.Union[bytes, str]:
         """
         Saves the file - if decoded. The filename is either taken from the headerchunk or generated based on the input
         filename.
+        :param partial_decoding: perform partial decoding if full decoding failed, missing parts will be filled with "\x00"
         :param return_file_name: if set to true, this function will return the filename under which the file as been saved
         :param last_chunk_len_format: Format of the last chunk length
         :param null_is_terminator: True: The file is handled as null-terminated C-String.
         :param print_to_output: True: Result we be printed to the command line.
         :return:
         """
-        assert self.is_decoded(), "Can not save File: Unable to reconstruct."
+        assert self.is_decoded() or partial_decoding, "Can not save File: Unable to reconstruct. You may try saveDecodedFile(partial_decoding=True)"
+        if partial_decoding:
+            self.solve(partial=True)
+        dirty = False
         if self.use_headerchunk:
-            self.headerChunk = HeaderChunk(Packet(self.GEPP.b[0], {0}, self.number_of_chunks, read_only=True),
-                                           last_chunk_len_format=last_chunk_len_format)
+            header_row = self.GEPP.result_mapping[0]
+            if header_row >= 0:
+                self.headerChunk = HeaderChunk(
+                    Packet(self.GEPP.b[header_row], {0}, self.number_of_chunks, read_only=True),
+                    last_chunk_len_format=last_chunk_len_format)
         file_name = "DEC_" + os.path.basename(self.file) if self.file is not None else "RU10.BIN"
         output_concat = b""
         if self.headerChunk is not None:
@@ -494,6 +502,10 @@ class RU10Decoder(Decoder):
         file_name = file_name.split("\x00")[0]
         with open(file_name, "wb") as f:
             for x in self.GEPP.result_mapping:
+                if x < 0:
+                    f.write(b"\x00" * len(self.GEPP.b[x][0]))
+                    dirty = True
+                    continue
                 if 0 != x or not self.use_headerchunk:
                     if self.number_of_chunks - 1 == x and self.use_headerchunk:
                         output = self.GEPP.b[x][0][0: self.headerChunk.get_last_chunk_length()]
@@ -518,6 +530,8 @@ class RU10Decoder(Decoder):
                                 output_concat += output.tobytes()
                             f.write(output)
         print("Saved file as '" + str(file_name) + "'")
+        if dirty:
+            print("Some parts could not be restored, file WILL contain sections with \\x00 !")
         if print_to_output:
             print("Result:")
             print(output_concat.decode("utf-8"))

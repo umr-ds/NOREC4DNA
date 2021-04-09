@@ -35,13 +35,22 @@ class GEPP_intern:
         self._update_input()  # method that validates input
         self.result_mapping: np.array = np.zeros((np.int64(self.m), np.int64(1)), np.int32)
 
-    def solve(self) -> bool:
-        if not self.isPotentionallySolvable():
+    def solve(self, partial=False) -> bool:
+        if not (self.isPotentionallySolvable() or partial):
             return False
         try:
             self.insert_tmp()
+            # since we need rows >= columns to perform partial pivoting, we fill with full-false rows..
+            diff = len(self.A[0]) - len(self.A)
+            if diff > 0 and partial:
+                for _ in range(diff):
+                    self.A = np.vstack((self.A, np.full((1, len(self.A[0])), False, bool)))
+                    self.b = np.vstack((self.b, np.array([0 for x in range(len(self.b[0]))], dtype="uint8")))
+                    self.packet_mapping = np.concatenate((self.packet_mapping, [len(self.A) + 1]))
+                self._update_input()
             return self._elimination()
-        except Exception:
+        except Exception as ex:
+            print(ex)
             return False
 
     def addRow(self, row: typing.Union[typing.Set[int], np.array], data: np.array, ):
@@ -131,7 +140,7 @@ class GEPP_intern:
         """
         returns which row maps to which raw-data-Chunk. 
         """
-        res_rows = np.zeros((self.m, 1), int)
+        res_rows = np.full((self.m, 1), -1, int)
         for k in range(self.n):
             row = self.A[k]
             if np.sum(row) == 1:

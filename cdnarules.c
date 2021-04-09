@@ -95,7 +95,7 @@ static void printBin(BYTE in) {
     }
 }
 
-static void do_xor_byte(BYTE* arr_a, BYTE* arr_b, int length, BYTE* outArr) {
+static void do_xor_byte(BYTE* arr_a, BYTE* arr_b, npy_intp length, BYTE* outArr) {
     for (unsigned int i = 0; i < length; i++){
         outArr[i] = arr_a[i] ^ arr_b[i];
     }
@@ -133,8 +133,7 @@ static bool isSolvable(PyArrayObject* A) {
 
 static PyObject* elimination(PyObject *self, PyObject *args)
 {
-   PyArrayObject *A, *b, *packet_mapping; //packet_mapping not used!
-
+   PyArrayObject *A, *b, *packet_mapping;
    if (!PyArg_ParseTuple(args, "O!O!O!", &PyArray_Type, &A, &PyArray_Type, &b, &PyArray_Type, &packet_mapping)) {
       PyErr_BadArgument();
       return NULL;
@@ -145,17 +144,20 @@ static PyObject* elimination(PyObject *self, PyObject *args)
    npy_intp dims_a_0 = PyArray_DIM(A,0); // rows
    npy_intp dims_a_1 = PyArray_DIM(A,1); // columns
    npy_intp dims_b_1 = PyArray_DIM(b,1);
-
+   bool* dirty_rows = malloc((unsigned int)dims_a_0);
+   for (int i = 0; i < dims_a_0; i++) {
+       dirty_rows[i] = false;
+   }
+   bool dirty = false;
+   uint8_t num_dirty_rows = 0;
     for (uint32_t i = 0; i < dims_a_1; i++) {
-        // find row (only look at rows >= i'th row) with i'th index == true:
-        for (uint32_t j = i; j < dims_a_0; j++) {
+        for (uint32_t j = i - num_dirty_rows; j < dims_a_0; j++) {
             if (*((bool*)PyArray_GETPTR2(A, j, i)) ) {
                 if (i == j)
                     //A[i,i] is true, no need to swap rows
                     break;
                 // we found the first row j with A[j,i] = True. char_xor it with row i: A[i] = A[i] ^ A[j]
                 // we go for a xor-swap
-                //TO DO no need to char_xor the full row, partial row would be enough!
                 do_xor_bool((bool*)PyArray_GETPTR2(A, i,0), (bool*)PyArray_GETPTR2(A, j,0),
                          dims_a_1, (bool*)PyArray_GETPTR2(A, i,0));
                 do_xor_bool((bool*)PyArray_GETPTR2(A,i,0),  (bool*)PyArray_GETPTR2(A, j,0),
@@ -180,17 +182,20 @@ static PyObject* elimination(PyObject *self, PyObject *args)
         // ( IF the Matrix is singular we might have no "true" in column i. )
         // but we might be able to retrieve as many blocks as possible
         if (!*((bool*)PyArray_GETPTR2(A,i,i))) {
-            //PySys_WriteStdout("Could not decode Chunk %u\n", i);
-            Py_BuildValue("O", Py_False);
-            //if we continue we HAVE to go over the full rows while xoring (not only the upper / lower half)
+            PySys_WriteStdout("Could not decode Chunk %u\n", i);
+            dirty_rows[i] = true;
+            dirty = true;
+            num_dirty_rows++;
+            continue;
         }
         // eliminate from top to bottom
         for (uint32_t j = i + 1; j < dims_a_0; j++) {
-            // if A[j,i] == True: A[j] = A[j] ^ A[i] to eliminate every True in column i
-            // this will gives us the second part of the delayed in-place swap.
+            if (dirty_rows[j]) {
+                continue;
+            }
             if (*((bool*)PyArray_GETPTR2(A,j,i))) {
-                do_xor_bool((bool*)PyArray_GETPTR2(A,j,i),
-                            (bool*)PyArray_GETPTR2(A,i,i), dims_a_1 - i, (bool*)PyArray_GETPTR2(A,j,i));
+                do_xor_bool((bool*)PyArray_GETPTR2(A,j,0),
+                            (bool*)PyArray_GETPTR2(A,i,0), dims_a_1, (bool*)PyArray_GETPTR2(A,j,0));
                 do_xor_byte((BYTE*)PyArray_GETPTR2(b,j,0), (BYTE*)PyArray_GETPTR2(b,i,0),
                           dims_b_1, (BYTE*)PyArray_GETPTR2(b,j,0));
             }
@@ -199,18 +204,33 @@ static PyObject* elimination(PyObject *self, PyObject *args)
     }
     // eliminate from bottom to top
     for (int32_t col = dims_a_1 - 1; col >= 0; col--) {
+        if (dirty_rows[col]) {
+            continue; //skip this column if it was marked as dirty previously
+        }
         for (int32_t row = dims_a_0 - 1; row >= 0; row--) {
+            if (dirty_rows[row]) {
+                continue; //skip this column if it was marked as dirty previously
+            }
+            int32_t lim = col;
+            if (dirty) {
+                lim = 0;
+            }
             if (*((bool*)PyArray_GETPTR2(A,row,col)) && col != row) {
-                do_xor_bool((bool*)PyArray_GETPTR2(A,row,col),
-                             (bool*)PyArray_GETPTR2(A,col,col),
-                             dims_a_1 - col, (bool*)PyArray_GETPTR2(A,row,col));
+                do_xor_bool((bool*)PyArray_GETPTR2(A,row,0),
+                             (bool*)PyArray_GETPTR2(A,col,0),
+                             dims_a_1, (bool*)PyArray_GETPTR2(A,row,0));
                 // char_xor the content
                 do_xor_byte((BYTE*)PyArray_GETPTR2(b,row,0), (BYTE*)PyArray_GETPTR2(b,col,0),
                             dims_b_1, (BYTE*)PyArray_GETPTR2(b,row,0));
             }
         }
    }
-   return Py_BuildValue("O", Py_True);
+   free(dirty_rows);
+   if (dirty) {
+       return Py_BuildValue("O", Py_False);
+   } else {
+       return Py_BuildValue("O", Py_True);
+   }
 }
 
 static PyObject* xor_array(PyObject *self, PyObject *args)

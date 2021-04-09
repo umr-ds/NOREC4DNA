@@ -100,7 +100,8 @@ if __name__ == "__main__":
                                        save_as_fasta=_save_as_fasta)
         conf = {'error_correction': args.error_correction, 'repair_symbols': _no_repair_symbols, 'asdna': _as_dna,
                 'number_of_splits': _number_of_splits}
-        encoder_instance.save_config_file(conf)
+        config_filename = encoder_instance.save_config_file(conf)
+        print("Saved config file: %s" % config_filename)
 
     if len(input_files) > 1:
         merge_folder_content(os.path.dirname(os.path.realpath(_file)), _file + "combined_split_output",

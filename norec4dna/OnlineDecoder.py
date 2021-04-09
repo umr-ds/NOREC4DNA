@@ -211,7 +211,7 @@ class OnlineDecoder(Decoder):
                 self.GEPP.isPotentionallySolvable() and self.GEPP.n % 25 == 0):
             if self.debug:
                 print("current size: " + str(self.GEPP.n))
-            return self.GEPP.solve()
+            return self.GEPP.solve(partial=False)
         return False
 
     def solve(self) -> bool:

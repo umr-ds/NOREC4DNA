@@ -162,7 +162,7 @@ class LTDecoder(Decoder):
         else:
             self.GEPP.addRow(packet.get_bool_array_used_packets(), np.frombuffer(packet.get_data(), dtype="uint8"), )
         if self.isPseudo and not self.read_all_before_decode and self.GEPP.isPotentionallySolvable():
-            return self.GEPP.solve()
+            return self.GEPP.solve(partial=False)
         return False
 
     def solve(self) -> bool:
