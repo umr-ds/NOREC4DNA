@@ -17,7 +17,7 @@ cmp_file = "tests/cmp_logo.jpg"
 
 
 @pytest.mark.parametrize("as_dna", [False, True])
-@pytest.mark.parametrize("decoder_instance", [RU10Decoder])  # FIXME:, RU10BPDecoder])
+@pytest.mark.parametrize("decoder_instance", [RU10Decoder])  # :, RU10BPDecoder])
 def test_suite(as_dna, decoder_instance):
     dir_path = os.getcwd()
     try:

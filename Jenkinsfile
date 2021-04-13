@@ -13,7 +13,7 @@ pipeline {
     stages {
         stage('Build') {
             steps {
-                sh script: '''apt update && apt install  -y python3.6 apt-utils python3-pip lsb-release wget curl software-properties-common && \
+                sh script: '''apt update && apt install  -y python3.8 apt-utils python3-pip lsb-release wget curl software-properties-common && \
                  bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" && pip3 install --upgrade pip && pip3 install pytest && pip3 install pytest-cov && \
                  pip3 install codecov && pip3 install numpy  && pip3 install pytest-cov && pip3 install -r requirements.txt && python3 setup.py install'''
             }

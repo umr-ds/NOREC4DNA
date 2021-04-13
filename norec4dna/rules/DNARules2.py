@@ -5,6 +5,9 @@ import requests
 
 from norec4dna.helper import bin2Quaternary, quaternary2Bin
 
+# IMPORTANT: if you plan to use this, you should change the MESA_URL to a (local) instance of your own.
+MESA_URL = 'http://pc12291.mathematik.uni-marburg.de:5000/api/all'
+
 
 class DNARules2:
     def __init__(self, active_rules=None):
@@ -52,28 +55,15 @@ class DNARules2:
             seq_org = dna_data[cntr]
             cntr += 1
             dna_data_bin_enc = b""
-            # TODO length%4 might not always be 0 (even tough we would detect insertions / deletions in prior steps)
             for i in range(0, len(seq), 4):
                 try:
                     dna_data_bin_enc += quaternary2Bin.quats_to_bytes(seq[i:i + 4])
                 except:
                     pass
-            # if Reed Solomon is used, 6 repairsymbols
-            dna_data_bin_dec = b""
-            # try:
-            #    dna_data_bin_dec += ErrorCorrection.reed_solomon_decode(dna_data_bin_enc, 6)
-            # except:
-            #    res_err.append(1.0)
-            #    continue
             dna_data_bin_dec = dna_data_bin_enc
             dna_data_dec = ''
             for x in dna_data_bin_dec:
                 dna_data_dec += bin2Quaternary.byte2QUATS(x)
-            # if Reed Solomon is used, 6 repairsymbols
-            # if dna_data_dec == seq_org[:-24]:
-
-            # if dna_data_dec == seq_org:
-            # we allow a maximum of 3 flips / deletions / insertions to happen
             changes = sum([1 if dna_data_dec[x] != seq_org[x] else 0 for x in
                            range(min(len(dna_data_dec), len(seq_org)))])
             if changes < 3 - abs(len(dna_data_dec) - len(seq_org)):
@@ -99,7 +89,6 @@ class DNARules2:
         :param json_config: If used, the manually generated json_config
         :return: The response from the website as dictionary
         """
-        url = 'http://pc12291.mathematik.uni-marburg.de:5000/api/all'
         header = {'content-type': 'application/json;charset=UTF-8'}
         if json_config:
             payload = json_config
@@ -107,7 +96,7 @@ class DNARules2:
             payload = config
         payload['sequence'] = seq
         payload['asHTML'] = False
-        res = requests.post(url, data=json.dumps(payload), headers=header)
+        res = requests.post(MESA_URL, data=json.dumps(payload), headers=header)
         try:
             return res.json()
         except:

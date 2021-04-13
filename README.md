@@ -41,10 +41,13 @@ NOREC4DNA implements LT, Online, and Raptor (RU10) Fountain Codes.
 + Installing the dependencies:
     - depending on your distro you might need to manually install `LLVM` as well as `gcc` and `build-essential`
     - ```pip3 install -r requirements.txt```
+    - if a packages fails to install, it might be required to install the python3-dev packages using apt
 
 
 + Install NOREC4DNA:
     - ```python3 setup.py install```
+  
+**If you plan to build NOREC4DNA from source under Windows we recommend using Anaconda!**
 
 ---
 
@@ -151,9 +154,9 @@ Generates and saves different plots to show the results.
 
 ### demo_*.py
 
-TODO
+Demo applications for fast en- and decoding of sequences.
 
-### ru10_find_minimum_packets.py
+### ru10_find_minimum_packets.py (Deprecated)
 `--error_correction [nocode, crc, reedsolomon]`
 
 Defines the error detection / correction algorithm to use per packet. (Default: nocode = no error-detection/correction)
@@ -177,20 +180,11 @@ If set, besides the created chunks an additional header chunk will be added. Thi
 Allows easy en- and decoding used .ini files.
 Since the supplied encoder can create such .ini files, this is especially useful for easy decoding.
 
+
 ### helpful_scripts
 
 there are various more or less useful scripts inside `helpful_scripts/`
 
-TODO
-
 
 ---
 
-## TODO:
-
-- generate _**all**_ possible packets for each Method, log the error_prob of all of them
-- check error-resilience: on non-successful decode: how much can be read..
-- check required overhead to decode
-- check absolute overhead (header, additional packets,...)
-- select a licence
-- merge ru10_find_minimum into find_minimum!
