@@ -16,7 +16,7 @@ PACKET_LEN_FORMAT = "I"
 DEFAULT_CHUNK_SIZE = 34
 
 
-# MOSLA UNI LOGO-SW-config: umr_logo_sw_scaled.png --error_correction=reedsolomon --repairsymbols=3 --asdna --as_mode_1_bmp
+# MOSLA UNI LOGO-SW-config: umr_logo_sw_scaled.png --error_correction=reedsolomon --repairsymbols=3 --as_dna --as_mode_1_bmp
 class demo_raptor_encode:
     @staticmethod
     def encode(file, asdna=True, chunk_size=DEFAULT_CHUNK_SIZE, error_correction=nocode, insert_header=False,

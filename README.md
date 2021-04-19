@@ -13,7 +13,7 @@ NOREC4DNA implements LT, Online, and Raptor (RU10) Fountain Codes.
 - [Usage](#Usage)
     * [Docker](#Docker)
 - [Tools](#Tools)
-- [TODO](#TODO)
+- [Example using Raptor](#Example using Raptor)
 
 ---
 
@@ -188,3 +188,21 @@ there are various more or less useful scripts inside `helpful_scripts/`
 
 ---
 
+
+## Example using Raptor
+####To try out NOREC4DNA you can use the demo_\*\_encode.py python scripts:
+
+`python demo_raptor_encode.py Dorn --error_correction=reedsolomon --repair_symbols=3 --as_dna --insert_header`
+
+###### this should create a new folder "RU10_Dorn" as well as an Dorn\_\*.ini file.
+
+####To decode the file from DNA one could either use demo\_\*\_decode.py:
+
+`python demo_raptor_decode.py RU10_Dorn --use_header_chunk --error_correction=reedsolomon --repair_symbols=3 --number_of_chunks=145 (number as seen in the ini, unless --save_number_of_chunks was defined during encoding)`
+
+####or use the ConfigWorker.py:
+
+`python ConfigWorker.py <name of the .ini-file>`
+
+The decoded file will be saved as DEC_RU10_Dorn if no header-chunk was added during encoding, otherwise the file will be saved under the correct filename.
+###### if the header-chunk was NOT used, the created file will have padding \00-bytes at the end. 

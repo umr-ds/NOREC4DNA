@@ -107,6 +107,4 @@ if __name__ == "__main__":
         # print("Please add the file you want to Encode as an Argument")
     except Exception as e:
         raise e
-    input("Press Enter to continue ...")
-
-# Parameter: RU10_Dorn --error_correction=reedsolomon --repairsymbols=6
+    # input("Press Enter to continue ...")

@@ -50,4 +50,4 @@ if __name__ == "__main__":
     #    print("Please add the file you want to Encode as an Argument")
     # except (Exception):
     #    print("Try running: 'setx PYTHONIOENCODING utf-8' and restarting your shell, then try again.")
-    input("Press Enter to continue ...")
+    #input("Press Enter to continue ...")
