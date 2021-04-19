@@ -1,4 +1,4 @@
-# NOREC4DNA [![Build Status](https://travis-ci.com/thejanky/fountaindna.svg?token=ChxYCfqxwUJpgKstks1n&branch=master)](https://travis-ci.com/thejanky/fountaindna) [![codecov](https://codecov.io/gh/thejanky/fountaindna/branch/master/graph/badge.svg?token=WglFq3uNTI)](https://codecov.io/gh/thejanky/fountaindna)
+# NOREC4DNA
 
 NOREC4DNA is an all-in-one Suite for analyzing, testing and converting Data into DNA-Chunks to use for a
 DNA-Storage-System using integrated DNA-Rules as well as the MOSLA DNA-Simulation-API.
