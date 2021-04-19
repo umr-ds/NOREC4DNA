@@ -16,14 +16,6 @@ from norec4dna.distributions.OnlineDistribution import OnlineDistribution
 from norec4dna.helper import logical_xor, calc_crc, xor_mask
 from norec4dna.helper.quaternary2Bin import quat_file_to_bin
 
-"""
-                                                                OnlinePacket == CheckBlock
-    |  len(packed)  | total_number_of_chunks  |   quality   |   epsilon   |  CheckBlockNumber  |     Data       |           CRC32           |
-    |  I (4 bytes)  |      I (4 byte)      | I (4 byte)  |  f (4 byte) |     I (4 byte)     |                | L (unsiged long) (4 byte) |
-                    |________________________________________________________________________________________|  -----------^
-            ^------ |____________________________________________________________________________________________________________________|      
-"""
-
 
 class OnlineBPDecoder(BPDecoder):
     def __init__(self, file: str, error_correction: typing.Callable = nocode, use_headerchunk: bool = True,

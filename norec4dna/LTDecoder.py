@@ -17,13 +17,6 @@ from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import Erli
 from norec4dna.helper import calc_crc, xor_mask
 from norec4dna.helper.quaternary2Bin import quat_file_to_bin, tranlate_quat_to_byte
 
-"""
-    |  len(packed)  | total_number_of_chunks  | len(used_packets) |         used_packets        |        Data       |           CRC32           |
-    |  I (4 bytes)  |      I (4 byte)      |     I (4 byte)   | len(used_packets)*H (2byte) | len(packed_data)*s | L (unsiged long) (4 byte) |
-                    |__________________________________________________________________________________________|  -----------^
-            ^------ |______________________________________________________________________________________________________________________|      
-"""
-
 
 class LTDecoder(Decoder):
     def __init__(self, file: typing.Optional[str] = None, error_correction: typing.Callable = nocode,

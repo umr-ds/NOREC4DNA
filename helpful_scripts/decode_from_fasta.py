@@ -68,7 +68,6 @@ with open(infile, "r") as in_file:
                 decoder.saveDecodedFile(last_chunk_len_format="H", null_is_terminator=False, print_to_output=False)
                 break
     if PARALLEL:
-        ### setup decoder:
         norepair_symbols = 3
         decoder = RU10Decoder(file=None,
                               error_correction=lambda x: reed_solomon_decode(x, norepair_symbols),

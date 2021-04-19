@@ -29,7 +29,7 @@ class Encoder:
         self.overhead_limit: typing.Optional[float] = None
         self.chunks = []
         self.error_correction: typing.Callable = nocode
-        self.progress_bar = None  # self.create_progress_bar(self.number_of_chunks)
+        self.progress_bar = None
         self.ruleDrop: int = 0
         self.out_file = None
 

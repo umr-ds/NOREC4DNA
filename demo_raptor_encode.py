@@ -16,13 +16,11 @@ PACKET_LEN_FORMAT = "I"
 DEFAULT_CHUNK_SIZE = 34
 
 
-# MOSLA UNI LOGO-SW-config: umr_logo_sw_scaled.png --error_correction=reedsolomon --repairsymbols=3 --as_dna --as_mode_1_bmp
 class demo_raptor_encode:
     @staticmethod
     def encode(file, asdna=True, chunk_size=DEFAULT_CHUNK_SIZE, error_correction=nocode, insert_header=False,
                save_number_of_chunks_in_packet=False, mode_1_bmp=False, prepend="", append="", upper_bound=0.5,
                save_as_fasta=True):
-        # Chunksize 50, mit reedsolomon auf 6 repairsymbols
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
         dist = RaptorDistribution(number_of_chunks)
         if asdna:
@@ -46,7 +44,6 @@ class demo_raptor_encode:
 
 
 if __name__ == "__main__":
-    # try:
     parser = argparse.ArgumentParser()
     parser.add_argument("--as_dna", help="convert packets to dna and use dna rules", action="store_true",
                         required=False)
@@ -106,11 +103,4 @@ if __name__ == "__main__":
     if len(input_files) > 1:
         merge_folder_content(os.path.dirname(os.path.realpath(_file)), _file + "combined_split_output",
                              append_folder_name=True, clear_dest_folder=True)
-
-    # else:
-    #    print("Please add the file you want to Encode as an Argument")
-    # except (Exception):
-    #    print("Try running: 'setx PYTHONIOENCODING utf-8' and restarting your shell, then try again.")
     # input("Press Enter to continue ...")
-
-# Parameter: Dorn --error_correction=reedsolomon --repair_symbols=6 --as_dna

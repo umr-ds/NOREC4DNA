@@ -6,9 +6,6 @@ from norec4dna.ErrorCorrection import nocode, get_error_correction_decode
 from norec4dna.helper import find_ceil_power_of_four, cluster_and_remove_index, merge_parts, \
     fasta_cluster_and_remove_index
 
-# MOSLA DORN-config:  parallel_RU10/ --error_correction=reedsolomon --repairsymbols=3
-# MOSLA uni logo sw-config: --error_correction=reedsolomon --repairsymbols=3 --as_mode_1_bmp RU10_umr_logo_sw_scaled.png
-
 STATIC_NUM_CHUNKS = None  # 149
 ID_LEN_FORMAT = "I"
 NUMBER_OF_CHUNKS_LEN_FORMAT = "I"
@@ -100,11 +97,9 @@ if __name__ == "__main__":
                             -1 if _file == _last_split_folder and _last_split_smaller else 0),
                                 use_header_chunk=_use_header_chunk))
             except:
-                pass  # decoded_files.append("")
+                pass
         if len(folders) > 1:
             merge_parts(decoded_files, remove_tmp_on_success=True)
-        # else:
-        # print("Please add the file you want to Encode as an Argument")
     except Exception as e:
         raise e
     # input("Press Enter to continue ...")

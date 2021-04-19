@@ -80,7 +80,7 @@ class BPDecoder(Decoder):
         pass
 
     def compareAndReduce(self, packet: Packet, other: Packet) -> typing.Union[bool, int]:
-        if self.file is None:  # In case of PseudoDecode: DO NOT REALLY COMPUTE XOR
+        if self.file is None:
             packet.remove_packets(other.get_used_packets())
         else:
             packet.xor_and_remove_packet(other)

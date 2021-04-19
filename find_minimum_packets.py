@@ -39,8 +39,6 @@ counter = None
 progress_bar = None
 
 
-# MOSLA DORN-config: --repair_symbols 3 --list_size=1000 --out_size=1000 --sequential --chunk_size=70 --spare1core Dorn
-# MOSLA UNI LOGO-SW-config: umr_logo_sw_scaled.png --error_correction=reedsolomon --repair_symbols=3 --asdna --as_mode_1_bmp
 def run(seq_seed=None, file='logo.jpg', repair_symbols=2, insert_header=False,
         error_correction=reed_solomon_encode, save_number_of_chunks_in_packet=False, l_size=1000, while_count=1000,
         chunk_size=0, number_of_chunks=300, prepend="", append="", seed_len_format=DEFAULT_ID_LEN_FORMAT,

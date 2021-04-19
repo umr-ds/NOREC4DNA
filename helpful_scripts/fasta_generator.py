@@ -1,6 +1,6 @@
 import os
 
-IN_DIR = "../RU10_ErgPub_DNA.zip"  # "parallel_RU10"  # "RU10_Dorn"
+IN_DIR = "RU10_Dorn"
 NUM_PACKETS_PER_LINE = 1
 
 if __name__ == "__main__":

@@ -23,7 +23,6 @@ DEFAULT_SAVE_AS_FASTA = True
 NUMBER_OF_PACKETS_TO_CREATE = 655360
 
 
-# MOSLA DORN-config: --repair_symbols 3 --list_size=1000 --out_size=1000 --sequential --chunk_size=70 --spare1core Dorn
 @DeprecationWarning
 def old_main(file='logo.jpg', asdna=True, insert_header=True, error_correction=nocode,
              save_number_of_chunks_in_packet=False):

@@ -68,5 +68,4 @@ if __name__ == "__main__":
         demo.decode(filename, error_correction=error_correction)
     except Exception as e:
         print(e)
-        # print("Try running: 'setx PYTHONIOENCODING utf-8' and restarting your shell, then try again.")
-    input("Press Enter to continue ...")
+    # input("Press Enter to continue ...")

@@ -124,6 +124,4 @@ if __name__ == "__main__":
     tmp.encodedPackets = res
     tmp.save_packets(True, save_as_dna=_as_dna, clear_output=True, seed_is_filename=True)
 
-    input("Press Enter to continue ...")
-
-# Parameter: Dorn --error_correction=reedsolomon --repairsymbols=6 --asdna
+    # input("Press Enter to continue ...")

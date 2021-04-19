@@ -10,14 +10,6 @@ from norec4dna.distributions.OnlineDistribution import OnlineDistribution
 from norec4dna.Packet import Packet
 from norec4dna.helper import xor_mask
 
-"""
-                                                                OnlinePacket == CheckBlock
-    |  len(packed)  | total_number_of_chunks  |   quality   |   epsilon   |  CheckBlockNumber  |     Data       |           CRC32           |
-    |  I (4 bytes)  |      I (4 byte)      | I (4 byte)  |  f (4 byte) |     I (4 byte)     |                | L (unsiged long) (4 byte) |
-                    |________________________________________________________________________________________|  -----------^
-            ^------ |____________________________________________________________________________________________________________________|      
-"""
-
 
 class OnlinePacket(Packet):
     def __init__(self, data: bytes, total_number_of_chunks: int, quality: int, epsilon: float, check_block_number: int,

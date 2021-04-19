@@ -12,8 +12,6 @@ NUMBER_OF_CHUNKS_IN_PACKET = False
 CHUNK_SIZE = 30
 
 
-# --error_correction reedsolomon --repairsymbols 2 Dorn.tar.gz (num_chunks == 69)
-# --error_correction reedsolomon --repairsymbols 2 Dorn (num_chunks == 153)
 class demo_encode:
     @staticmethod
     def encode(file, error_correction=nocode):
@@ -29,8 +27,6 @@ class demo_encode:
         encoder.encode_to_packets()
         encoder.save_packets(split_to_multiple_files=True, save_as_dna=True)
         print("Number of Chunks=%s" % encoder.number_of_chunks)
-
-        # encoder.encode_file(split_to_multiple_files=True)
 
 
 if __name__ == "__main__":
@@ -49,8 +45,4 @@ if __name__ == "__main__":
     print("File to encode: " + str(filename))
     demo = demo_encode()
     demo.encode(filename, error_correction=_error_correction)
-    # else:
-    #    print("Please add the file you want to Encode as an Argument")
-    # except (Exception):
-    #    print("Try running: 'setx PYTHONIOENCODING utf-8' and restarting your shell, then try again.")
-    input("Press Enter to continue ...")
+    # input("Press Enter to continue ...")

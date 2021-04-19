@@ -5,13 +5,6 @@ from norec4dna.ErrorCorrection import nocode
 from norec4dna.helper import xor_mask, xor_numpy
 from norec4dna.helper.bin2Quaternary import string2QUATS, quads2dna
 
-"""
-    |  len(packed)  | total_number_of_chunks  | len(used_packets) |         used_packets        |        Data       |           CRC32           |
-    |  I (4 bytes)  |      I (4 byte)      |     I (4 byte)   | len(used_packets)*H (2byte) | len(packed_data)*s | L (unsiged long) (4 byte) |
-                    |__________________________________________________________________________________________|  -----------^
-            ^------ |______________________________________________________________________________________________________________________|
-"""
-
 
 class Packet:
     def __init__(self, data, used_packets: typing.Collection[int], total_number_of_chunks: int, read_only: bool = False,

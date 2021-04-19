@@ -9,7 +9,7 @@ class Decoder:
         self.file: typing.Optional[str] = file
         self.read_all_before_decode: bool = False
         self.isFolder: bool = False
-        self.progress_bar = None  # self.create_progress_bar(self.number_of_chunks)
+        self.progress_bar = None
 
     @staticmethod
     def create_progress_bar(max_value):
