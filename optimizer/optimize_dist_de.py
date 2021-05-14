@@ -4,7 +4,7 @@ import argparse
 import numpy as np
 import multiprocessing
 
-from optimizer.optimization_helper import init_population, compute_population_fitness, select_dist, generate_log, \
+from optimization_helper import init_population, compute_population_fitness, select_dist, generate_log, \
     generate_plot, compute_cost
 
 """if self.merge == 'diff':

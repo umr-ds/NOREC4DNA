@@ -8,7 +8,7 @@ import matplotlib
 import numpy as np
 import multiprocessing
 
-from optimizer.optimization_helper import generate_log, init_population, compute_population_fitness, select_dist, \
+from optimization_helper import generate_log, init_population, compute_population_fitness, select_dist, \
     mutate_deg, generate_plot, norm_list, merge_crossover, merge_best_dist
 
 matplotlib.use('Agg')

@@ -12,7 +12,7 @@ from norec4dna import Encoder, nocode, RU10Encoder, RU10Decoder
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.rules.FastDNARules import FastDNARules
 from norec4dna.helper import should_drop_packet
-from optimizer.optimization_helper import list_to_diff_list, scale_to, diff_list_to_list
+from optimization_helper import list_to_diff_list, scale_to, diff_list_to_list
 
 DO_PLOT = False
 DO_MOVIE = True

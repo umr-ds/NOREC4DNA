@@ -11,7 +11,7 @@ from norec4dna import RU10Encoder
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.helper import should_drop_packet
 from norec4dna.rules.FastDNARules import FastDNARules
-from optimizer.optimization_helper import list_to_diff_list, scale_to, diff_list_to_list
+from optimization_helper import list_to_diff_list, scale_to, diff_list_to_list
 
 __FILE = "logo.jpg"
 __NUM_CHUNKS = 140
