@@ -1,5 +1,5 @@
 import math
-import sympy
+from scipy.special import comb
 import typing
 import numpy as np
 from functools import lru_cache
@@ -549,13 +549,13 @@ class RaptorDistribution(Distribution):
         return self.choose(x, int(x / 2))
 
     @staticmethod
-    @lru_cache(maxsize=None)
+    @lru_cache(maxsize=2048)
     def choose(n: int, r: int) -> int:
-        return int(sympy.binomial(n, r))
+        return int(comb(n, r, exact=True))
 
     # Deg function from section 5.4.4.2
     # deg calculates the degree to be used in code block generation.
-    @lru_cache(maxsize=None)
+    @lru_cache(maxsize=2048)
     def deg(self, v: int) -> int:
         for j in range(1, len(self.f) - 1):
             if v < self.f[j]:

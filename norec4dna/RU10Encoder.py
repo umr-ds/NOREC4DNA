@@ -60,7 +60,7 @@ class RU10Encoder(Encoder):
         self.random_state: np.random.RandomState = np.random.RandomState()
         if self.random_state is not None:
             self.__masterseed = self.random_state.get_state()[1][0]
-            print("Master-Seed used: " + str(self.__masterseed))
+            # print("Master-Seed used: " + str(self.__masterseed))
         self.prepend = prepend
         self.append = append
         self.ruleDrop: int = 0
