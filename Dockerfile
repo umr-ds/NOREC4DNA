@@ -1,4 +1,4 @@
-FROM python:3.6-slim as builder
+FROM python:3.9-slim as builder
 #FROM python:3.6-alpine
 MAINTAINER Peter Michael Schwarz "peter.schwarz@uni-marburg.de"
 # uwsgi-plugin-python3
