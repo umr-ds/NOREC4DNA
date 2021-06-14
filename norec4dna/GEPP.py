@@ -50,7 +50,7 @@ class GEPP_intern:
                 self._update_input()
             return self._elimination()
         except Exception as ex:
-            print(ex)
+            print(f"GEPP: {ex}")
             return False
 
     def addRow(self, row: typing.Union[typing.Set[int], np.array], data: np.array, ):
