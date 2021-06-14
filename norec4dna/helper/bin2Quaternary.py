@@ -8,19 +8,27 @@ try:
 except ImportError:
     print("C Module failed to load, falling back to slow mode")
 
+"""
+Mapping:
+A = 0
+C = 1
+G = 2
+T = 3
+"""
 
-    def getQUAT(bit1: bool, bit2: bool):
-        if not (bit1 or bit2):
-            return "A"
-        elif (not bit1) and bit2:
-            return "C"
-        elif bit1 and (not bit2):
-            return "G"
-        elif bit1 and bit2:
-            return "T"
-        else:
-            print("ERROR, this might never happen.")
-            return "E"
+
+def getQUAT(bit1: bool, bit2: bool):
+    if not (bit1 or bit2):
+        return "A"
+    elif (not bit1) and bit2:
+        return "C"
+    elif bit1 and (not bit2):
+        return "G"
+    elif bit1 and bit2:
+        return "T"
+    else:
+        print("ERROR, this might never happen.")
+        return "E"
 
 
 def old_b2quats(byte):
@@ -52,21 +60,12 @@ def bin2Quaternary(filename: str):
                 byte = f.read(1)
 
 
-def string2QUATS(text: typing.Union[str, bytes]):
+def string2QUATS(text: typing.Union[str, bytes, typing.List[typing.AnyStr]]):
     return [byte2QUATS(x) for x in text]
 
 
 def str2bool(s: str):
     return s == "1"
-
-
-"""
-Mapping:
-A = 0
-C = 1
-G = 2
-T = 3
-"""
 
 
 def quads2dna(quads: typing.Union[typing.List[int], bytes]):
