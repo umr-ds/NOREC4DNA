@@ -5,11 +5,11 @@
 #include <stdbool.h>
 #define NPY_NO_DEPRECATED_API NPY_1_9_API_VERSION
 #include <numpy/arrayobject.h>   /* NumPy  as seen from C */
-#if defined(__MACH__)
-    #include <stdlib.h>
-#else
-    #include <malloc.h>
-#endif
+//#if defined(__MACH__)
+//    #include <stdlib.h>
+//#else
+//    #include <malloc.h>
+//#endif
 #define T uint64_t
 #define BYTE uint8_t // unsigned char
 
@@ -144,7 +144,7 @@ static PyObject* elimination(PyObject *self, PyObject *args)
    npy_intp dims_a_0 = PyArray_DIM(A,0); // rows
    npy_intp dims_a_1 = PyArray_DIM(A,1); // columns
    npy_intp dims_b_1 = PyArray_DIM(b,1);
-   bool* dirty_rows = malloc((unsigned int)dims_a_0);
+   bool* dirty_rows = PyMem_RawMalloc((unsigned int)dims_a_0);
    for (int i = 0; i < dims_a_0; i++) {
        dirty_rows[i] = false;
    }
@@ -225,7 +225,7 @@ static PyObject* elimination(PyObject *self, PyObject *args)
             }
         }
    }
-   free(dirty_rows);
+   PyMem_RawFree(dirty_rows);
    if (dirty) {
        return Py_BuildValue("O", Py_False);
    } else {
@@ -270,7 +270,7 @@ static PyObject* microsatellite(PyObject* self,  PyObject *args)
    int i = 0;
    int n = strlen(text);
    int res = 1;
-   char* resChars = malloc(lengthToLookFor + 1);
+   char* resChars = PyMem_RawMalloc((lengthToLookFor + 1) * sizeof(char));
    strncpy( resChars, text, lengthToLookFor );
    resChars[lengthToLookFor] = '\0';
    //text[:lengthToLookFor];
@@ -297,7 +297,7 @@ static PyObject* microsatellite(PyObject* self,  PyObject *args)
         strncpy( resChars, &text[i], lengthToLookFor );
     }
    PyObject *return_val = Py_BuildValue("(is)", maxLenght, resChars);
-   free(resChars);
+   PyMem_RawFree(resChars);
    return return_val;
 }
 
@@ -347,7 +347,7 @@ static PyObject* repeatRegion(PyObject* self,  PyObject *args)
       return NULL;
    }
    int len = strlen(text);
-   char *subseq = malloc(lengthToLookFor+1);
+   char *subseq = PyMem_RawMalloc((lengthToLookFor+1) * sizeof(char));
    strncpy( subseq, text, lengthToLookFor );
    subseq[lengthToLookFor] = '\0';
    for (int i = 0; i < len-lengthToLookFor;i++) {
@@ -358,7 +358,7 @@ static PyObject* repeatRegion(PyObject* self,  PyObject *args)
         }
    }
    PyObject *return_val = Py_BuildValue("i", res);
-   free(subseq);
+   PyMem_RawFree(subseq);
    return return_val;
 }
 
@@ -371,7 +371,7 @@ static PyObject* smallRepeatRegion(PyObject* self,  PyObject *args)
       return NULL;
    }
    int len = strlen(text);
-   char *subseq = malloc(lengthToLookFor+1);
+   char *subseq = PyMem_RawMalloc((lengthToLookFor+1) * sizeof(char));
    strncpy(subseq, text, lengthToLookFor );
    subseq[lengthToLookFor] = '\0';
    for (int i = 0; i <= len-lengthToLookFor;i++) {
@@ -386,14 +386,14 @@ static PyObject* smallRepeatRegion(PyObject* self,  PyObject *args)
        res = res * lengthToLookFor / strlen(text) * 0.5;
    }
    PyObject *return_val = Py_BuildValue("d", res);
-   free(subseq);
+   PyMem_RawFree(subseq);
    return return_val;
 }
 
 static PyObject* getQUAT(PyObject* self,  PyObject *args)
 {
    int bit1, bit2;
-   char *res = malloc(2);
+   char *res = PyMem_RawMalloc(2);
    res[0] = 'A';
    res[1] = '\0';
    if (!PyArg_ParseTuple(args, "pp", &bit1, &bit2)) {
@@ -407,7 +407,7 @@ static PyObject* getQUAT(PyObject* self,  PyObject *args)
        res[0] = 'G';
    }
    PyObject *return_val = Py_BuildValue("s", res);
-   free(res);
+   PyMem_RawFree(res);
    return return_val;
 }
 
@@ -415,7 +415,7 @@ static PyObject* byte2QUATS(PyObject* self,  PyObject *args)
 {
    int byte;
    int bit1, bit2;
-   char *res = malloc(5);
+   char *res = PyMem_RawMalloc(5);
    res[0] = 'A';
    res[1] = 'A';
    res[2] = 'A';
@@ -438,7 +438,7 @@ static PyObject* byte2QUATS(PyObject* self,  PyObject *args)
         pos -= 2;
    }
    PyObject *return_val = Py_BuildValue("s", res);
-   free(res);
+   PyMem_RawFree(res);
    return return_val;
 }
 
