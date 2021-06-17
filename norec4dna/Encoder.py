@@ -1,5 +1,4 @@
 import os
-import random
 import struct
 import math
 import numpy as np
@@ -89,7 +88,7 @@ class Encoder:
         assert (len(last) <= self.chunk_size), "Error, last Chunk ist bigger than ChunkSize"
         if len(last) < self.chunk_size:
             if self.insert_header:
-                filler = b"\x00" + random.randbytes(self.chunk_size - len(last) - 1)
+                filler = b"\x00" + os.urandom(self.chunk_size - len(last) - 1)
             else:
                 filler = (self.chunk_size - len(last)) * b"\x00"
             struct_str = "<" + str(len(last)) + "s" + str(self.chunk_size - len(last)) + "s"
