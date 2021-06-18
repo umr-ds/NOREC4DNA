@@ -20,6 +20,9 @@ setup(
     classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
     ],
     ext_modules=[Extension('cdnarules', ['cdnarules.c'], include_dirs=[numpy.get_include()]), ],
     include_dirs=[numpy.get_include()]
