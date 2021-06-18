@@ -535,7 +535,8 @@ class RU10Decoder(Decoder):
         if print_to_output:
             print("Result:")
             print(output_concat.decode("utf-8"))
-        self.progress_bar.update(self.number_of_chunks, Corrupt=self.corrupt)
+        if self.progress_bar is not None:
+            self.progress_bar.update(self.number_of_chunks, Corrupt=self.corrupt)
         if return_file_name:
             return file_name
         return output_concat
