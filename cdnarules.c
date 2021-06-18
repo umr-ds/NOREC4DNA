@@ -144,6 +144,7 @@ static PyObject* elimination(PyObject *self, PyObject *args)
    npy_intp dims_a_0 = PyArray_DIM(A,0); // rows
    npy_intp dims_a_1 = PyArray_DIM(A,1); // columns
    npy_intp dims_b_1 = PyArray_DIM(b,1);
+   //npy_intp dims_mapping = PyArray_DIM(packet_mapping,0);
    bool* dirty_rows = PyMem_RawMalloc((unsigned int)dims_a_0);
    for (int i = 0; i < dims_a_0; i++) {
        dirty_rows[i] = false;
@@ -171,9 +172,11 @@ static PyObject* elimination(PyObject *self, PyObject *args)
                 do_xor_byte((BYTE*)PyArray_GETPTR2(b,i,0), (BYTE*)PyArray_GETPTR2(b,j,0),
                          dims_b_1, (BYTE*)PyArray_GETPTR2(b,i,0));
                 // swap packet_mapping...
-                BYTE tmp = *(BYTE*)PyArray_GETPTR1(packet_mapping, i);
-                *((BYTE*)PyArray_GETPTR1(packet_mapping, i)) = *(BYTE*)PyArray_GETPTR1(packet_mapping, j);
-                *((BYTE*)PyArray_GETPTR1(packet_mapping, j)) = tmp;
+                unsigned long tmp = *(unsigned long*)PyArray_GETPTR1(packet_mapping, i);
+                //if (i >= dims_mapping || j >= dims_mapping)
+                //    PySys_WriteStdout("Packet Mappings ( dim= %lu ): i = %u, j = %u\n", dims_mapping, i, j);
+                *((unsigned long*)PyArray_GETPTR1(packet_mapping, i)) = *(unsigned long*)PyArray_GETPTR1(packet_mapping, j);
+                *((unsigned long*)PyArray_GETPTR1(packet_mapping, j)) = tmp;
                 break;
             }
 
@@ -211,10 +214,10 @@ static PyObject* elimination(PyObject *self, PyObject *args)
             if (dirty_rows[row]) {
                 continue; //skip this column if it was marked as dirty previously
             }
-            int32_t lim = col;
+            /*int32_t lim = col;
             if (dirty) {
                 lim = 0;
-            }
+            }*/
             if (*((bool*)PyArray_GETPTR2(A,row,col)) && col != row) {
                 do_xor_bool((bool*)PyArray_GETPTR2(A,row,0),
                              (bool*)PyArray_GETPTR2(A,col,0),
