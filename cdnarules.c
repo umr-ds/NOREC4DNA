@@ -144,8 +144,9 @@ static PyObject* elimination(PyObject *self, PyObject *args)
    npy_intp dims_a_0 = PyArray_DIM(A,0); // rows
    npy_intp dims_a_1 = PyArray_DIM(A,1); // columns
    npy_intp dims_b_1 = PyArray_DIM(b,1);
-   //npy_intp dims_mapping = PyArray_DIM(packet_mapping,0);
-   bool* dirty_rows = PyMem_RawMalloc((unsigned int)dims_a_0);
+   bool *dirty_rows = PyMem_RawMalloc(((unsigned int)dims_a_0) * sizeof(char));
+   if (dirty_rows == NULL)
+       return PyErr_NoMemory();
    for (int i = 0; i < dims_a_0; i++) {
        dirty_rows[i] = false;
    }
@@ -273,7 +274,9 @@ static PyObject* microsatellite(PyObject* self,  PyObject *args)
    int i = 0;
    int n = strlen(text);
    int res = 1;
-   char* resChars = PyMem_RawMalloc((lengthToLookFor + 1) * sizeof(char));
+   char *resChars = PyMem_RawMalloc((lengthToLookFor + 1) * sizeof(char));
+   if (resChars == NULL)
+       return PyErr_NoMemory();
    strncpy( resChars, text, lengthToLookFor );
    resChars[lengthToLookFor] = '\0';
    //text[:lengthToLookFor];
@@ -351,6 +354,8 @@ static PyObject* repeatRegion(PyObject* self,  PyObject *args)
    }
    int len = strlen(text);
    char *subseq = PyMem_RawMalloc((lengthToLookFor+1) * sizeof(char));
+   if (subseq == NULL)
+       return PyErr_NoMemory();
    strncpy( subseq, text, lengthToLookFor );
    subseq[lengthToLookFor] = '\0';
    for (int i = 0; i < len-lengthToLookFor;i++) {
@@ -375,6 +380,8 @@ static PyObject* smallRepeatRegion(PyObject* self,  PyObject *args)
    }
    int len = strlen(text);
    char *subseq = PyMem_RawMalloc((lengthToLookFor+1) * sizeof(char));
+   if (subseq == NULL)
+       return PyErr_NoMemory();
    strncpy(subseq, text, lengthToLookFor );
    subseq[lengthToLookFor] = '\0';
    for (int i = 0; i <= len-lengthToLookFor;i++) {
@@ -396,7 +403,9 @@ static PyObject* smallRepeatRegion(PyObject* self,  PyObject *args)
 static PyObject* getQUAT(PyObject* self,  PyObject *args)
 {
    int bit1, bit2;
-   char *res = PyMem_RawMalloc(2);
+   char *res = PyMem_RawMalloc(2 * sizeof(char));
+   if (res == NULL)
+       return PyErr_NoMemory();
    res[0] = 'A';
    res[1] = '\0';
    if (!PyArg_ParseTuple(args, "pp", &bit1, &bit2)) {
@@ -418,7 +427,9 @@ static PyObject* byte2QUATS(PyObject* self,  PyObject *args)
 {
    int byte;
    int bit1, bit2;
-   char *res = PyMem_RawMalloc(5);
+   char *res = PyMem_RawMalloc(5 * sizeof(char));
+   if (res == NULL)
+       return PyErr_NoMemory();
    res[0] = 'A';
    res[1] = 'A';
    res[2] = 'A';
