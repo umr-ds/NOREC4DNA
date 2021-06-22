@@ -58,7 +58,7 @@ class GEPP_intern:
             # first insert
             self.A = np.vstack((self.A, row))
             self.b = np.vstack((self.b, data))
-            self.packet_mapping = np.vstack((self.packet_mapping, len(self.A)))
+            self.packet_mapping = np.vstack((self.packet_mapping, [len(self.A)]))
             self._update_input()
         self.tmp_A.append(row)
         self.tmp_b.append(data)

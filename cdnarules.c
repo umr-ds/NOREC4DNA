@@ -173,11 +173,27 @@ static PyObject* elimination(PyObject *self, PyObject *args)
                 do_xor_byte((BYTE*)PyArray_GETPTR2(b,i,0), (BYTE*)PyArray_GETPTR2(b,j,0),
                          dims_b_1, (BYTE*)PyArray_GETPTR2(b,i,0));
                 // swap packet_mapping...
-                unsigned long tmp = *(unsigned long*)PyArray_GETPTR1(packet_mapping, i);
+                unsigned long tmp = (*(unsigned long*)PyArray_GETPTR1(packet_mapping, i));
                 //if (i >= dims_mapping || j >= dims_mapping)
                 //    PySys_WriteStdout("Packet Mappings ( dim= %lu ): i = %u, j = %u\n", dims_mapping, i, j);
-                *((unsigned long*)PyArray_GETPTR1(packet_mapping, i)) = *(unsigned long*)PyArray_GETPTR1(packet_mapping, j);
-                *((unsigned long*)PyArray_GETPTR1(packet_mapping, j)) = tmp;
+
+                //npy_intp stride_i = PyArray_STRIDE(packet_mapping, i);
+                //npy_intp stride_j = PyArray_STRIDE(packet_mapping, j);
+                //const char * dataptr = PyArray_BYTES(packet_mapping);
+                //PyObject * p1 = PyArray_GETITEM(packet_mapping, dataptr);
+                PyObject * old_i = PyArray_GETITEM(packet_mapping, PyArray_GETPTR1(packet_mapping,i));
+                PyObject * old_j = PyArray_GETITEM(packet_mapping, PyArray_GETPTR1(packet_mapping,j));
+
+                //PySys_WriteStdout("mapping.dtype: %i", PyArray_TYPE(packet_mapping));
+                //PySys_WriteStdout("mapping[%u] = %lu", i, old_i);
+                //PySys_WriteStdout("mapping[%u] = %lu", j, old_j);
+
+                //(*(unsigned long*)PyArray_GETPTR1(packet_mapping, i)) = (*(unsigned long*)PyArray_GETITEM(packet_mapping, j));
+                //(*(unsigned long*)PyArray_GETPTR1(packet_mapping, j)) = tmp;
+                PyArray_SETITEM(packet_mapping,PyArray_GETPTR1(packet_mapping, j), old_i);
+                PyArray_SETITEM(packet_mapping,PyArray_GETPTR1(packet_mapping, i), old_j);
+                //PySys_WriteStdout("after swap: mapping[%u] = %lu", i, (*(unsigned long*)PyArray_GETPTR1(packet_mapping, i)));
+                //PySys_WriteStdout("after swap: mapping[%u] = %lun\n", j, (*(unsigned long*)PyArray_GETPTR1(packet_mapping, j)));
                 break;
             }
 
@@ -186,7 +202,7 @@ static PyObject* elimination(PyObject *self, PyObject *args)
         // ( IF the Matrix is singular we might have no "true" in column i. )
         // but we might be able to retrieve as many blocks as possible
         if (!*((bool*)PyArray_GETPTR2(A,i,i))) {
-            PySys_WriteStdout("Could not decode Chunk %u\n", i);
+            //PySys_WriteStdout("Could not decode Chunk %u\n", i);
             dirty_rows[i] = true;
             dirty = true;
             num_dirty_rows++;
@@ -256,7 +272,9 @@ static PyObject* xor_array(PyObject *self, PyObject *args)
    BYTE* y_DataPtr = (BYTE*)(PyArray_DATA((PyArrayObject*)Y));
 
 
-   out = PyArray_SimpleNew(1, &dims_x, NPY_BYTE); // we can treat any input as byte for bitwise xor...
+   npy_intp dims[1];
+   dims[0] = dims_x;
+   out = PyArray_SimpleNew(1, dims, NPY_BYTE); // we can treat any input as byte for bitwise xor...
     BYTE* out_DataPtr = (BYTE*)(PyArray_DATA((PyArrayObject*)out));
    for (i=0; i<dims_x;i++) {
       out_DataPtr[i] = x_DataPtr[i] ^ y_DataPtr[i];
@@ -528,9 +546,10 @@ static struct PyModuleDef cdnarules =
 
 PyMODINIT_FUNC PyInit_cdnarules(void)
 {
-    PyObject* module =  PyModule_Create(&cdnarules);
+    //PyObject* module =  PyModule_Create(&cdnarules);
     import_array();
-    return module;
+    //return module;
+    return PyModule_Create(&cdnarules);
 }
 
 /*void initcdnarules(void)
