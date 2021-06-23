@@ -27,7 +27,7 @@ class GEPP_intern:
     def __init__(self, A: np.array, b: np.array):
         self.A: np.array = A  # input: A is an n x n np matrix
         self.b: np.array = b  # np.fromstring(b, dtype='uint8')  # b is an n x 1 np array
-        self.packet_mapping: np.array = np.array([x + 1 for x in range(len(self.A))])
+        self.packet_mapping: np.array = np.array([x + 1 for x in range(len(self.A))], dtype=np.uint)
         self.n: int = 0  # n is the length of A
         self.m: int = 0  # m is the width of A
         self.tmp_A: typing.List = []
@@ -58,7 +58,7 @@ class GEPP_intern:
             # first insert
             self.A = np.vstack((self.A, row))
             self.b = np.vstack((self.b, data))
-            self.packet_mapping = np.vstack((self.packet_mapping, len(self.A)))
+            self.packet_mapping = np.vstack((self.packet_mapping, [len(self.A)]))
             self._update_input()
         self.tmp_A.append(row)
         self.tmp_b.append(data)
