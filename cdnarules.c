@@ -202,7 +202,7 @@ static PyObject* elimination(PyObject *self, PyObject *args)
         // ( IF the Matrix is singular we might have no "true" in column i. )
         // but we might be able to retrieve as many blocks as possible
         if (!*((bool*)PyArray_GETPTR2(A,i,i))) {
-            //PySys_WriteStdout("Could not decode Chunk %u\n", i);
+            PySys_WriteStdout("Could not decode Chunk %u\n", i);
             dirty_rows[i] = true;
             dirty = true;
             num_dirty_rows++;
