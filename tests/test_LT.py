@@ -10,7 +10,7 @@ from norec4dna.LTDecoder import LTDecoder
 from norec4dna.LTEncoder import LTEncoder
 from norec4dna.LTBPDecoder import LTBPDecoder
 from norec4dna.rules.FastDNARules import FastDNARules
-from norec4dna import reed_solomon_encode, reed_solomon_decode
+from norec4dna.ErrorCorrection import reed_solomon_encode, reed_solomon_decode
 from norec4dna.rules.DNARules_ErlichZielinski import DNARules_ErlichZielinski
 from norec4dna.distributions.IdealSolitonDistribution import IdealSolitonDistribution
 from norec4dna.distributions.RobustSolitonDistribution import RobustSolitonDistribution
@@ -24,10 +24,16 @@ file2 = "Dorn"
 out_dir2 = "LT_Dorn"
 cmp_file2 = "tests/cmp_dorn"
 
+@pytest.fixture(autouse=True)
+def run_between_tests():
+    for _file in [file, file2]:
+        if os.path.exists(_file):
+            os.remove(_file)
+        shutil.copy(cmp_file, _file)
 
 @pytest.mark.parametrize("as_dna", [False, True])
 @pytest.mark.parametrize("decoder_instance", [LTDecoder, LTBPDecoder])
-@pytest.mark.parametrize("distribution", ["robust", "ideal", "erlichzielis"])
+@pytest.mark.parametrize("distribution", ["robust", "ideal", "ErlichZielinski"])
 @pytest.mark.parametrize("use_header", [True, False])
 @pytest.mark.parametrize("implicit_mode", [True, False])
 def test_suite(as_dna, decoder_instance, distribution, use_header, implicit_mode):

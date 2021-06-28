@@ -31,7 +31,8 @@ class LTEncoder(Encoder):
                 typing.Union[DNARules, DNARules2, FastDNARules, DNARules_ErlichZielinski]] = None,
                  implicit_mode: bool = True, packet_len_format: str = "I", crc_len_format: str = "L",
                  number_of_chunks_len_format: str = "I", used_packets_len_format: str = "I", id_len_format: str = "I",
-                 last_chunk_len_format: str = "I", save_number_of_chunks_in_packet: bool = True, drop_upper_bound=1.0):
+                 last_chunk_len_format: str = "I", save_number_of_chunks_in_packet: bool = True, drop_upper_bound=1.0,
+                 sequential_seed=True):
         super().__init__(file, number_of_chunks, distribution, insert_header, pseudo_decoder, chunk_size)
         if prioritized_packets is None:
             prioritized_packets = []
@@ -65,6 +66,8 @@ class LTEncoder(Encoder):
         self.last_chunk_len_format: str = last_chunk_len_format
         self.save_number_of_chunks_in_packet: bool = save_number_of_chunks_in_packet
         self.ruleDrop: int = 0
+        self.next_checkblock_id = -1
+        self.sequential_seed = sequential_seed
 
     def encode_file(self, split_to_multiple_files: bool = False):
         self.encode_to_packets()
@@ -192,14 +195,19 @@ class LTEncoder(Encoder):
     def get_file_size(self, file: str) -> int:
         return os.stat(file).st_size
 
-    def generate_new_checkblock_id(self) -> int:
-        random_generator: np.random.RandomState = np.random.RandomState()
+    def generate_new_checkblock_id(self, sequential=True) -> int:
         max_num: float = Encoder.calc_max_size(struct.calcsize("<" + self.id_len_format))
+        if sequential:
+            self.next_checkblock_id += 1
+            if self.next_checkblock_id > max_num:
+                raise RuntimeError("sequential checkblock_id > max allowed number!")
+            return self.next_checkblock_id
+        random_generator: np.random.RandomState = np.random.RandomState()
         return random_generator.randint(0, max_num, dtype=np.uint32)
 
     def create_new_packet(self, seed=None) -> Packet:
         if seed is None:
-            seed: int = self.generate_new_checkblock_id()
+            seed: int = self.generate_new_checkblock_id(self.sequential_seed)
         if self.implicit_mode:  # in implicit mode we want to be able derive the used chunks from having only the seed
             self.dist.set_seed(seed)
         degree: int = self.dist.getNumber()
