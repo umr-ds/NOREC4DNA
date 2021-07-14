@@ -56,7 +56,7 @@ class Packet:
 
     def set_used_packets(self, used_packets: typing.Iterable[int]):
         self.used_packets = used_packets
-        self.internal_hash = hash(frozenset(i for i in self.used_packets))
+        self.internal_hash = None
 
     def prepare_and_pack(self):
         # Format = Highest possible Packetnumber for this file, number of used Packets for this
@@ -104,6 +104,7 @@ class Packet:
             self.dna_data = self.prepend + quads2dna(self.get_struct(split_to_multiple_files)) + self.append
         elif self.dna_data is None:
             self.dna_data = self.prepend + "".join(string2QUATS(self.get_struct(split_to_multiple_files))) + self.append
+        self.internal_hash = None  # enforce recalculation of hash
         return self.dna_data
 
     def get_data(self) -> bytes:
@@ -174,17 +175,18 @@ class Packet:
             return min(self.get_used_packets()) < min(other.get_used_packets())
 
     def __hash__(self):
-        if self.internal_hash is not None:
-            return self.internal_hash
-        else:
-            return hash(frozenset(i for i in self.used_packets))
+        if self.internal_hash is None:
+            self.internal_hash = hash(
+                str(self.total_number_of_chunks) + str(self.id) + str(
+                    self.error_prob) + self.__module__ + self.dna_data)
+        return self.internal_hash
 
 
 class ParallelPacket:
     def __init__(self, used_packets: typing.Set[int], total_number_of_chunks: int, p_id: int, data: bytes,
                  dna_data: str, packed, error_prob: int, packet_len_format: str, crc_len_format: str,
                  number_of_chunks_len_format: str, id_len_format: str, save_number_of_chunks_in_packet: bool,
-                 org_class: str = "", prepend="", append=""):
+                 org_class: str = "", prepend="", append="", org_hash=None):
         self.used_packets: typing.Set[int] = used_packets
         self.total_number_of_chunks: int = total_number_of_chunks
         self.id: int = p_id
@@ -203,6 +205,7 @@ class ParallelPacket:
         ]
         self.prepend = prepend
         self.append = append
+        self.calculated_hash = org_hash
 
     @classmethod
     def from_packet(cls, packet):
@@ -211,13 +214,16 @@ class ParallelPacket:
                               packet.packed, packet.error_prob, packet.packet_len_format, packet.crc_len_format,
                               packet.number_of_chunks_len_format, packet.id_len_format,
                               packet.save_number_of_chunks_in_packet, org_class=packet.__module__,
-                              prepend=packet.prepend, append=packet.append)
+                              prepend=packet.prepend, append=packet.append, org_hash=hash(packet))
 
     def get_org_class(self) -> str:
         return self.org_class
 
     def __hash__(self):
-        return hash(frozenset(i for i in self.used_packets))
+        if self.calculated_hash is None:
+            self.calculated_hash = hash(
+                str(self.total_number_of_chunks) + str(self.id) + str(self.error_prob) + self.org_class + self.dna_data)
+        return self.calculated_hash
 
     def __eq__(self, other) -> bool:
         # if self.error_prob is not None and other.error_prob is not None:
