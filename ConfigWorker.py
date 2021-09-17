@@ -22,23 +22,32 @@ class ConfigReadAndExecute:
             print("Decoding {}".format(section))
             self.__decode(section, self.config[section])
 
+    def warn_unknown_items(self, config):
+        known = ["error_correction", "repair_symbols", "as_mode_1_bmp", "number_of_splits", "split_index_position",
+                 "split_index_length", "last_split_smaller", "is_null_terminated", "insert_header", "id_len_format",
+                 "number_of_chunks_len_format", "packet_len_format", "crc_len_format", "algorithm", "number_of_chunks"]
+        for cfg in config:
+            if cfg not in known:
+                print(f"[Warning] Config-entry '{cfg}' not known!")
+
     # @staticmethod
-    def __decode(self, filename, ru10_decode_conf):
-        algorithm = ru10_decode_conf.get("algorithm")
-        number_of_chunks = ru10_decode_conf.getint("number_of_chunks", None)
-        e_correction = ru10_decode_conf.get("error_correction", "nocode")  # optional
-        repair_symbols = ru10_decode_conf.getint("repair_symbols", 2)  # optional
-        mode_1_bmp = ru10_decode_conf.getboolean("as_mode_1_bmp")  # optional, bool
-        number_of_splits = ru10_decode_conf.getint("number_of_splits", 0)  # optional
-        split_index_position = ru10_decode_conf.getint("split_index_position", "end")  # optional
-        split_index_length = ru10_decode_conf.getint("split_index_length")  # optional
-        last_split_smaller = ru10_decode_conf.getboolean("last_split_smaller")  # optional, bool
-        is_null_terminated = ru10_decode_conf.getboolean("is_null_terminated")  # optional, bool
-        use_header_chunk = ru10_decode_conf.getboolean("insert_header")  # optional, bool
-        id_len_format = ru10_decode_conf.get("id_len_format")  # optional, str
-        number_of_chunks_len_format = ru10_decode_conf.get("number_of_chunks_len_format", "I")  # optional, str
-        packet_len_format = ru10_decode_conf.get("packet_len_format", "I")  # optional, str
-        crc_len_format = ru10_decode_conf.get("crc_len_format", "L")  # optional, str
+    def __decode(self, filename, decode_conf):
+        self.warn_unknown_items(decode_conf)
+        algorithm = decode_conf.get("algorithm")
+        number_of_chunks = decode_conf.getint("number_of_chunks", None)
+        e_correction = decode_conf.get("error_correction", "nocode")  # optional
+        repair_symbols = decode_conf.getint("repair_symbols", 2)  # optional
+        mode_1_bmp = decode_conf.getboolean("as_mode_1_bmp")  # optional, bool
+        number_of_splits = decode_conf.getint("number_of_splits", 0)  # optional
+        split_index_position = decode_conf.getint("split_index_position", "end")  # optional
+        split_index_length = decode_conf.getint("split_index_length")  # optional
+        last_split_smaller = decode_conf.getboolean("last_split_smaller")  # optional, bool
+        is_null_terminated = decode_conf.getboolean("is_null_terminated")  # optional, bool
+        use_header_chunk = decode_conf.getboolean("insert_header")  # optional, bool
+        id_len_format = decode_conf.get("id_len_format")  # optional, str
+        number_of_chunks_len_format = decode_conf.get("number_of_chunks_len_format", "I")  # optional, str
+        packet_len_format = decode_conf.get("packet_len_format", "I")  # optional, str
+        crc_len_format = decode_conf.get("crc_len_format", "L")  # optional, str
         # extract preconfig steps:
         if number_of_splits != 0:
             split_index_length = find_ceil_power_of_four(number_of_splits)
