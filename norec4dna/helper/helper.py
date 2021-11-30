@@ -160,7 +160,7 @@ def merge_folder_content(src_folder_of_folders, dest_folder, append_folder_name=
                     shutil.copy(os.path.join(folder, file), dest_file)
 
 
-def asss(x):
+def split_first(x):
     split_text = x.rsplit('.', 1)
     if split_text[1].lower() == "fasta":
         return split_text[0].split("_")[1]
@@ -168,8 +168,14 @@ def asss(x):
         return split_text[1]
 
 
+from Levenshtein import ratio, distance
+
+print(distance("test", "text"))
+print(ratio('xyxtst', 'test'))
+
+
 def merge_parts(filenames, remove_tmp_on_success=False):
-    numbers = [int(asss(x)) for x in filenames]
+    numbers = [int(split_first(x)) for x in filenames]
     max_num = max(numbers)
     assert len(filenames) == max_num + 1, "Some parts were not decoded, try manual merge."
     base_name = filenames[0].rsplit('.', 1)[0]

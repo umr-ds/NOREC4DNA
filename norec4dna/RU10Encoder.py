@@ -347,7 +347,7 @@ class RU10Encoder(Encoder):
                                 'number_of_chunks_len_format': self.number_of_chunks_len_format,
                                 'packet_len_format': self.packet_len_format, 'crc_len_format': self.crc_len_format,
                                 'master_seed': self.__masterseed, 'distribution': self.dist.get_config_string(),
-                                'rules': [rule for rule in self.rules.active_rules],
+                                'rules': [rule for rule in self.rules.active_rules] if self.rules is not None else [],
                                 'chunk_size': self.chunk_size, 'dropped_packets': self.ruleDrop,
                                 'created_packets': len(self.encodedPackets)}
         for key, val in default_map.items():

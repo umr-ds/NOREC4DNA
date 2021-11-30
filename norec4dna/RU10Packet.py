@@ -62,7 +62,7 @@ class RU10Packet(Packet):
         for x in self.used_packets:
             if x < self.total_number_of_chunks:
                 tmp_lst[0, x] = True
-        self.bool_arrayused_packets = tmp_lst[0].tolist()
+        self.bool_arrayused_packets = tmp_lst[0]
         self.update_degree()
         # [
         #    x in self.used_packets for x in range(0, self.total_number_of_chunks)
@@ -101,7 +101,7 @@ class RU10Packet(Packet):
         return data
 
     def calculate_packed_data(self) -> bytes:
-        # Laenge des Packets + UsedPackets + Data + crc
+        # size of the packets + UsedPackets + Data + crc
         self.packed_data = struct.pack("<" + str(len(self.data)) + "s", bytes(self.data))
         if self.packedMethod:
             payload = struct.pack(
@@ -131,44 +131,44 @@ class RU10Packet(Packet):
         res.error_correction = packet.get_error_correction()
         return res
 
-    def getNumberOfHalfBlocks(self) -> int:
+    def get_number_of_half_blocks(self) -> int:
         return self.h
 
-    def getNumberOfLDPCBlocks(self) -> int:
+    def get_number_of_ldpc_blocks(self) -> int:
         return self.s
 
     def get_bool_array_used_packets(self) -> typing.Optional[typing.List[bool]]:
         return self.bool_arrayused_packets
 
-    def getBoolArrayAllUsedPackets(self) -> typing.List[bool]:
+    def get_bool_array_all_used_packets(self) -> typing.List[bool]:
         return [x in self.used_packets for x in
-                range(self.total_number_of_chunks + self.getNumberOfLDPCBlocks() + self.getNumberOfHalfBlocks())]
+                range(self.total_number_of_chunks + self.get_number_of_ldpc_blocks() + self.get_number_of_half_blocks())]
 
-    def getBoolArrayUsedAndLDPCPackets(self) -> typing.List[bool]:
+    def get_bool_array_used_and_ldpc_packets(self) -> typing.List[bool]:
         # speedup candidate
-        u_bound = self.total_number_of_chunks + self.getNumberOfLDPCBlocks()
+        u_bound = self.total_number_of_chunks + self.get_number_of_ldpc_blocks()
         tmp_lst = np.full((1, u_bound), False)
         for x in self.used_packets:
             if x < u_bound:
                 tmp_lst[0, x] = True
-        res = tmp_lst[0].tolist()
+        res = tmp_lst[0]
         del tmp_lst
         return res
 
-    def getBoolArrayLDPCPackets(self) -> typing.List[bool]:
+    def get_bool_array_ldpc_packets(self) -> typing.List[bool]:
         # speedup candidate
         return [x in self.used_packets for x in
-                range(self.total_number_of_chunks, self.total_number_of_chunks + self.getNumberOfLDPCBlocks(), )]
+                range(self.total_number_of_chunks, self.total_number_of_chunks + self.get_number_of_ldpc_blocks(), )]
 
-    def getBoolArrayHalfPackets(self) -> typing.List[bool]:
+    def get_bool_array_half_packets(self) -> typing.List[bool]:
         return [x in self.used_packets for x in
-                range(self.total_number_of_chunks + self.getNumberOfLDPCBlocks(),
-                      self.total_number_of_chunks + self.getNumberOfLDPCBlocks() + self.getNumberOfHalfBlocks(), )]
+                range(self.total_number_of_chunks + self.get_number_of_ldpc_blocks(),
+                      self.total_number_of_chunks + self.get_number_of_ldpc_blocks() + self.get_number_of_half_blocks(), )]
 
-    def getBoolArrayRepairPackets(self) -> typing.List[bool]:
+    def get_bool_array_repair_packets(self) -> typing.List[bool]:
         return [x in self.used_packets for x in
                 range(self.total_number_of_chunks,
-                      self.total_number_of_chunks + self.getNumberOfLDPCBlocks() + self.getNumberOfHalfBlocks(), )]
+                      self.total_number_of_chunks + self.get_number_of_ldpc_blocks() + self.get_number_of_half_blocks(), )]
 
     def __str__(self) -> str:
         return "< used_packets: " + str(self.used_packets) + " , Data: " + str(self.data) + " >"

@@ -76,7 +76,7 @@ class ConfigReadAndExecute:
                                 packet_len_format=packet_len_format, crc_len_format=crc_len_format,
                                 number_of_chunks=number_of_chunks + (
                                     -1 if f_file == last_split_folder and last_split_smaller else 0),
-                                use_header_chunk=use_header_chunk))
+                                use_header_chunk=use_header_chunk, read_all=False))
             except Exception as ex:
                 raise ex
         if len(folders) > 1:
@@ -84,9 +84,13 @@ class ConfigReadAndExecute:
 
 
 if __name__ == "__main__":
+    from guppy import hpy
+    h = hpy()
     if len(sys.argv) > 1:
         file = sys.argv[1]
     else:
         file = ".OUTFILES/parallel_LT/LT_Dorn_Thu_Mar_18_13_52_28_2021.ini"  # SpringBlossoms.txt_Thu_Nov_26_16_13_20_2020.ini"
     x = ConfigReadAndExecute(file)
     x.execute()
+    print(h.heap())
+    print("Done")

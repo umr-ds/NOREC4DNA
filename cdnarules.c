@@ -298,7 +298,7 @@ static PyObject* microsatellite(PyObject* self,  PyObject *args)
    strncpy( resChars, text, lengthToLookFor );
    resChars[lengthToLookFor] = '\0';
    //text[:lengthToLookFor];
-   int maxLenght = 0;
+   int maxLength = 0;
    int ret;
    while (i <= n - 2 * lengthToLookFor) {
        ret = memcmp(&text[i],&text[i+lengthToLookFor], lengthToLookFor);
@@ -306,8 +306,8 @@ static PyObject* microsatellite(PyObject* self,  PyObject *args)
            // we found one
             res += 1;
         }else{
-            if (maxLenght < res) {
-                maxLenght = res;
+            if (maxLength < res) {
+                maxLength = res;
                 //resChars = text[i: i + lengthToLookFor];
                 strncpy( resChars, &text[i], lengthToLookFor );
             }
@@ -315,12 +315,12 @@ static PyObject* microsatellite(PyObject* self,  PyObject *args)
         }
         i += lengthToLookFor;
    }
-   if (maxLenght < res) {
-        maxLenght = res;
+   if (maxLength < res) {
+        maxLength = res;
         //resChars = text[i: i + lengthToLookFor];
         strncpy( resChars, &text[i], lengthToLookFor );
     }
-   PyObject *return_val = Py_BuildValue("(is)", maxLenght, resChars);
+   PyObject *return_val = Py_BuildValue("(is)", maxLength, resChars);
    PyMem_RawFree(resChars);
    return return_val;
 }

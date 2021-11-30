@@ -9,7 +9,7 @@ from norec4dna.ErrorCorrection import nocode, get_error_correction_encode
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.helper import split_file, number_to_base_str, find_ceil_power_of_four, merge_folder_content
 
-ID_LEN_FORMAT = "I"
+ID_LEN_FORMAT = "H"
 NUMBER_OF_CHUNKS_LEN_FORMAT = "I"
 CRC_LEN_FORMAT = "I"
 PACKET_LEN_FORMAT = "I"
@@ -20,7 +20,7 @@ class demo_raptor_encode:
     @staticmethod
     def encode(file, asdna=True, chunk_size=DEFAULT_CHUNK_SIZE, error_correction=nocode, insert_header=False,
                save_number_of_chunks_in_packet=False, mode_1_bmp=False, prepend="", append="", upper_bound=0.5,
-               save_as_fasta=True):
+               save_as_fasta=True, save_as_zip=True):
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
         dist = RaptorDistribution(number_of_chunks)
         if asdna:
@@ -35,8 +35,10 @@ class demo_raptor_encode:
                         mode_1_bmp=mode_1_bmp, prepend=prepend, append=append, drop_upper_bound=upper_bound)
         x.set_overhead_limit(0.40)
         x.encode_to_packets()
-        if save_as_fasta:
+        if save_as_fasta and asdna:
             x.save_packets_fasta(file_ending="_RU10", seed_is_filename=True)
+        elif save_as_zip:
+            x.save_packets_zip(save_as_dna=asdna, file_ending="_RU10", seed_is_filename=True)
         else:
             x.save_packets(True, save_as_dna=asdna, seed_is_filename=True, clear_output=True)
 
@@ -44,6 +46,8 @@ class demo_raptor_encode:
 
 
 if __name__ == "__main__":
+    from guppy import hpy
+    h = hpy()
     parser = argparse.ArgumentParser()
     parser.add_argument("--as_dna", help="convert packets to dna and use dna rules", action="store_true",
                         required=False)
@@ -59,6 +63,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_number_of_chunks", metavar="save_number_of_chunks", required=False, type=bool,
                         default=False)
     parser.add_argument("--save_as_fasta", action="store_true", required=False)
+    parser.add_argument("--save_as_zip", action="store_true", required=False)
     parser.add_argument("--as_mode_1_bmp", action="store_true",
                         help="convert to a header-less B/W BMP format. (use only for image/bmp input)", required=False)
     parser.add_argument("--split_input", metavar="split_input", required=False, type=int, default=1,
@@ -77,6 +82,7 @@ if __name__ == "__main__":
     _upper_bound = args.drop_upper_bound
     _error_correction = get_error_correction_encode(args.error_correction, _no_repair_symbols)
     _save_as_fasta = args.save_as_fasta
+    _save_as_zip = args.save_as_zip
     if _number_of_splits > 1:
         input_files = split_file(_file, _number_of_splits)
         power_of_four = find_ceil_power_of_four(len(input_files))
@@ -94,7 +100,7 @@ if __name__ == "__main__":
                                        mode_1_bmp=_mode_1_bmp, insert_header=_insert_header,
                                        append=prepend_matching[_file],
                                        save_number_of_chunks_in_packet=_save_number_of_chunks, upper_bound=_upper_bound,
-                                       save_as_fasta=_save_as_fasta)
+                                       save_as_fasta=_save_as_fasta, save_as_zip=_save_as_zip)
         conf = {'error_correction': args.error_correction, 'repair_symbols': _no_repair_symbols, 'asdna': _as_dna,
                 'number_of_splits': _number_of_splits}
         config_filename = encoder_instance.save_config_file(conf)
@@ -103,4 +109,6 @@ if __name__ == "__main__":
     if len(input_files) > 1:
         merge_folder_content(os.path.dirname(os.path.realpath(_file)), _file + "combined_split_output",
                              append_folder_name=True, clear_dest_folder=True)
+    print(h.heap())
+    print("Done")
     # input("Press Enter to continue ...")

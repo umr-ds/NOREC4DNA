@@ -150,7 +150,7 @@ def reduceLists(base, input_list=None, l_size=100):
 
 
 # multiprocess and merge all created lists at the end
-@DeprecationWarning
+#@DeprecationWarning
 def main(filename="logo.jpg", while_count=1000, l_size=1000, chunksize=0, number_of_chunks=300,
          sequential=False, spare1core=False, prepend="", append="", insert_header=False, seed_size_str=ID_LEN_FORMAT,
          drop_above=1.0, save_as_fasta=DEFAULT_SAVE_AS_FASTA, error_correction=nocode):

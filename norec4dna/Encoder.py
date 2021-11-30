@@ -1,6 +1,8 @@
 import os
 import struct
 import math
+from zipfile import ZipFile
+
 import numpy as np
 from math import ceil
 import typing
@@ -124,6 +126,30 @@ class Encoder:
             return self.translate_to_bytes(np.append(arr, np.zeros(8 - remain, dtype=np.uint8)), img)
         else:
             return self.translate_to_bytes(arr, img)
+
+    def save_packets_zip(self, save_as_dna=False, out_file: typing.Optional[str] = None, file_ending="",
+                         seed_is_filename=True):
+        if out_file is None:
+            out_file = self.file + file_ending
+            self.out_file = os.path.relpath(out_file)
+        if not out_file.endswith(".zip"):
+            out_file = out_file + ".zip"
+        i = 0
+        abs_dir = os.path.split(os.path.abspath("../" + out_file))[0]
+        if not os.path.exists(abs_dir):
+            os.makedirs(abs_dir)
+
+        with ZipFile(out_file, 'w') as f:
+            for packet in self.encodedPackets:
+                if seed_is_filename:
+                    i = packet.id
+                if save_as_dna:
+                    e_prob = (str(ceil(packet.error_prob * 100)) + "_") if packet.error_prob is not None else ""
+                    f.writestr(f"{i}_{e_prob}{file_ending}", packet.get_dna_struct(True))
+                else:
+                    f.writestr(f"{i}{file_ending}", packet.get_struct(True))
+                i += 1
+        print(f"Saved result at: %s" % out_file)
 
     def save_packets_fasta(self, out_file: typing.Optional[str] = None, file_ending="", seed_is_filename=True):
         if out_file is None:

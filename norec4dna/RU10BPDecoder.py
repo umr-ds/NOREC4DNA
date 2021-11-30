@@ -168,7 +168,7 @@ class RU10BPDecoder(BPDecoder):
         :return: The data without the auxpackets
         """
         aux_mapping = self.getHalfPacketListFromPacket(packet)  # Enthaelt Data + LDPC Nummern
-        aux_mapping.append(packet.getBoolArrayUsedAndLDPCPackets())
+        aux_mapping.append(packet.get_bool_array_used_and_ldpc_packets())
         xored_list = logical_xor(aux_mapping)
         tmp = set(from_true_false_list(xored_list))  # Nur noch Data + LDPC sind vorhanden
         if self.debug:
@@ -246,7 +246,7 @@ class RU10BPDecoder(BPDecoder):
         :return: Information about used auxpackets.
         """
         res = []
-        aux_used_packets = packet.getBoolArrayRepairPackets()
+        aux_used_packets = packet.get_bool_array_repair_packets()
         for i in range(len(aux_used_packets)):
             if aux_used_packets[i]:
                 res.append((self.auxBlocks[i].get_bool_array_used_packets()))
@@ -260,10 +260,10 @@ class RU10BPDecoder(BPDecoder):
         :return: List of halfpackets
         """
         res: typing.List[typing.List[bool]] = []
-        aux_used_packets = packet.getBoolArrayHalfPackets()
+        aux_used_packets = packet.get_bool_array_half_packets()
         for i in range(len(aux_used_packets)):
             if aux_used_packets[i]:
-                res.append((self.auxBlocks[packet.getNumberOfLDPCBlocks() + i].getBoolArrayUsedAndLDPCPackets()))
+                res.append((self.auxBlocks[packet.get_number_of_ldpc_blocks() + i].get_bool_array_used_and_ldpc_packets()))
         return res
 
     def solve(self):
