@@ -46,8 +46,6 @@ class demo_raptor_encode:
 
 
 if __name__ == "__main__":
-    from guppy import hpy
-    h = hpy()
     parser = argparse.ArgumentParser()
     parser.add_argument("--as_dna", help="convert packets to dna and use dna rules", action="store_true",
                         required=False)
@@ -109,6 +107,4 @@ if __name__ == "__main__":
     if len(input_files) > 1:
         merge_folder_content(os.path.dirname(os.path.realpath(_file)), _file + "combined_split_output",
                              append_folder_name=True, clear_dest_folder=True)
-    print(h.heap())
-    print("Done")
     # input("Press Enter to continue ...")
