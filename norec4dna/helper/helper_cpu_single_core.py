@@ -54,7 +54,7 @@ def calc_crc(data) -> int:
     return zlib.crc32(data) & 0xFFFFFFFF
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=1024)
 def xor_mask(data: typing.Union[int, float, bytes, numpy.ndarray, typing.Iterable], len_format: str = "I",
              mask: int = 0b11111001110000110110111110011100):
     if len_format == "B":

@@ -9,6 +9,7 @@ class Decoder:
         self.file: typing.Optional[str] = file
         self.read_all_before_decode: bool = False
         self.isFolder: bool = False
+        self.isZip: bool = False
         self.progress_bar = None
 
     @staticmethod
@@ -49,11 +50,16 @@ class Decoder:
     def decodeFile(self, *args, **kwargs):
         pass  # implemented in subclasses
 
+    def decodeZip(self, *args, **kwargs):
+        pass  # implemented in subclasses
+
     def set_read_all_before_decode(self, do: bool):
         self.read_all_before_decode = do
 
     def decode(self, *args, **kwargs):
         if self.isFolder:
             return self.decodeFolder(*args, **kwargs)
+        elif self.isZip:
+            return self.decodeZip(*args, **kwargs)
         else:
             return self.decodeFile(*args, **kwargs)

@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
 import argparse
+import io
 import os
 import struct
 import typing
@@ -21,6 +22,7 @@ from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.GEPP import GEPP
 from norec4dna.Decoder import Decoder
 from norec4dna.helper.quaternary2Bin import quat_file_to_bin, quad_file_to_bytes, tranlate_quat_to_byte
+from zipfile import ZipFile
 
 
 class RU10Decoder(Decoder):
@@ -34,6 +36,7 @@ class RU10Decoder(Decoder):
         self.use_method: bool = use_method
         if file is not None:
             self.isFolder = os.path.isdir(file)
+            self.isZip = file.endswith(".zip")
             if not self.isFolder:
                 self.f = open(self.file, "rb")
         self.correct: int = 0
@@ -53,6 +56,48 @@ class RU10Decoder(Decoder):
         self.error_correction: typing.Callable = error_correction
         self.use_headerchunk: bool = use_headerchunk
         self.static_number_of_chunks: typing.Optional[int] = static_number_of_chunks
+
+    def decodeZip(self, packet_len_format: str = "I", crc_len_format: str = "I",
+                  number_of_chunks_len_format: str = "I", id_len_format: str = "I"):
+        if hasattr(self, "f"):
+            self.f.close()
+        decoded = False
+        self.EOF = False
+        if self.static_number_of_chunks is not None:
+            self.number_of_chunks = self.static_number_of_chunks
+            number_of_chunks_len_format = ""  # if we got static number_of_chunks we do not need it in struct string
+        archive = ZipFile(self.file, 'r')
+        namelist = archive.namelist()
+        for name in namelist:
+            self.f = io.BytesIO(archive.read(name))
+            new_pack = self.getNextValidPacket(True, packet_len_format=packet_len_format,
+                                               crc_len_format=crc_len_format,
+                                               number_of_chunks_len_format=number_of_chunks_len_format,
+                                               id_len_format=id_len_format)
+            if hasattr(self, "f"):
+                self.f.close()
+            if new_pack is None:
+                break
+            # koennte durch input_new_packet ersetzt werden:
+            # self.addPacket(new_pack)
+            if new_pack != "CORRUPT":
+                decoded = self.input_new_packet(new_pack)
+            if decoded:
+                break
+            if self.progress_bar is not None:
+                self.progress_bar.update(self.correct, Corrupt=self.corrupt)
+            ##
+        print("Decoded Packets: " + str(self.correct))
+        print("Corrupt Packets: " + str(self.corrupt))
+
+        if self.GEPP is None:
+            print("No Packet was correctly decoded. Check your configuration.")
+            return -1
+        if self.GEPP.isPotentionallySolvable():
+            decoded = self.GEPP.solve()
+        if not decoded and self.EOF:
+            print("Unable to retrieve File from Chunks. Too many errors?")
+            return -1
 
     def decodeFolder(self, packet_len_format: str = "I", crc_len_format: str = "I",
                      number_of_chunks_len_format: str = "I", id_len_format: str = "I"):
@@ -309,7 +354,8 @@ class RU10Decoder(Decoder):
         aux_used_packets = packet.get_bool_array_half_packets()
         for i in range(len(aux_used_packets)):
             if aux_used_packets[i]:
-                res.append((self.ldpcANDhalf[packet.get_number_of_ldpc_blocks() + i].get_bool_array_used_and_ldpc_packets()))
+                res.append(
+                    (self.ldpcANDhalf[packet.get_number_of_ldpc_blocks() + i].get_bool_array_used_and_ldpc_packets()))
         return res
 
     def solve(self, partial=False) -> bool:
@@ -363,7 +409,7 @@ class RU10Decoder(Decoder):
                                     packet_len_format=packet_len_format,
                                     number_of_chunks_len_format=number_of_chunks_len_format,
                                     id_len_format=id_len_format)
-        if res == "CORRUPT":
+        if res == "CORRUPT" and not from_multiple_files:
             res = self.getNextValidPacket(from_multiple_files, packet_len_format=packet_len_format,
                                           crc_len_format=crc_len_format,
                                           number_of_chunks_len_format=number_of_chunks_len_format,

@@ -515,6 +515,7 @@ class RaptorDistribution(Distribution):
         self.f: typing.List[int] = [0, 10241, 491582, 712794, 831695, 948446, 1032189, 1048576]
         self.d: typing.List[int] = [0, 1, 2, 3, 4, 10, 11, 40]
 
+    @lru_cache(8192)
     def smallestPrimeGreaterOrEqual(self, x: int) -> int:
         if x <= self.smallPrimes[len(self.smallPrimes) - 1]:
             p = next(i for i, v in enumerate(self.smallPrimes) if v >= x)
@@ -549,13 +550,13 @@ class RaptorDistribution(Distribution):
         return self.choose(x, int(x / 2))
 
     @staticmethod
-    @lru_cache(maxsize=2048)
+    @lru_cache(maxsize=8192)
     def choose(n: int, r: int) -> int:
         return int(comb(n, r, exact=True))
 
     # Deg function from section 5.4.4.2
     # deg calculates the degree to be used in code block generation.
-    @lru_cache(maxsize=2048)
+    @lru_cache(maxsize=8192)
     def deg(self, v: int) -> int:
         for j in range(1, len(self.f) - 1):
             if v < self.f[j]:
