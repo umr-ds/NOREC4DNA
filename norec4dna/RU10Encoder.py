@@ -197,7 +197,7 @@ class RU10Encoder(Encoder):
                 return None
             chunk_lst: typing.List[int] = [ch for ch in range(start, start + window_size) if
                                            ch <= self.number_of_chunks]
-        elif method == "window:_40":
+        elif method == "window_40":
             window_size = 40
             start = window * (window_size - 10)
             if start > self.number_of_chunks:
