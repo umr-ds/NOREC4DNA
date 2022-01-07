@@ -24,6 +24,8 @@ from norec4dna.Decoder import Decoder
 from norec4dna.helper.quaternary2Bin import quat_file_to_bin, quad_file_to_bytes, tranlate_quat_to_byte
 from zipfile import ZipFile
 
+DEBUG = False
+
 
 class RU10Decoder(Decoder):
     def __init__(self, file: typing.Optional[str] = None, error_correction=nocode, use_headerchunk: bool = True,
@@ -82,6 +84,8 @@ class RU10Decoder(Decoder):
             # self.addPacket(new_pack)
             if new_pack != "CORRUPT":
                 decoded = self.input_new_packet(new_pack)
+            else:
+                if DEBUG: print(f"Packet with name={name} corrupt.")
             if decoded:
                 break
             if self.progress_bar is not None:

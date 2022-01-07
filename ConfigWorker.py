@@ -25,7 +25,8 @@ class ConfigReadAndExecute:
     def warn_unknown_items(self, config):
         known = ["error_correction", "repair_symbols", "as_mode_1_bmp", "number_of_splits", "split_index_position",
                  "split_index_length", "last_split_smaller", "is_null_terminated", "insert_header", "id_len_format",
-                 "number_of_chunks_len_format", "packet_len_format", "crc_len_format", "algorithm", "number_of_chunks"]
+                 "number_of_chunks_len_format", "packet_len_format", "crc_len_format", "algorithm", "number_of_chunks",
+                 "read_all"]
         for cfg in config:
             if cfg not in known:
                 print(f"[Warning] Config-entry '{cfg}' not known!")
@@ -48,6 +49,7 @@ class ConfigReadAndExecute:
         number_of_chunks_len_format = decode_conf.get("number_of_chunks_len_format", "I")  # optional, str
         packet_len_format = decode_conf.get("packet_len_format", "I")  # optional, str
         crc_len_format = decode_conf.get("crc_len_format", "L")  # optional, str
+        read_all_packets = decode_conf.getboolean("read_all", False)
         # extract preconfig steps:
         if number_of_splits != 0:
             split_index_length = find_ceil_power_of_four(number_of_splits)
@@ -85,7 +87,7 @@ class ConfigReadAndExecute:
                                 packet_len_format=packet_len_format, crc_len_format=crc_len_format,
                                 number_of_chunks=number_of_chunks + (
                                     -1 if f_file == last_split_folder and last_split_smaller else 0),
-                                use_header_chunk=use_header_chunk, read_all=False))
+                                use_header_chunk=use_header_chunk, read_all=read_all_packets))
             except Exception as ex:
                 raise ex
         if len(folders) > 1:

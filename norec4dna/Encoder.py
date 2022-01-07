@@ -2,6 +2,7 @@ import os
 import struct
 import math
 from zipfile import ZipFile
+from abc import ABC
 
 import numpy as np
 from math import ceil
@@ -13,7 +14,7 @@ from PIL import Image
 from norec4dna.ErrorCorrection import nocode
 
 
-class Encoder:
+class Encoder(ABC):
     def __init__(self, file: str, number_of_chunks: int, distribution, insert_header: bool = True,
                  pseudo_decoder=None, chunk_size: int = 0, mode_1_bmp: bool = False):
         self.crc_len_format: str = "I"

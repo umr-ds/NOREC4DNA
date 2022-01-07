@@ -250,3 +250,10 @@ class ParallelPacket:
 
     def get_used_packets(self) -> typing.Set[int]:
         return self.used_packets
+
+    def get_struct(self, split_to_multiple_files: bool) -> bytes:
+        packed = self.packed
+        if not split_to_multiple_files:
+            return struct.pack("<" + self.packet_len_format + str(len(packed)) + "s", len(packed), packed)
+        else:
+            return packed
