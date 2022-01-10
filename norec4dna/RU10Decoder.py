@@ -70,6 +70,12 @@ class RU10Decoder(Decoder):
             number_of_chunks_len_format = ""  # if we got static number_of_chunks we do not need it in struct string
         archive = ZipFile(self.file, 'r')
         namelist = archive.namelist()
+        try:
+            nam = [x.split("_") for x in namelist]
+            sorted_by_second = sorted(nam, key=lambda tup: float(tup[1]), reverse=False)
+            namelist = [x[0] + "_" + x[1] for x in sorted_by_second]
+        except Exception:
+            pass
         for name in namelist:
             self.f = io.BytesIO(archive.read(name))
             new_pack = self.getNextValidPacket(True, packet_len_format=packet_len_format,
