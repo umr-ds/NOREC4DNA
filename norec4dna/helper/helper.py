@@ -168,12 +168,6 @@ def split_first(x):
         return split_text[1]
 
 
-from Levenshtein import ratio, distance
-
-print(distance("test", "text"))
-print(ratio('xyxtst', 'test'))
-
-
 def merge_parts(filenames, remove_tmp_on_success=False):
     numbers = [int(split_first(x)) for x in filenames]
     max_num = max(numbers)
