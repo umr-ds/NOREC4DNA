@@ -27,6 +27,8 @@ class GEPP_intern:
     def __init__(self, A: np.array, b: np.array):
         self.A: np.array = A  # input: A is an n x n np matrix
         self.b: np.array = b  # np.fromstring(b, dtype='uint8')  # b is an n x 1 np array
+        self.chunk_to_used_packets: np.array = np.identity(max(len(self.A), len(self.A[0])),
+                                                           dtype=np.bool)  # inverse part
         self.packet_mapping: np.array = np.array([x + 1 for x in range(len(self.A))], dtype=np.uint)
         self.n: int = 0  # n is the length of A
         self.m: int = 0  # m is the width of A
@@ -91,6 +93,9 @@ class GEPP_intern:
         # Create Order Vector
         # self.order = np.array([[i] for i in range(0, self.n)])
         # Elimination
+        if self.chunk_to_used_packets is None:
+            # TODO OR if len(self.chunk_to_used_packets) < len(self.A) fill with Identity rows
+            self.chunk_to_used_packets: np.array = np.identity(len(self.A), dtype=np.bool)  # inverse part
         for k in range(self.m):  # - 1):
             # Pivot
             maxindex = abs(self.A[k:, k]).argmax() + k
@@ -101,6 +106,7 @@ class GEPP_intern:
             if maxindex != k:
                 self.A[[k, maxindex]] = self.A[[maxindex, k]]
                 self.b[[k, maxindex]] = self.b[[maxindex, k]]
+                self.chunk_to_used_packets[[k, maxindex]] = self.chunk_to_used_packets[[maxindex, k]]
                 tmp = self.packet_mapping[maxindex]
                 self.packet_mapping[maxindex] = self.packet_mapping[k]
                 self.packet_mapping[k] = tmp
@@ -110,6 +116,9 @@ class GEPP_intern:
                     self.A[row, k:] = xor_numpy(self.A[row, k:], self.A[k, k:])
                     # Same for data:
                     self.b[row] = xor_numpy(self.b[row], self.b[k])
+                    # same for inverse part
+                    self.chunk_to_used_packets[row] = xor_numpy(self.chunk_to_used_packets[row],
+                                                                self.chunk_to_used_packets[k])
 
         # Eliminate bottom to top:
         for k in range(self.m - 1, -1, -1):
@@ -118,12 +127,15 @@ class GEPP_intern:
                     self.A[row, k:] = xor_numpy(self.A[row, k:], self.A[k, k:])
                     # Same for data:
                     self.b[row] = xor_numpy(self.b[row], self.b[k])
+                    # same for inverse part
+                    self.chunk_to_used_packets[row] = xor_numpy(self.chunk_to_used_packets[row],
+                                                                self.chunk_to_used_packets[k])
 
         self.result_mapping = self.generateResultMapping()
         return self.isSolved()
 
     try:
-        from cdnarules import elimination  # just to trigger exception before running...
+        from cdnarulefs import elimination  # just to trigger exception before running...
 
         def _elimination(self) -> bool:
             from cdnarules import elimination
@@ -164,11 +176,11 @@ def main():
 
     b = np.array(
         [
-            [np.fromstring("Hallo", dtype="uint8")],
-            [np.fromstring("Welt!", dtype="uint8")],
-            [np.fromstring("Test3", dtype="uint8")],
-            [np.fromstring("Test1", dtype="uint8")],
-            [np.fromstring("12345", dtype="uint8")],
+            [np.frombuffer(b"Hallo", dtype="uint8")],
+            [np.frombuffer(b"Welt!", dtype="uint8")],
+            [np.frombuffer(b"Test3", dtype="uint8")],
+            [np.frombuffer(b"Test1", dtype="uint8")],
+            [np.frombuffer(b"12345", dtype="uint8")],
         ]
     )
 
@@ -180,9 +192,15 @@ def main():
     gauss_elim_piv.solve()
     print("Is solved: " + str(gauss_elim_piv.isSolved()))
     print(gauss_elim_piv.A)
-    print([chr(gauss_elim_piv.b[i]) for i in gauss_elim_piv.result_mapping])
+    # print([chr(gauss_elim_piv.b[i]) for i in gauss_elim_piv.result_mapping])
+    print("Chunks used:")
+    print(gauss_elim_piv.chunk_to_used_packets)
     # print([chr(x) for x in gauss_elim_piv.b[2][0]])
 
+    gauss_elem_inverse = GEPP(np.copy(gauss_elim_piv.chunk_to_used_packets), np.copy(gauss_elim_piv.b))
+    gauss_elem_inverse.solve()
+    print("Is solved: " + str(gauss_elem_inverse.isSolved()))
+    print([chr(x) for x in  gauss_elem_inverse.b])
 
 if __name__ == "__main__":
     main()
