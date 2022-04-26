@@ -13,14 +13,14 @@ ID_LEN_FORMAT = "H"
 NUMBER_OF_CHUNKS_LEN_FORMAT = "I"
 CRC_LEN_FORMAT = "I"
 PACKET_LEN_FORMAT = "I"
-DEFAULT_CHUNK_SIZE = 34
+DEFAULT_CHUNK_SIZE = 40
 
 
 class demo_raptor_encode:
     @staticmethod
     def encode(file, asdna=True, chunk_size=DEFAULT_CHUNK_SIZE, error_correction=nocode, insert_header=False,
                save_number_of_chunks_in_packet=False, mode_1_bmp=False, prepend="", append="", upper_bound=0.5,
-               save_as_fasta=True, save_as_zip=True):
+               save_as_fasta=True, save_as_zip=True, overhead=0.40):
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
         dist = RaptorDistribution(number_of_chunks)
         if asdna:
@@ -33,7 +33,7 @@ class demo_raptor_encode:
                         crc_len_format=CRC_LEN_FORMAT, number_of_chunks_len_format=NUMBER_OF_CHUNKS_LEN_FORMAT,
                         id_len_format=ID_LEN_FORMAT, save_number_of_chunks_in_packet=save_number_of_chunks_in_packet,
                         mode_1_bmp=mode_1_bmp, prepend=prepend, append=append, drop_upper_bound=upper_bound)
-        x.set_overhead_limit(0.40)
+        x.set_overhead_limit(overhead)
         x.encode_to_packets()
         if save_as_fasta and asdna:
             x.save_packets_fasta(file_ending="_RU10", seed_is_filename=True)
@@ -68,6 +68,8 @@ if __name__ == "__main__":
                         help="number of subcodings to split input file into")
     parser.add_argument("--drop_upper_bound", metavar="drop_upper_bound", required=False, type=float, default=0.5,
                         help="upper bound for calculated error probability of packet before dropping")
+    parser.add_argument("--overhead", metavar="overhead", required=False, type=float, default=0.40, help="desired overhead of packets")
+
     args = parser.parse_args()
     _file = args.filename
     _as_dna = args.as_dna
@@ -81,6 +83,7 @@ if __name__ == "__main__":
     _error_correction = get_error_correction_encode(args.error_correction, _no_repair_symbols)
     _save_as_fasta = args.save_as_fasta
     _save_as_zip = args.save_as_zip
+    _overhead = args.overhead
     if _number_of_splits > 1:
         input_files = split_file(_file, _number_of_splits)
         power_of_four = find_ceil_power_of_four(len(input_files))
@@ -98,7 +101,7 @@ if __name__ == "__main__":
                                        mode_1_bmp=_mode_1_bmp, insert_header=_insert_header,
                                        append=prepend_matching[_file],
                                        save_number_of_chunks_in_packet=_save_number_of_chunks, upper_bound=_upper_bound,
-                                       save_as_fasta=_save_as_fasta, save_as_zip=_save_as_zip)
+                                       save_as_fasta=_save_as_fasta, save_as_zip=_save_as_zip, overhead=_overhead)
         conf = {'error_correction': args.error_correction, 'repair_symbols': _no_repair_symbols, 'asdna': _as_dna,
                 'number_of_splits': _number_of_splits}
         config_filename = encoder_instance.save_config_file(conf)
