@@ -79,7 +79,8 @@ class OnlineEncoder(Encoder):
         def _encode(pseudo):
             pack = self.create_new_packet()
             if self.rules is not None:
-                while should_drop_packet(self.rules, pack):
+                while should_drop_packet(self.rules, pack, self.upper_bound):
+                    del pack
                     pack = self.create_new_packet()
                     self.ruleDrop += 1
             self.encodedPackets.add(pack)
@@ -143,11 +144,21 @@ class OnlineEncoder(Encoder):
         return len(self.setOfEncodedPackets)
 
     def save_packets(self, split_to_multiple_files: bool, out_file: typing.Optional[str] = None,
-                     save_as_dna: bool = False):
-        fileending = ".ONLINE" + ("_DNA" if save_as_dna else "")
+                     save_as_dna: bool = False, clear_output: bool = True, seed_is_filename: bool = False):
+        """
+        Saves the generated packets either to multiple files or to a single one. It's possible to save the packets
+        either as DNA or binary.
+        :param split_to_multiple_files: True: Saves the packets in multiple files. False: Saves all packets in one file.
+        :param out_file: The location of the output file
+        :param save_as_dna: True: Saves the information in bases. False: Saves the information binary.
+        :param clear_output: Clears the location of the output file.
+        :param seed_is_filename: True: Sets the seed as filename.
+        :return:
+        """
+        file_ending = ".ONLINE" + ("_DNA" if save_as_dna else "")
         if not split_to_multiple_files:
             if out_file is None:
-                out_file = self.file + fileending
+                out_file = self.file + file_ending
             with open(out_file, "wb" if not save_as_dna else "w") as f:
                 for packet in self.encodedPackets:
                     f.write(packet.get_dna_struct(split_to_multiple_files) if save_as_dna else packet.get_struct(
@@ -162,16 +173,26 @@ class OnlineEncoder(Encoder):
                     files = glob.glob(out_file + "/*")
                 else:
                     files = glob.glob(out_file + "*")
-                for f in files:
-                    os.remove(f)
+                if clear_output:
+                    for f in files:
+                        os.remove(f)
             i = 0
+            e_prob = ""
             if not os.path.exists(out_file):
                 os.makedirs(out_file)
-            for packet in self.encodedPackets:
-                with open(out_file + "/" + str(i) + fileending, "wb" if not save_as_dna else "w", ) as f:
-                    f.write(packet.get_dna_struct(split_to_multiple_files) if save_as_dna else packet.get_struct(
-                        split_to_multiple_files))
+            for packet in sorted(self.encodedPackets, key=lambda elem: (elem.error_prob, elem.__hash__())):
+                if seed_is_filename:
+                    i = packet.id
+                    e_prob = (str(ceil(packet.error_prob * 100)) + "_") if packet.error_prob is not None else ""
+                with open(out_file + "/" + e_prob + str(i) + file_ending, "wb" if not save_as_dna else "w") as f:
+                    f.write(
+                        packet.get_dna_struct(split_to_multiple_files)
+                        if save_as_dna
+                        else packet.get_struct(split_to_multiple_files)
+                    )
                 i += 1
+            self.out_file = os.path.relpath(out_file)
+            print("Config: " + self.getConfigStr(out_file))
 
     def create_new_packet(self, seed=None) -> OnlinePacket:
         """ Creates a new CheckBlock """

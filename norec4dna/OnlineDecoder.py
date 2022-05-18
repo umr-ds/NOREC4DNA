@@ -21,7 +21,7 @@ from norec4dna.helper.quaternary2Bin import quat_file_to_bin, tranlate_quat_to_b
 class OnlineDecoder(Decoder):
     def __init__(self, file: typing.Optional[str] = None,
                  error_correction: typing.Callable[[typing.Any], typing.Any] = nocode, use_headerchunk: bool = True,
-                 static_number_of_chunks: typing.Optional[int] = None):
+                 static_number_of_chunks: typing.Optional[int] = None, read_all=True):
         super().__init__(file)
         self.debug: bool = False
         self.isPseudo: bool = False
@@ -41,7 +41,7 @@ class OnlineDecoder(Decoder):
         self.auxBlocks: typing.Dict[int, OnlineAuxPacket] = dict()
         self.GEPP: typing.Optional[GEPP] = None
         self.dist: typing.Optional[typing.Union[OnlineDistribution, Distribution]] = None
-        self.read_all_before_decode: bool = True
+        self.read_all_before_decode: bool = read_all
         self.numberOfDecodedAuxBlocks: int = 0
         self.do_count: bool = True
         self.counter: typing.Dict[int, int] = dict()
@@ -295,7 +295,7 @@ class OnlineDecoder(Decoder):
                 self.headerChunk = HeaderChunk(decoded, last_chunk_len_format=last_chunk_len_format)
 
     def saveDecodedFile(self, last_chunk_len_format: str = "I", null_is_terminator: bool = False,
-                        print_to_output: bool = True) -> None:
+                        print_to_output: bool = False) -> None:
         assert self.is_decoded(), "Can not save File: Unable to reconstruct."
         if self.use_headerchunk:
             self.headerChunk = HeaderChunk(
