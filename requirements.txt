@@ -1,5 +1,5 @@
 llvmlite==0.36.0
-numpy==1.21.0
+numpy==1.19.0
 scipy==1.8.1
 numba==0.55.1
 requests==2.27.1
