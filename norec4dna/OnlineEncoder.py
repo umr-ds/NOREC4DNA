@@ -30,7 +30,7 @@ class OnlineEncoder(Encoder):
                  number_of_chunks_len_format: str = "I", quality_len_format: str = "I", epsilon_len_format: str = "f",
                  check_block_number_len_format: str = "I",
                  error_correction: typing.Callable[[typing.Any], typing.Any] = nocode,
-                 save_number_of_chunks_in_packet=True, drop_upper_bound=0.0):
+                 save_number_of_chunks_in_packet=True, drop_upper_bound=1.0):
         super().__init__(file, number_of_chunks, distribution, insert_header, pseudo_decoder, chunk_size)
         assert (number_of_chunks >= distribution.get_size()), "Epsilon too small for desired number_of_chunks"
         self.out_file: typing.Optional[str] = None

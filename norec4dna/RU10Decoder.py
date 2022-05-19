@@ -149,7 +149,7 @@ class RU10Decoder(Decoder):
                                                    crc_len_format=crc_len_format,
                                                    number_of_chunks_len_format=number_of_chunks_len_format,
                                                    id_len_format=id_len_format)
-                if new_pack is not None:
+                if new_pack is not None and new_pack != "CORRUPT":
                     # koennte durch input_new_packet ersetzt werden:
                     # self.addPacket(new_pack)
                     decoded = self.input_new_packet(new_pack)
