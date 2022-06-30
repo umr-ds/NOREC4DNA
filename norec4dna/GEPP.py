@@ -45,7 +45,11 @@ class GEPP_intern:
             if diff > 0 and partial:
                 for _ in range(diff):
                     self.A = np.vstack((self.A, np.full((1, len(self.A[0])), False, bool)))
-                    self.b = np.vstack((self.b, np.array([0 for x in range(len(self.b[0]))], dtype="uint8")))
+                    if self.b.ndim == 1:
+                        tmp = len(self.b)
+                    else:
+                        tmp = len(self.b[0])
+                    self.b = np.vstack((self.b, np.array([0 for x in range(tmp)], dtype="uint8")))
                     self.packet_mapping = np.concatenate((self.packet_mapping, [len(self.A) + 1]))
                 self._update_input()
             return self._elimination()
