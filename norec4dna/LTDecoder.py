@@ -158,8 +158,8 @@ class LTDecoder(Decoder):
             return self.GEPP.solve(partial=False)
         return False
 
-    def solve(self) -> bool:
-        return self.GEPP.solve()
+    def solve(self, partial=False) -> bool:
+        return self.GEPP.solve(partial)
 
     def getSolvedCount(self) -> int:
         return self.GEPP.getSolvedCount()
@@ -205,8 +205,12 @@ class LTDecoder(Decoder):
         return res
 
     def saveDecodedFile(self, last_chunk_len_format: str = "I", null_is_terminator: bool = False,
-                        print_to_output: bool = True) -> None:
-        assert self.is_decoded(), "Can not save File: Unable to reconstruct."
+                        print_to_output: bool = True, return_file_name=False, partial_decoding: bool = True) -> \
+            typing.Union[bytes, str]:
+        assert self.is_decoded() or partial_decoding, "Can not save File: Unable to reconstruct."
+        if partial_decoding:
+            self.solve(partial=True)
+        dirty = False
         if self.use_headerchunk:
             self.headerChunk = HeaderChunk(Packet(self.GEPP.b[0], {0}, self.number_of_chunks, read_only=True),
                                            last_chunk_len_format=last_chunk_len_format)
@@ -218,6 +222,10 @@ class LTDecoder(Decoder):
         try:
             with open(file_name, "wb") as f:
                 for x in self.GEPP.result_mapping:
+                    if x < 0:
+                        f.write(b"\x00" * len(self.GEPP.b[x][0]))
+                        dirty = True
+                        continue
                     if 0 != x or not self.use_headerchunk:
                         if self.number_of_chunks - 1 == x and self.use_headerchunk:
                             output: typing.Union[bytes, np.array] = self.GEPP.b[x][0][
@@ -240,11 +248,16 @@ class LTDecoder(Decoder):
                                 output_concat += output.tobytes()
                                 f.write(output)
             print("Saved file as '" + str(file_name) + "'")
+            if dirty:
+                print("Some parts could not be restored, file WILL contain sections with \\x00 !")
+            if print_to_output:
+                print("Result:")
+                print(output_concat.decode("utf-8"))
         except Exception as ex:
             raise ex
-        if print_to_output:
-            print("Result:")
-            print(output_concat.decode("utf-8"))
+        if return_file_name:
+            return file_name
+        return output_concat
 
     def parse_raw_packet(self, packet: bytes, crc_len_format: str = "L", number_of_chunks_len_format: str = "I",
                          degree_len_format: str = "I", seed_len_format: str = "I") -> typing.Union[str, Packet]:
