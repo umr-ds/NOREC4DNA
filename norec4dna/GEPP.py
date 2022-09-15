@@ -28,7 +28,7 @@ class GEPP_intern:
         self.A: np.array = A  # input: A is an n x n np matrix
         self.b: np.array = b  # np.fromstring(b, dtype='uint8')  # b is an n x 1 np array
         self.chunk_to_used_packets: np.array = np.identity(max(len(self.A), len(self.A[0])),
-                                                           dtype=np.bool)  # inverse part
+                                                           dtype=bool)  # inverse part
         self.packet_mapping: np.array = np.array([x + 1 for x in range(len(self.A))], dtype=np.uint)
         self.n: int = 0  # n is the length of A
         self.m: int = 0  # m is the width of A
@@ -170,6 +170,43 @@ class GEPP_intern:
     def getSolvedCount(self) -> int:
         return len(set(x[0] for x in self.result_mapping))
 
+    def get_common_packets(self, chunk_id_lst: typing.List[int], valid_chunks_lst: typing.List[int] = None) -> np.array:
+        """
+        returns a list of packets that are used to reconstruct all chunks in chunk_id_lst
+        :param chunk_id_lst: list of chunk ids that contain invalid data (corrupted)
+        :param valid_chunks_lst: list of chunk ids that contain valid data (not corrupted)
+        """
+        #TODO: if there is no combination of packets that were used for all defined chunks, then return the minimum list of packets that were used for these chunks
+        # additionally one could define an additional paramter with a list of all known _GOOD_ chunks,
+        # this could then be used as a negative list of packets -> we know that all packets involved in the decoding of that packet must be correct
+        if self.chunk_to_used_packets is None:
+            return None
+        res = np.ones(max(len(self.A), len(self.A[0])), dtype=bool)
+        for i in chunk_id_lst:
+            res = np.logical_and(res, self.chunk_to_used_packets[i])
+        for i in valid_chunks_lst:
+            res = np.logical_and(res, np.invert(self.chunk_to_used_packets[i]))
+        return res
+
+    def remove_row(self, row_id):
+        """
+        removes the row with the given id from the matrix
+        - we might use this option to remove packets that were detected as invalid [manual or (semi-)automatic]
+        """
+        self.A = np.delete(self.A, row_id, 0)
+        self.b = np.delete(self.b, row_id, 0)
+        self.packet_mapping = np.delete(self.packet_mapping, row_id, 0)
+        self._update_input()
+        self._elimination()
+
+    def find_missing_chunks(self):
+        """
+        returns all chunks from A that do not appear in any received packet and would thus reduce to the complete result
+        """
+        res = np.zeros(len(self.A[0]), dtype=bool)
+        for line in self.A:
+            res = np.logical_or(res, line)
+        return np.invert(res)
 
 def main():
     A = np.array([[0, 1, 0, 1], [0, 0, 1, 0], [0, 1, 1, 0], [0, 1, 0, 0], [1, 1, 1, 0]], dtype=bool)
@@ -192,15 +229,26 @@ def main():
     gauss_elim_piv.solve()
     print("Is solved: " + str(gauss_elim_piv.isSolved()))
     print(gauss_elim_piv.A)
-    # print([chr(gauss_elim_piv.b[i]) for i in gauss_elim_piv.result_mapping])
+    print([i[0] for i in gauss_elim_piv.result_mapping])
     print("Chunks used:")
     print(gauss_elim_piv.chunk_to_used_packets)
+    print("Common packets:")
+    print(gauss_elim_piv.get_common_packets([1, 3], [2]))
+    print("Missing chunks:")
+    print(gauss_elim_piv.find_missing_chunks())
     # print([chr(x) for x in gauss_elim_piv.b[2][0]])
 
     gauss_elem_inverse = GEPP(np.copy(gauss_elim_piv.chunk_to_used_packets), np.copy(gauss_elim_piv.b))
     gauss_elem_inverse.solve()
     print("Is solved: " + str(gauss_elem_inverse.isSolved()))
-    print([chr(x) for x in  gauss_elem_inverse.b])
+    print([chr(x) for x in gauss_elem_inverse.b])
 
+
+# TODO: add inverse function to c implementation
+# TODO: create function that takes a list of chunks and returns the packets that were involoved in the decoding of ALL(!) of these chunks
+# this is needed to find out which packet was responsible for the invalid chunks
+
+
+# TODO: create a function that analyses GEPP.A and return the missing chunks/packets that would allow to solve the system
 if __name__ == "__main__":
     main()
