@@ -35,7 +35,7 @@ class RU10Decoder(Decoder):
         super().__init__()
         if checksum_len_str is None:
             self.checksum_len_str = ""
-        if not use_headerchunk and checksum_len_str != "":
+        if not use_headerchunk and (checksum_len_str != "" and checksum_len_str is not None):
             raise Exception("Header-checksums are only supported with headerchunks.")
         self.checksum_len_str = checksum_len_str
         self.isPseudo: bool = False
@@ -593,7 +593,7 @@ class RU10Decoder(Decoder):
                                 output_concat += output.tobytes()
                             f.write(output)
         print("Saved file as '" + str(file_name) + "'")
-        if self.checksum_len_str != "":
+        if self.checksum_len_str is not None and self.checksum_len_str != "":
             decoded_crc = calc_file_crc(file_name, self.checksum_len_str)
             if self.headerChunk.checksum != decoded_crc:
                 print("Decoded CRC:", decoded_crc)
