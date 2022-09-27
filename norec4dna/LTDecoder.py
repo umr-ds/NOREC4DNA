@@ -151,7 +151,7 @@ class LTDecoder(Decoder):
                     self.counter[i] = 1
         if self.GEPP is None:
             self.GEPP = GEPP(np.array([packet.get_bool_array_used_packets()], dtype=bool),
-                             np.array([[packet.get_data()]], dtype=bytes), )
+                             np.frombuffer(packet.get_data(), dtype="uint8"), )
         else:
             self.GEPP.addRow(packet.get_bool_array_used_packets(), np.frombuffer(packet.get_data(), dtype="uint8"), )
         if self.isPseudo and not self.read_all_before_decode and self.GEPP.isPotentionallySolvable():

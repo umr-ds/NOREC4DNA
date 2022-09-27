@@ -196,7 +196,7 @@ class OnlineDecoder(Decoder):
                     self.counter[i] = 1
         if self.GEPP is None:
             self.GEPP: GEPP = GEPP(numpy.array([removed], dtype=bool),
-                                   numpy.array([[packet.get_data()]], dtype=bytes), )
+                                   numpy.frombuffer(packet.get_data(), dtype="uint8"), )
         else:
             self.GEPP.addRow(self.removeAndXorAuxPackets(packet), numpy.frombuffer(packet.get_data(), dtype="uint8"), )
         if self.isPseudo and not self.read_all_before_decode and (
