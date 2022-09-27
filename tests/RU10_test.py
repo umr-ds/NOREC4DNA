@@ -39,7 +39,7 @@ def run_between_tests():
 @pytest.mark.parametrize("headerchunk", [True, False])
 @pytest.mark.parametrize("checksum_len_str", ["", "I", "H", "B"])
 def test_suite(as_dna, chunk_size, dna_rules, error_correction, headerchunk, checksum_len_str):
-    if headerchunk and checksum_len_str != "":
+    if not headerchunk and checksum_len_str != "":
         return # not supported
     chunksize = chunk_size
     number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunksize)

@@ -35,14 +35,14 @@ class HeaderChunk:
         else:
             checksum_struct_len = 0
         data: bytes = self.data
-        end_of_file_name: int = data.find(0x00, last_chunk_struct_len + 1) - checksum_struct_len
+        end_of_file_name: int = data.find(0x00, last_chunk_struct_len + 1)
         if end_of_file_name < 0:
             end_of_file_name = len(data)
         if self.checksum_len_format is not None and self.checksum_len_format != "":
             checksum_struct_len: int = struct.calcsize("<" + self.checksum_len_format)
-            self.checksum: int = struct.unpack("<" + self.checksum_len_format, data[last_chunk_struct_len:checksum_struct_len])[0]
+            self.checksum: int = struct.unpack("<" + self.checksum_len_format, data[last_chunk_struct_len:last_chunk_struct_len+checksum_struct_len])[0]
         file_name: typing.Union[str, bytes] = \
-            struct.unpack("<" + str(len(data[last_chunk_struct_len:end_of_file_name])) + "s",
+            struct.unpack("<" + str(len(data[last_chunk_struct_len+checksum_struct_len:end_of_file_name])) + "s",
                           data[last_chunk_struct_len+checksum_struct_len:end_of_file_name])[0]
         return last_chunk_length, file_name
 

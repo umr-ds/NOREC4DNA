@@ -291,7 +291,7 @@ class RU10Decoder(Decoder):
                 else:
                     self.counter[i] = 1
         if self.GEPP is None:
-            self.GEPP = GEPP(np.array([removed], dtype=bool), np.array([[packet.get_data()]], dtype=bytes), )
+            self.GEPP = GEPP(np.array([removed], dtype=bool), np.frombuffer(packet.get_data(), dtype="uint8"), )
         else:
             self.GEPP.addRow(np.array(removed, dtype=bool), np.frombuffer(packet.get_data(), dtype="uint8"), )
         if (self.isPseudo or not self.read_all_before_decode) and self.GEPP.isPotentionallySolvable():
