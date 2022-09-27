@@ -74,7 +74,7 @@ class Encoder(ABC):
         self.encodedPackets.add(packet)
         return packet
 
-    def encode_header_info(self, checksum: bytes, checksum_len_str: str = None) -> bytes:
+    def encode_header_info(self, checksum: bytes, checksum_len_str: str = None, last_chunk_len_format = "I") -> bytes:
         # Size of last Chunk
         # Filename
         # PAD-Bytes
@@ -83,12 +83,13 @@ class Encoder(ABC):
         last_chunk = self.chunks[-1]
         file_name_only = os.path.basename(self.file)
         file_name_length = len(bytes(file_name_only, encoding="utf-8"))
-        assert file_name_length + 4 + struct.calcsize(checksum_len_str) < self.chunk_size, "Chunks too small for HeaderInfo"
-        struct_string = ("<I" + str(file_name_length) + "s" + checksum_len_str + str(
-            self.chunk_size - file_name_length - 4 - struct.calcsize(checksum_len_str)) + "x")  # -4 for bytes to store length of last_chunk (I)
+        assert file_name_length + 4 + struct.calcsize("" + last_chunk_len_format + checksum_len_str) < self.chunk_size,\
+            "Chunks too small for HeaderInfo"
+        struct_string = ("<" + last_chunk_len_format + checksum_len_str + str(file_name_length) + "s" + str(
+            self.chunk_size - file_name_length - struct.calcsize("" + last_chunk_len_format + checksum_len_str)) + "x")
         if checksum_len_str == "":
             return struct.pack(struct_string, len(last_chunk), bytes(file_name_only, encoding="utf-8"))
-        return struct.pack(struct_string, len(last_chunk), bytes(file_name_only, encoding="utf-8"), checksum)
+        return struct.pack(struct_string, len(last_chunk), checksum, bytes(file_name_only, encoding="utf-8"))
 
     def fill_last_chunk(self):
         last = self.chunks[-1]
