@@ -380,7 +380,7 @@ def main(in_file: str, num_chunks=0, chunk_size=0, as_dna=True,
     x.encode_to_packets()
     x.save_packets(True, save_as_dna=as_dna, seed_is_filename=False)
     conf = {'error_correction': e_correction, 'repair_symbols': norepair_symbols, 'asdna': as_dna,
-            'number_of_splits': 0, 'find_minimum_mode': True, 'seq_seed': False}
+            'number_of_splits': 0, 'find_minimum_mode': True, 'seq_seed': False, 'read_all': True}
     x.save_config_file(conf, section_name="RU10_" + in_file)
 
 

@@ -103,7 +103,7 @@ if __name__ == "__main__":
                                        save_number_of_chunks_in_packet=_save_number_of_chunks, upper_bound=_upper_bound,
                                        save_as_fasta=_save_as_fasta, save_as_zip=_save_as_zip, overhead=_overhead)
         conf = {'error_correction': args.error_correction, 'repair_symbols': _no_repair_symbols, 'asdna': _as_dna,
-                'number_of_splits': _number_of_splits}
+                'number_of_splits': _number_of_splits, 'read_all': True}
         config_filename = encoder_instance.save_config_file(conf)
         print("Saved config file: %s" % config_filename)
 
