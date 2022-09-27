@@ -2,6 +2,8 @@ import math
 import os
 import shutil
 
+import crcmod
+
 mode = "single_cpu"
 
 if mode == "gpu":
@@ -192,6 +194,22 @@ def merge_parts(filenames, remove_tmp_on_success=False):
             os.remove(base_name + "." + str(i))
 
 
+def calc_file_crc(filename, crc_len_str="I", chunksize=65536):
+    if crc_len_str == "B":
+        algo = crcmod.predefined.mkPredefinedCrcFun("crc-8")
+    elif crc_len_str == "H":
+        algo = crcmod.predefined.mkCrcFun('crc-16')
+    elif crc_len_str == "I":
+        algo = crcmod.predefined.mkCrcFun('crc-32') # zlib.crc32
+    else:
+        raise ValueError("crc_len_str must be one of B, H, I")
+    with open(filename, "rb") as f:
+        checksum = 0
+        while chunk := f.read(chunksize):
+            checksum = algo(chunk, checksum)
+        return checksum
+
 if __name__ == "__main__":
     print(os.listdir(os.path.curdir))
-    merge_folder_content("../../split_Dorn", "../../Dorn_combined_split_output", True, True)
+    print(calc_file_crc("../../logo.jpg", "I"))
+    #merge_folder_content("../../split_Dorn", "../../Dorn_combined_split_output", True, True)

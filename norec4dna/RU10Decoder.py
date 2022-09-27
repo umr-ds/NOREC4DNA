@@ -17,7 +17,7 @@ from norec4dna.Packet import Packet
 from norec4dna.HeaderChunk import HeaderChunk
 from norec4dna.RU10IntermediatePacket import RU10IntermediatePacket
 from norec4dna.RU10Packet import RU10Packet
-from norec4dna.helper import logical_xor, xor_mask, buildGraySequence, bitSet
+from norec4dna.helper import logical_xor, xor_mask, buildGraySequence, bitSet, calc_file_crc
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.GEPP import GEPP
 from norec4dna.Decoder import Decoder
@@ -29,9 +29,15 @@ DEBUG = False
 
 class RU10Decoder(Decoder):
     def __init__(self, file: typing.Optional[str] = None, error_correction=nocode, use_headerchunk: bool = True,
-                 static_number_of_chunks: typing.Optional[int] = None, use_method: bool = False):
+                 static_number_of_chunks: typing.Optional[int] = None, use_method: bool = False,
+                 checksum_len_str: str = None):
         self.debug = False
         super().__init__()
+        if checksum_len_str is None:
+            self.checksum_len_str = ""
+        if not use_headerchunk and checksum_len_str != "":
+            raise Exception("Header-checksums are only supported with headerchunks.")
+        self.checksum_len_str = checksum_len_str
         self.isPseudo: bool = False
         self.file: typing.Optional[str] = file
         self.degreeToPacket: dict = {}
@@ -548,7 +554,7 @@ class RU10Decoder(Decoder):
             if header_row >= 0:
                 self.headerChunk = HeaderChunk(
                     Packet(self.GEPP.b[header_row], {0}, self.number_of_chunks, read_only=True),
-                    last_chunk_len_format=last_chunk_len_format)
+                    last_chunk_len_format=last_chunk_len_format, checksum_len_format=self.checksum_len_str)
         file_name = "DEC_" + os.path.basename(self.file) if self.file is not None else "RU10.BIN"
         output_concat = b""
         if self.headerChunk is not None:
@@ -587,6 +593,12 @@ class RU10Decoder(Decoder):
                                 output_concat += output.tobytes()
                             f.write(output)
         print("Saved file as '" + str(file_name) + "'")
+        if self.checksum_len_str != "":
+            decoded_crc = calc_file_crc(file_name, self.checksum_len_str)
+            if self.headerChunk.checksum != decoded_crc:
+                print("Decoded CRC:", decoded_crc)
+                print("Header CRC:", self.headerChunk.checksum)
+                raise ValueError("Checksum of decoded file does not match checksum in header chunk!")
         if dirty:
             print("Some parts could not be restored, file WILL contain sections with \\x00 !")
         if print_to_output:
@@ -627,10 +639,10 @@ class RU10Decoder(Decoder):
 
 
 def main(file: str, number_of_chunks: int, error_correction: typing.Callable = nocode, insert_header: bool = False,
-         mode_1_bmp: bool = False):
+         mode_1_bmp: bool = False,_header_crc_str: str = None):
     print("Pure Gauss-Mode")
     x = RU10Decoder(file, use_headerchunk=insert_header, error_correction=error_correction,
-                    static_number_of_chunks=number_of_chunks)
+                    static_number_of_chunks=number_of_chunks, checksum_len_str=_header_crc_str)
     x.decode(id_len_format="I", number_of_chunks_len_format="I")
     x.saveDecodedFile(null_is_terminator=False, print_to_output=False)
 
@@ -648,6 +660,7 @@ if __name__ == "__main__":
     parser.add_argument("--number_of_chunks", metavar="number_of_chunks", required=True, type=int)
     parser.add_argument("--repair_symbols", metavar="repair_symbols", type=int, required=False, default=2,
                         help="number of repair symbols for ReedSolomon (default=2)")
+    parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
     parser.add_argument("--as_mode_1_bmp", required=False, action="store_true",
                         help="convert to a header-less B/W BMP format. (use only for image/bmp input)")
     args = parser.parse_args()
@@ -657,6 +670,7 @@ if __name__ == "__main__":
     _mode_1_bmp = args.as_mode_1_bmp
     _number_of_chunks = args.number_of_chunks
     _error_correction = get_error_correction_decode(args.error_correction, _repair_symbols)
+    _header_crc_str = args.header_crc_str
     print("File / Folder to decode: " + str(_file))
-    main(_file, _number_of_chunks, _error_correction, _insert_header, _mode_1_bmp)
+    main(_file, _number_of_chunks, _error_correction, _insert_header, _mode_1_bmp, _header_crc_str)
     print("Decoding finished.")
