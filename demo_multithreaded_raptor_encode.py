@@ -32,7 +32,7 @@ def create_progress_bar(max_value):
 
 
 def encode(p_output, file, as_dna=True, error_correction=nocode, insert_header=False,
-           save_number_of_chunks_in_packet=False, overhead=6.0, clear_output=False):
+           save_number_of_chunks_in_packet=False, overhead=6.0, clear_output=False, checksum_len_str=None):
     number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, CHUNK_SIZE)
     dist = RaptorDistribution(number_of_chunks)
     dna_rules = FastDNARules()
@@ -42,7 +42,7 @@ def encode(p_output, file, as_dna=True, error_correction=nocode, insert_header=F
         rules = None
     x = RU10Encoder(file, number_of_chunks, dist, chunk_size=CHUNK_SIZE, insert_header=insert_header, rules=rules,
                     error_correction=error_correction, id_len_format="H", number_of_chunks_len_format="B",
-                    save_number_of_chunks_in_packet=save_number_of_chunks_in_packet)
+                    save_number_of_chunks_in_packet=save_number_of_chunks_in_packet, checksum_len_str=checksum_len_str)
     x.set_overhead_limit(overhead)
     x.encode_to_packets()
     p_output.send([ParallelPacket.from_packet(packet) for packet in x.encodedPackets])
@@ -67,6 +67,7 @@ if __name__ == "__main__":
     parser.add_argument("--repair_symbols", metavar="repair_symbols", required=False, type=int, default=2,
                         help="number of repair symbols for ReedSolomon (default=2)")
     parser.add_argument("--insert_header", metavar="insert_header", required=False, type=bool, default=False)
+    parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
     parser.add_argument("--save_number_of_chunks", metavar="save_number_of_chunks", required=False, type=bool,
                         default=False)
     args = parser.parse_args()
@@ -76,6 +77,7 @@ if __name__ == "__main__":
     _repair_symbols = args.repair_symbols
     _insert_header = args.insert_header
     _save_number_of_chunks = args.save_number_of_chunks
+    _header_crc_str = args.header_crc_str
     _error_correction = get_error_correction_encode(args.error_correction, _repair_symbols)
     print("File to encode: " + str(_file))
 
@@ -120,7 +122,7 @@ if __name__ == "__main__":
 
     _number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(_file, CHUNK_SIZE)
     _dist = RaptorDistribution(_number_of_chunks)
-    tmp = RU10Encoder(_file, _as_dna, distribution=_dist, chunk_size=CHUNK_SIZE)
+    tmp = RU10Encoder(_file, _as_dna, distribution=_dist, chunk_size=CHUNK_SIZE, checksum_len_str=_header_crc_str)
     tmp.encodedPackets = res
     tmp.save_packets(True, save_as_dna=_as_dna, clear_output=True, seed_is_filename=True)
 

@@ -28,7 +28,8 @@ class demo_decode:
     def decode(file, error_correction=nocode, null_is_terminator=False, mode_1_bmp=False,
                number_of_chunks=STATIC_NUM_CHUNKS, use_header_chunk=False, id_len_format=ID_LEN_FORMAT,
                number_of_chunks_len_format=NUMBER_OF_CHUNKS_LEN_FORMAT, packet_len_format=PACKET_LEN_FORMAT,
-               crc_len_format=CRC_LEN_FORMAT, read_all=READ_ALL_BEFORE_DECODER, distribution_cfg_str=""):
+               crc_len_format=CRC_LEN_FORMAT, read_all=READ_ALL_BEFORE_DECODER, distribution_cfg_str="",
+               checksum_len_str=None):
         dist = ErlichZielinskiRobustSolitonDistribution(number_of_chunks, seed=2)
         if distribution_cfg_str != "":
             # parse distribution_cfg_str and create distribution with the defined settings...
@@ -58,7 +59,8 @@ class demo_decode:
         print("[X/2] Falling back to Gauss-Mode")
         print("Falling back to Gauss-Mode")
         decoder = LTDecoder(file, error_correction=error_correction, use_headerchunk=use_header_chunk,
-                            static_number_of_chunks=number_of_chunks, implicit_mode=IMPLICIT_MODE, dist=dist)
+                            static_number_of_chunks=number_of_chunks, implicit_mode=IMPLICIT_MODE, dist=dist,
+                            checksum_len_str=checksum_len_str)
         decoder.read_all_before_decode = read_all
         decoder.decode(number_of_chunks_len_format=number_of_chunks_len_format, seed_len_format=id_len_format,
                        degree_len_format="H")
@@ -74,16 +76,18 @@ if __name__ == "__main__":
                             default="nocode",
                             help="Error Correction Method to use; possible values: \
                                 nocode, crc, reedsolomon (default=nocode)")
+        parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
         parser.add_argument("--repair_symbols", metavar="repair_symbols", type=int, required=False, default=2,
                             help="number of repair symbols for ReedSolomon (default=2)")
         args = parser.parse_args()
         filename = args.filename
         e_correction_str = args.error_correction
         norepair_symbols = args.repair_symbols
+        _header_crc_str = args.header_crc_str
         error_correction = get_error_correction_decode(e_correction_str, norepair_symbols)
         print("Zu dekodierende Datei / Ordner: " + str(filename))
         demo = demo_decode()
-        demo.decode(filename, error_correction=error_correction)
+        demo.decode(filename, error_correction=error_correction, checksum_len_str=_header_crc_str)
     except Exception as e:
         print(e)
     # input("Press Enter to continue ...")

@@ -18,7 +18,7 @@ class demo_encode:
     @staticmethod
     def encode(file, error_correction=nocode, insert_header=INSERT_HEADER,
                save_number_of_chunks=NUMBER_OF_CHUNKS_IN_PACKET, save_as_fasta=True, save_as_zip=True, overhead=5.0,
-               upper_bound=1.0):
+               upper_bound=1.0, checksum_len_str=None):
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size=CHUNK_SIZE,
                                                                                  insert_header=insert_header)
         print("Number of Chunks=%s" % number_of_chunks)
@@ -28,7 +28,9 @@ class demo_encode:
         encoder = LTEncoder(file, number_of_chunks, dist, insert_header=insert_header, rules=DNARules_ErlichZielinski(),
                             error_correction=error_correction, number_of_chunks_len_format="H", id_len_format="H",
                             used_packets_len_format="H", save_number_of_chunks_in_packet=save_number_of_chunks,
-                            implicit_mode=IMPLICIT_MODE, drop_upper_bound=upper_bound)
+                            implicit_mode=IMPLICIT_MODE, drop_upper_bound=upper_bound,
+                            checksum_len_str=checksum_len_str)
+
         encoder.set_overhead_limit(overhead)
         encoder.encode_to_packets()
         if save_as_fasta:
@@ -57,6 +59,7 @@ if __name__ == "__main__":
                         default=False)
     parser.add_argument("--save_as_fasta", action="store_true", required=False)
     parser.add_argument("--save_as_zip", action="store_true", required=False)
+    parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
     parser.add_argument("--drop_upper_bound", metavar="drop_upper_bound", required=False, type=float, default=0.5,
                         help="upper bound for calculated error probability of packet before dropping")
     parser.add_argument("--overhead", metavar="overhead", required=False, type=float, default=0.40,
@@ -72,12 +75,13 @@ if __name__ == "__main__":
     _save_as_fasta = args.save_as_fasta
     _save_as_zip = args.save_as_zip
     _overhead = args.overhead
+    _header_crc_str = args.header_crc_str
     print("File to encode: " + str(filename))
     demo = demo_encode()
     encoder_instance = demo.encode(filename, error_correction=_error_correction,
                                    insert_header=_insert_header, save_number_of_chunks=_save_number_of_chunks,
                                    save_as_fasta=_save_as_fasta, save_as_zip=_save_as_zip, overhead=_overhead,
-                                   upper_bound=_upper_bound)
+                                   upper_bound=_upper_bound, checksum_len_str=_header_crc_str)
     conf = {'error_correction': args.error_correction, 'repair_symbols': _repair_symbols, 'asdna': True,
             'number_of_splits': 0}
     config_filename = encoder_instance.save_config_file(conf, section_name="LT" + filename)
