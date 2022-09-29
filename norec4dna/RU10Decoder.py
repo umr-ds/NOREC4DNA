@@ -109,7 +109,7 @@ class RU10Decoder(Decoder):
         if self.GEPP is None:
             print("No Packet was correctly decoded. Check your configuration.")
             return -1
-        if self.GEPP.isPotentionallySolvable():
+        if self.GEPP.isPotentionallySolvable() and not self.read_all_before_decode:
             decoded = self.GEPP.solve()
         if not decoded and self.EOF:
             print("Unable to retrieve File from Chunks. Too many errors?")
