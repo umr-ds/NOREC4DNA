@@ -14,20 +14,15 @@ from norec4dna.OnlineAuxPacket import OnlineAuxPacket
 from norec4dna.distributions.OnlineDistribution import OnlineDistribution
 from norec4dna.HeaderChunk import HeaderChunk
 from norec4dna.GEPP import GEPP
-from norec4dna.helper import logical_xor, calc_crc, xor_mask, calc_file_crc
+from norec4dna.helper import logical_xor, calc_crc, xor_mask
 from norec4dna.helper.quaternary2Bin import quat_file_to_bin, tranlate_quat_to_byte
 
 
 class OnlineDecoder(Decoder):
     def __init__(self, file: typing.Optional[str] = None,
                  error_correction: typing.Callable[[typing.Any], typing.Any] = nocode, use_headerchunk: bool = True,
-                 static_number_of_chunks: typing.Optional[int] = None, read_all=True, checksum_len_str:str = None):
+                 static_number_of_chunks: typing.Optional[int] = None, read_all=True):
         super().__init__(file)
-        if checksum_len_str is None:
-            self.checksum_len_str = ""
-        if not use_headerchunk and (checksum_len_str != "" and checksum_len_str is not None):
-            raise Exception("Header-checksums are only supported with headerchunks.")
-        self.checksum_len_str = checksum_len_str
         self.debug: bool = False
         self.isPseudo: bool = False
         self.file: str = file
@@ -201,7 +196,7 @@ class OnlineDecoder(Decoder):
                     self.counter[i] = 1
         if self.GEPP is None:
             self.GEPP: GEPP = GEPP(numpy.array([removed], dtype=bool),
-                                   numpy.frombuffer(packet.get_data(), dtype="uint8"), )
+                                   numpy.array([[packet.get_data()]], dtype=bytes), )
         else:
             self.GEPP.addRow(self.removeAndXorAuxPackets(packet), numpy.frombuffer(packet.get_data(), dtype="uint8"), )
         if self.isPseudo and not self.read_all_before_decode and (
@@ -297,8 +292,7 @@ class OnlineDecoder(Decoder):
             return  # Header already set
         for decoded in self.degreeToPacket[1]:
             if decoded.get_used_packets().issubset({0}):
-                self.headerChunk = HeaderChunk(decoded, last_chunk_len_format=last_chunk_len_format,
-                                               checksum_len_format=self.checksum_len_str)
+                self.headerChunk = HeaderChunk(decoded, last_chunk_len_format=last_chunk_len_format)
 
     def saveDecodedFile(self, last_chunk_len_format: str = "I", null_is_terminator: bool = False,
                         print_to_output: bool = False) -> None:
@@ -306,8 +300,7 @@ class OnlineDecoder(Decoder):
         if self.use_headerchunk:
             self.headerChunk = HeaderChunk(
                 OnlinePacket(self.GEPP.b[0], self.number_of_chunks, self.quality, self.epsilon, 0, {0}, self.dist,
-                             read_only=True), last_chunk_len_format=last_chunk_len_format,
-                checksum_len_format=self.checksum_len_str)
+                             read_only=True), last_chunk_len_format=last_chunk_len_format)
         file_name = "DEC_" + os.path.basename(self.file) if self.file is not None else "ONLINE.BIN"
         output_concat = b""
         if self.headerChunk is not None:
@@ -337,12 +330,6 @@ class OnlineDecoder(Decoder):
                                 raise te
                             f.write(output)
         print("Saved file as '" + str(file_name) + "'")
-        if self.checksum_len_str is not None and self.checksum_len_str != "":
-            decoded_crc = calc_file_crc(file_name, self.checksum_len_str)
-            if self.headerChunk.checksum != decoded_crc:
-                print("Decoded CRC:", decoded_crc)
-                print("Header CRC:", self.headerChunk.checksum)
-                raise ValueError("Checksum of decoded file does not match checksum in header chunk!")
         if print_to_output:
             print("Result:")
             print(output_concat.decode("utf-8"))
@@ -352,9 +339,9 @@ class OnlineDecoder(Decoder):
 
 
 def main(file: str, number_of_chunks: int, error_correction: typing.Callable[[typing.Any], typing.Any] = nocode,
-         insertheader=False, _header_crc_str: str = None):
+         insertheader=False):
     decoder = OnlineDecoder(file, error_correction=error_correction, use_headerchunk=insertheader,
-                            static_number_of_chunks=number_of_chunks, checksum_len_str=_header_crc_str)
+                            static_number_of_chunks=number_of_chunks)
     decoder.decode(quality_len_format="B", check_block_number_len_format="H",
                    number_of_chunks_len_format="H")
     decoder.saveDecodedFile(null_is_terminator=False)
@@ -372,15 +359,13 @@ if __name__ == "__main__":
     parser.add_argument("--repair_symbols", metavar="repair_symbols", type=int, required=False, default=2,
                         help="number of repair symbols for ReedSolomon (default=2)")
     parser.add_argument("--number_of_chunks", metavar="number_of_chunks", required=True, type=int)
-    parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
     parser.add_argument("--insert_header", metavar="insert_header", required=False, type=bool, default=False)
     args = parser.parse_args()
     _file = args.filename
     _repair_symbols = args.repair_symbols
     _insert_header = args.insert_header
     _number_of_chunks = args.number_of_chunks
-    _header_crc_str = args.header_crc_str
     _error_correction = get_error_correction_decode(args.error_correction, _repair_symbols)
     print("File / Folder to decode: " + str(_file))
-    main(_file, _number_of_chunks, _error_correction, insertheader=_insert_header, _header_crc_str=_header_crc_str)
+    main(_file, _number_of_chunks, _error_correction, insertheader=_insert_header)
     print("Decoding finished.")

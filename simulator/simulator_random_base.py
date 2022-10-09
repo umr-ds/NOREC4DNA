@@ -62,7 +62,7 @@ if __name__ == "__main__":
     binwidth = 0.01
     hist_dist = scipy.stats.rv_histogram(np.histogram(err_prob_list, bins=20))
     X = np.linspace(0, 4, 50)
-    plt.xlabel("Error probability as calculated by the ruleset")  # can be >1.0 because it is additive!
+    plt.xlabel("Error prediction as calculated by the ruleset")  # can be >1.0 because it is additive!
     plt.ylabel("Density")
     plt.plot(X, hist_dist.pdf(X))
     plt.plot(X, hist_dist.cdf(X))

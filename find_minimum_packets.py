@@ -7,7 +7,9 @@ import random
 import argparse
 import typing
 from zipfile import ZipFile
-
+#from pathos.multiprocessing import ProcessingPool as Pool
+#from pathos import multiprocessing
+#import dill
 import progressbar
 import multiprocessing
 from functools import partial
@@ -39,7 +41,7 @@ ONLINE_EPS = 0.068
 # NUMBER_OF_PACKETS_TO_CREATE = 655360
 
 # global counter for progressbar
-counter = None
+#counter = None
 progress_bar = None
 
 
@@ -48,7 +50,7 @@ def run(seq_seed=None, file='logo.jpg', repair_symbols=2, insert_header=False,
         chunk_size=0, number_of_chunks=300, prepend="", append="", seed_len_format=DEFAULT_ID_LEN_FORMAT,
         number_of_chunks_len_format=DEFAULT_NUMBER_OF_CHUNKS_LEN_FORMAT, method='RU10',
         mode1bmp=False, drop_above=0.4, packets_to_create=None):
-    global counter
+    #global counter
     if chunk_size != 0:
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
     dna_rules = FastDNARules()
@@ -89,8 +91,8 @@ def run(seq_seed=None, file='logo.jpg', repair_symbols=2, insert_header=False,
             packet = x.create_new_packet(seed=seq_seed + i)
         else:
             packet = x.create_new_packet()
-        if i == 0:
-            print(f"%i , %s" % (len(packet.get_dna_struct(True)), packet.get_dna_struct(True)))
+        #if i == 0:
+        #    print(f"%i , %s" % (len(packet.get_dna_struct(True)), packet.get_dna_struct(True)))
         _ = should_drop_packet(rules, packet)
         if packet.error_prob <= drop_above and (len(tmp_list) < l_size or packet.error_prob < tmp_list[-1].error_prob):
             if packet not in tmp_list:
@@ -110,12 +112,12 @@ def run(seq_seed=None, file='logo.jpg', repair_symbols=2, insert_header=False,
             del packet
         i += 1
         # += operation is not atomic, so we need to get a lock:
-        with counter.get_lock():
-            counter.value += 1
+        #with counter.get_lock():
+        #    counter.value += 1
     # save_packets_fasta(tmp_list, out_file=method + "_out_partial", file_ending="." + method + "_DNA",
     #                   clear_output=False)
     conf = {'error_correction': error_correction, 'repair_symbols': repair_symbols,
-            'number_of_splits': _number_of_splits,
+            #'number_of_splits': _number_of_splits,
             'find_minimum_mode': True, 'seq_seed': seq_seed}
     # x.save_config_file(conf, section_name=method + "_" + file)
     if x.progress_bar is not None:
@@ -213,9 +215,9 @@ def reduce_lists(base, input_list=None, l_size=100):
     return base
 
 
-def init_mp(args):
-    global counter
-    counter = args
+#def init_mp(args):
+#    global counter
+#    counter = args
 
 
 def create_progress_bar(max_value):
@@ -233,7 +235,8 @@ def create_progress_bar(max_value):
 
 
 def update_progressbar():
-    progress_bar.update(counter.value)
+    pass
+    #progress_bar.update(counter.value)
 
 
 # multiprocess and merge all created lists at the end
@@ -242,14 +245,14 @@ def main(filename="logo.jpg", repair_symbols=2, while_count=1000, out_size=1000,
          seed_len_format=DEFAULT_ID_LEN_FORMAT,
          method='RU10', mode1bmp=False, drop_above=0.4, save_as_fasta=DEFAULT_SAVE_AS_FASTA,
          packets_to_create=None, save_as_zip=DEFAULT_SAVE_AS_ZIP):
-    global progress_bar, counter
+    #global progress_bar, counter
     if packets_to_create is None:
         packets_to_create = math.pow(2, 8 * struct.calcsize(seed_len_format))
     cores = multiprocessing.cpu_count()
     if spare1core:
         cores = cores - 1
-    counter = multiprocessing.Value('i', 0)
-    p = multiprocessing.Pool(cores, initializer=init_mp, initargs=(counter,))
+    #counter = multiprocessing.Value('i', 0)
+    p = multiprocessing.Pool(cores) # , initializer=init_mp, initargs=(counter,))
     param = [None] * cores
     if sequential:
         stepsize = packets_to_create / cores

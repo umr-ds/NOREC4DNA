@@ -67,7 +67,7 @@ def get_quarter_byte(quat: str) -> int:
     elif quat == "T":
         return 0b11
     else:
-        raise ValueError("ERROR, this should never happen. Does your inputfile contain characters other than A,C,G,T?")
+        print("ERROR, this should never happen. Does your inputfile contain characters other than A,C,G,T?")
 
 
 def dna2quads(dna: typing.AnyStr) -> bytes:

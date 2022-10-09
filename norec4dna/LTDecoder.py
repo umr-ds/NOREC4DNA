@@ -14,20 +14,15 @@ from norec4dna.HeaderChunk import HeaderChunk
 from norec4dna.Packet import Packet
 from norec4dna.distributions.Distribution import Distribution
 from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import ErlichZielinskiRobustSolitonDistribution
-from norec4dna.helper import calc_crc, xor_mask, calc_file_crc
+from norec4dna.helper import calc_crc, xor_mask
 from norec4dna.helper.quaternary2Bin import quat_file_to_bin, tranlate_quat_to_byte
 
 
 class LTDecoder(Decoder):
     def __init__(self, file: typing.Optional[str] = None, error_correction: typing.Callable = nocode,
                  use_headerchunk: bool = True, static_number_of_chunks: typing.Optional[int] = None,
-                 implicit_mode: bool = True, dist: typing.Optional[Distribution] = None, checksum_len_str: str = None):
+                 implicit_mode: bool = True, dist: typing.Optional[Distribution] = None):
         super().__init__(file)
-        if checksum_len_str is None:
-            self.checksum_len_str = ""
-        if not use_headerchunk and (checksum_len_str != "" and checksum_len_str is not None):
-            raise Exception("Header-checksums are only supported with headerchunks.")
-        self.checksum_len_str = checksum_len_str
         self.use_headerchunk: bool = use_headerchunk
         self.isPseudo: bool = False
         self.file: typing.Optional[str] = file
@@ -78,8 +73,10 @@ class LTDecoder(Decoder):
         self.EOF = True
         print("Decoded Packets: " + str(self.correct))
         print("Corrupt Packets : " + str(self.corrupt))
-        if self.GEPP.isPotentionallySolvable():
+        if self.GEPP is not None and self.GEPP.isPotentionallySolvable():
             decoded = self.GEPP.solve()
+        else:
+            decoded = False
         if hasattr(self, "f"):
             self.f.close()
         if not decoded and self.EOF:
@@ -156,15 +153,15 @@ class LTDecoder(Decoder):
                     self.counter[i] = 1
         if self.GEPP is None:
             self.GEPP = GEPP(np.array([packet.get_bool_array_used_packets()], dtype=bool),
-                             np.frombuffer(packet.get_data(), dtype="uint8"), )
+                             np.array([[packet.get_data()]], dtype=bytes), )
         else:
             self.GEPP.addRow(packet.get_bool_array_used_packets(), np.frombuffer(packet.get_data(), dtype="uint8"), )
         if self.isPseudo and not self.read_all_before_decode and self.GEPP.isPotentionallySolvable():
             return self.GEPP.solve(partial=False)
         return False
 
-    def solve(self, partial=False) -> bool:
-        return self.GEPP.solve(partial)
+    def solve(self) -> bool:
+        return self.GEPP.solve()
 
     def getSolvedCount(self) -> int:
         return self.GEPP.getSolvedCount()
@@ -210,16 +207,11 @@ class LTDecoder(Decoder):
         return res
 
     def saveDecodedFile(self, last_chunk_len_format: str = "I", null_is_terminator: bool = False,
-                        print_to_output: bool = True, return_file_name=False, partial_decoding: bool = True) -> \
-            typing.Union[bytes, str]:
-        assert self.is_decoded() or partial_decoding, "Can not save File: Unable to reconstruct."
-        if partial_decoding:
-            self.solve(partial=True)
-        dirty = False
+                        print_to_output: bool = True) -> None:
+        assert self.is_decoded(), "Can not save File: Unable to reconstruct."
         if self.use_headerchunk:
             self.headerChunk = HeaderChunk(Packet(self.GEPP.b[0], {0}, self.number_of_chunks, read_only=True),
-                                           last_chunk_len_format=last_chunk_len_format,
-                                           checksum_len_format=self.checksum_len_str)
+                                           last_chunk_len_format=last_chunk_len_format)
         file_name = "DEC_" + os.path.basename(self.file) if self.file is not None else "LT.BIN"
         if self.headerChunk is not None:
             file_name = self.headerChunk.get_file_name().decode("utf-8")
@@ -228,10 +220,6 @@ class LTDecoder(Decoder):
         try:
             with open(file_name, "wb") as f:
                 for x in self.GEPP.result_mapping:
-                    if x < 0:
-                        f.write(b"\x00" * len(self.GEPP.b[x][0]))
-                        dirty = True
-                        continue
                     if 0 != x or not self.use_headerchunk:
                         if self.number_of_chunks - 1 == x and self.use_headerchunk:
                             output: typing.Union[bytes, np.array] = self.GEPP.b[x][0][
@@ -254,22 +242,11 @@ class LTDecoder(Decoder):
                                 output_concat += output.tobytes()
                                 f.write(output)
             print("Saved file as '" + str(file_name) + "'")
-            if self.checksum_len_str is not None and self.checksum_len_str != "":
-                decoded_crc = calc_file_crc(file_name, self.checksum_len_str)
-                if self.headerChunk.checksum != decoded_crc:
-                    print("Decoded CRC:", decoded_crc)
-                    print("Header CRC:", self.headerChunk.checksum)
-                    raise ValueError("Checksum of decoded file does not match checksum in header chunk!")
-            if dirty:
-                print("Some parts could not be restored, file WILL contain sections with \\x00 !")
-            if print_to_output:
-                print("Result:")
-                print(output_concat.decode("utf-8"))
         except Exception as ex:
             raise ex
-        if return_file_name:
-            return file_name
-        return output_concat
+        if print_to_output:
+            print("Result:")
+            print(output_concat.decode("utf-8"))
 
     def parse_raw_packet(self, packet: bytes, crc_len_format: str = "L", number_of_chunks_len_format: str = "I",
                          degree_len_format: str = "I", seed_len_format: str = "I") -> typing.Union[str, Packet]:
@@ -322,13 +299,11 @@ class LTDecoder(Decoder):
                       save_number_of_chunks_in_packet=self.static_number_of_chunks is None)
 
 
-def main(file: str, number_of_chunks: int, error_correction: typing.Callable, insertheader: bool,
-         _header_crc_str: str = None):
+def main(file: str, number_of_chunks: int, error_correction: typing.Callable, insertheader: bool):
     dist = ErlichZielinskiRobustSolitonDistribution(number_of_chunks, seed=2)
 
     decoder = LTDecoder(file, error_correction=error_correction, use_headerchunk=insertheader,
-                        static_number_of_chunks=number_of_chunks, implicit_mode=False, dist=dist,
-                        checksum_len_str=_header_crc_str)
+                        static_number_of_chunks=number_of_chunks, implicit_mode=False, dist=dist)
     decoder.decode(number_of_chunks_len_format="H", seed_len_format="I", degree_len_format="H")
     decoder.saveDecodedFile(null_is_terminator=False)
 
@@ -343,14 +318,12 @@ if __name__ == "__main__":
     parser.add_argument("--repair_symbols", metavar="repair_symbols", type=int, required=False, default=2,
                         help="number of repair symbols for ReedSolomon (default=2)")
     parser.add_argument("--insert_header", metavar="insert_header", required=False, type=bool, default=False)
-    parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
     parser.add_argument("--number_of_chunks", metavar="number_of_chunks", required=True, type=int)
     args = parser.parse_args()
     filename = args.filename
     e_correction_str = args.error_correction
     _repair_symbols = args.repair_symbols
     _insert_header = args.insert_header
-    _header_crc_str = args.header_crc_str
     _number_of_chunks = args.number_of_chunks
     if e_correction_str == "nocode":
         e_correction = nocode
@@ -366,5 +339,5 @@ if __name__ == "__main__":
         e_correction = None
         exit()
     print("File / Folder to decode: " + str(filename))
-    main(filename, _number_of_chunks, e_correction, _insert_header, _header_crc_str)
+    main(filename, _number_of_chunks, e_correction, _insert_header)
     print("Decoding finished.")

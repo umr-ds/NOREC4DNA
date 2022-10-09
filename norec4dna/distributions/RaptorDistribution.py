@@ -511,6 +511,7 @@ class RaptorDistribution(Distribution):
         super().__init__()
         self.rng: np.random = np.random
         self.rng.seed(number_of_chunks)
+        # self.rng: np.random.PCG64 = np.random.PCG64(np.random.SeedSequence(number_of_chunks))
         self.S: int = number_of_chunks
         self.f: typing.List[int] = [0, 10241, 491582, 712794, 831695, 948446, 1032189, 1048576]
         self.d: typing.List[int] = [0, 1, 2, 3, 4, 10, 11, 40]
@@ -527,6 +528,7 @@ class RaptorDistribution(Distribution):
 
     def set_seed(self, seed: int):
         self.rng.seed(seed)
+        # self.rng = np.random.PCG64(np.random.SeedSequence(seed))
 
     def getNumber(self, x: int, i: int, m: int) -> int:
         return self.raptor_rand(x, i, m)
