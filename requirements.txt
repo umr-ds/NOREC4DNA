@@ -19,7 +19,3 @@ setuptools==65.4.0
 pybloom3==0.0.3 # this is only needed for windows
 pandas==1.5.0
 progressbar2==4.0.0
-norec4dna~=0.1.1
-raptorq~=1.6.3
-watchdog==0.10.5
-crcmod~=1.7

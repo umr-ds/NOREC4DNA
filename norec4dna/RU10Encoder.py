@@ -357,7 +357,7 @@ class RU10Encoder(Encoder):
                                 'master_seed': self.__masterseed, 'distribution': self.dist.get_config_string(),
                                 'rules': [rule for rule in self.rules.active_rules] if self.rules is not None else [],
                                 'chunk_size': self.chunk_size, 'dropped_packets': self.ruleDrop,
-                                'created_packets': len(self.encodedPackets), 'checksum': self.checksum,
+                                'created_packets': len(self.encodedPackets), 'checksum': str(self.checksum),
                                 'checksum_len_str': self.checksum_len_str}
         for key, val in default_map.items():
             config[section_name][str(key)] = str(val)

@@ -78,8 +78,10 @@ class LTDecoder(Decoder):
         self.EOF = True
         print("Decoded Packets: " + str(self.correct))
         print("Corrupt Packets : " + str(self.corrupt))
-        if self.GEPP.isPotentionallySolvable():
+        if self.GEPP is not None and self.GEPP.isPotentionallySolvable():
             decoded = self.GEPP.solve()
+        else:
+            decoded = False
         if hasattr(self, "f"):
             self.f.close()
         if not decoded and self.EOF:

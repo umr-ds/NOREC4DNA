@@ -542,7 +542,6 @@ class RU10Decoder(Decoder):
         :param last_chunk_len_format: Format of the last chunk length
         :param null_is_terminator: True: The file is handled as null-terminated C-String.
         :param print_to_output: True: Result we be printed to the command line.
-        :param checksum_len_format: Format of the checksum length (checksum of the file, stored in the header chunk)
         :return:
         """
         assert self.is_decoded() or partial_decoding, "Can not save File: Unable to reconstruct. You may try saveDecodedFile(partial_decoding=True)"
