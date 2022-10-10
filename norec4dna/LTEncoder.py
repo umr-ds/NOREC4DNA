@@ -153,12 +153,22 @@ class LTEncoder(Encoder):
     def number_of_packets_encoded_already(self) -> int:
         return len(self.setOfEncodedPackets)
 
-    def save_packets(self, split_to_multiple_files: bool, out_file: typing.Optional[int] = None,
-                     save_as_dna: bool = False) -> None:
-        fileending: str = ".LT" + ("_DNA" if save_as_dna else "")
+    def save_packets(self, split_to_multiple_files: bool, out_file: typing.Optional[str] = None,
+                     save_as_dna: bool = False, clear_output: bool = True, seed_is_filename: bool = False) -> None:
+        """
+        Saves the generated packets either to multiple files or to a single one. It's possible to save the packets
+        either as DNA or binary.
+        :param split_to_multiple_files: True: Saves the packets in multiple files. False: Saves all packets in one file.
+        :param out_file: The location of the output file
+        :param save_as_dna: True: Saves the information in bases. False: Saves the information binary.
+        :param clear_output: Clears the location of the output file.
+        :param seed_is_filename: True: Sets the seed as filename.
+        :return:
+        """
+        file_ending: str = ".LT" + ("_DNA" if save_as_dna else "")
         if not split_to_multiple_files:
             if out_file is None:
-                out_file = self.file + fileending
+                out_file = self.file + file_ending
             with open(out_file, "wb" if not save_as_dna else "w") as f:
                 for packet in self.encodedPackets:
                     f.write(packet.get_dna_struct(split_to_multiple_files) if save_as_dna else packet.get_struct(
@@ -166,23 +176,25 @@ class LTEncoder(Encoder):
         else:
             # Folder:
             if out_file is None:
-                full_dir, file_name = os.path.split(os.path.realpath(self.file))
-                file_name = "LT_" + file_name
-                out_file = os.path.join(full_dir, file_name)
+                fulldir, filename = os.path.split(os.path.realpath(self.file))
+                filename = "LT_" + filename
+                out_file = os.path.join(fulldir, filename)
                 if not out_file.endswith("/"):
                     files = glob.glob(out_file + "/*")
                 else:
                     files = glob.glob(out_file + "*")
-                for f in files:
-                    os.remove(f)
+                if clear_output:
+                    for f in files:
+                        os.remove(f)
             i = 0
+            e_prob = ""
             if not os.path.exists(out_file):
                 os.makedirs(out_file)
-            for packet in self.encodedPackets:
-                with open(
-                        out_file + "/" + str(packet.error_prob) + "_" + str(i) + fileending,
-                        "wb" if not save_as_dna else "w",
-                ) as f:
+            for packet in sorted(self.encodedPackets, key=lambda elem: (elem.error_prob, elem.__hash__())):
+                if seed_is_filename:
+                    i = packet.id
+                    e_prob = (str(ceil(packet.error_prob * 100)) + "_") if packet.error_prob is not None else ""
+                with open(out_file + "/" + e_prob + str(i) + file_ending, "wb" if not save_as_dna else "w") as f:
                     f.write(
                         packet.get_dna_struct(split_to_multiple_files)
                         if save_as_dna
@@ -252,7 +264,7 @@ class LTEncoder(Encoder):
         if section_name is None:
             section_name = self.out_file
         config = configparser.ConfigParser()
-        config[section_name] = {'algorithm': 'Online', 'error_correction': self.error_correction.__code__,
+        config[section_name] = {'algorithm': 'LT', 'error_correction': self.error_correction.__code__,
                                 'insert_header': self.insert_header,
                                 'savenumberofchunks': self.save_number_of_chunks_in_packet,
                                 'mode_1_bmp': self.mode_1_bmp, 'upper_bound': self.upper_bound,
@@ -282,7 +294,7 @@ class LTEncoder(Encoder):
 
 
 def main(file, number_of_chunks: int = 0, chunk_size: int = 0, error_correction: typing.Callable = nocode,
-         as_dna: bool = False, insert_header: bool = False):
+         as_dna: bool = False, insert_header: bool = False, save_number_of_chunks=False):
     if chunk_size != 0:
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
     if as_dna:
@@ -292,7 +304,7 @@ def main(file, number_of_chunks: int = 0, chunk_size: int = 0, error_correction:
     dist = ErlichZielinskiRobustSolitonDistribution(number_of_chunks, seed=2)
     encoder = LTEncoder(file, number_of_chunks, dist, insert_header=insert_header, rules=rules,
                         error_correction=error_correction, number_of_chunks_len_format="H", id_len_format="I",
-                        used_packets_len_format="H", save_number_of_chunks_in_packet=False,
+                        used_packets_len_format="H", save_number_of_chunks_in_packet=save_number_of_chunks,
                         implicit_mode=False)
     encoder.encode_to_packets()
     print("Number of Chunks=%s" % encoder.number_of_chunks)
@@ -301,20 +313,23 @@ def main(file, number_of_chunks: int = 0, chunk_size: int = 0, error_correction:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--as_dna", help="convert packets to dna and use dna rules", action="store_true",
+                        required=False)
     parser.add_argument("filename", metavar="file", type=str, help="the file to Encode")
-    parser.add_argument("--error_correction", metavar="error_correction", required=False, type=str, default="nocode",
-                        help="Error Correction Method to use; possible values: \
-                        nocode, crc, reedsolomon (default=nocode)")
-    parser.add_argument("--repair_symbols", metavar="repair_symbols", required=False, type=int, default=2,
-                        help="number of repair symbols for ReedSolomon (default=2)")
     parser.add_argument("--chunk_size", metavar="chunk_size", required=False, type=int, default=0,
                         help="size of chunks to split the file into")
     parser.add_argument("--number_of_chunks", metavar="number_of_chunks", required=False, type=int, default=0,
                         help="number of chunks to split the file into,"
                              "only used if no chunk_size is given")
+    parser.add_argument("--error_correction", metavar="error_correction", required=False, type=str, default="nocode",
+                        help="Error Correction Method to use; possible values: \
+                        nocode, crc, reedsolomon, dna_reedsolomon (default=nocode)")
+    parser.add_argument("--repair_symbols", metavar="repair_symbols", required=False, type=int, default=2,
+                        help="number of repair symbols for ReedSolomon (default=2)")
     parser.add_argument("--insert_header", metavar="insert_header", required=False, type=bool, default=False)
-    parser.add_argument("--as_dna", help="convert packets to dna and use dna rules", action="store_true",
-                        required=False)
+    parser.add_argument("--save_number_of_chunks", metavar="save_number_of_chunks", required=False, type=bool,
+                        default=False)
+
     args = parser.parse_args()
     filename = args.filename
     e_correction_str = args.error_correction
@@ -323,6 +338,7 @@ if __name__ == "__main__":
     _number_of_chunks = args.number_of_chunks
     _insert_header = args.insert_header
     _as_dna = args.as_dna
+    _save_number_of_chunks = args.save_number_of_chunks
     if _chunk_size == _number_of_chunks == 0:
         print("Please set either a chunk_size or a number_of_chunks")
         exit()
@@ -341,5 +357,5 @@ if __name__ == "__main__":
         exit()
     filename = args.filename
     print("File to encode: " + str(filename))
-    main(filename, _number_of_chunks, _chunk_size, e_correction, _as_dna, _insert_header)
+    main(filename, _number_of_chunks, _chunk_size, e_correction, _as_dna, _insert_header, save_number_of_chunks=_save_number_of_chunks)
     print("File encoded.")

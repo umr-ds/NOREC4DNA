@@ -56,7 +56,7 @@ def test_suite(as_dna, decoder_instance, distribution, use_header, implicit_mode
     encoder = LTEncoder(
         file,
         number_of_chunks,
-        dist,
+        distribution=dist,
         chunk_size=chunksize,
         pseudo_decoder=pseudo_decoder,
         rules=rules,

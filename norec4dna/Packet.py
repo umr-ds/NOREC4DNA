@@ -178,7 +178,7 @@ class Packet:
         if self.internal_hash is None:
             self.internal_hash = hash(
                 str(self.total_number_of_chunks) + str(self.id) + str(
-                    self.error_prob) + self.__module__ + self.dna_data)
+                    ("" if self.error_prob is None else self.error_prob)) + self.__module__ + (str(self.data) if self.dna_data is None else self.dna_data))
         return self.internal_hash
 
 
