@@ -1,5 +1,7 @@
 #!/usr/bin/python
 import argparse
+import numpy as np
+import os
 
 from norec4dna.RU10Decoder import RU10Decoder
 from norec4dna.ErrorCorrection import nocode, get_error_correction_decode
@@ -20,7 +22,7 @@ class demo_decode:
                number_of_chunks=STATIC_NUM_CHUNKS, use_header_chunk=False, id_len_format=ID_LEN_FORMAT,
                number_of_chunks_len_format=NUMBER_OF_CHUNKS_LEN_FORMAT, packet_len_format=PACKET_LEN_FORMAT,
                crc_len_format=CRC_LEN_FORMAT, read_all=READ_ALL_BEFORE_DECODER, distribution_cfg_str="",
-               checksum_len_str=None):
+               checksum_len_str=None, failed_repeats=1000):
         print("Pure Gauss-Mode")
         x = RU10Decoder(file, use_headerchunk=use_header_chunk, error_correction=error_correction,
                         static_number_of_chunks=number_of_chunks, checksum_len_str=checksum_len_str)
@@ -28,12 +30,52 @@ class demo_decode:
         x.decode(id_len_format=id_len_format,
                  number_of_chunks_len_format=number_of_chunks_len_format, packet_len_format=packet_len_format,
                  crc_len_format=crc_len_format)
+
+        x.GEPP.insert_tmp()
+        tmp_A = np.copy(x.GEPP.A)
+        tmp_B = np.copy(x.GEPP.b)
         x.solve(partial=True)
+
         if mode_1_bmp:
             return x.mode_1_bmp_decode()
         else:
-            return x.saveDecodedFile(null_is_terminator=null_is_terminator, print_to_output=False,
-                                     return_file_name=True, partial_decoding=True)
+            try:
+                res = x.saveDecodedFile(null_is_terminator=null_is_terminator, print_to_output=False,
+                                        return_file_name=True, partial_decoding=True)
+            except:  # FileNotFoundError: #ValueError
+                if x.headerChunk is not None:
+                    try:
+                        file_name = x.headerChunk.get_file_name().decode("utf-8")
+                        file_name = file_name.split("\x00")[0]
+                        os.remove(file_name)
+                    except:
+                        pass
+                res = False
+                i = 0
+                while not res and i < failed_repeats:
+                    print("failed " + str(i))
+                    assert len(x.GEPP.A) == len(x.GEPP.b)
+                    p = np.random.permutation(len(x.GEPP.A))
+                    x.GEPP.A = np.copy(tmp_A[p])
+                    x.GEPP.b = np.copy(tmp_B[p])
+                    x.solve(partial=True)
+                    i += 1
+                    try:
+                        res = x.saveDecodedFile(null_is_terminator=null_is_terminator, print_to_output=False,
+                                                return_file_name=True, partial_decoding=True)
+                    except ValueError:
+                        if x.headerChunk is not None:
+                            try:
+                                file_name = x.headerChunk.get_file_name().decode("utf-8")
+                                file_name = file_name.split("\x00")[0]
+                                os.remove(file_name)
+                            except:
+                                pass
+                        res = False
+                if not res:
+                    raise ValueError
+                else:
+                    return res
 
 
 if __name__ == "__main__":
@@ -62,6 +104,8 @@ if __name__ == "__main__":
         parser.add_argument("--is_null_terminated", required=False, action="store_true")
         parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
         parser.add_argument("--use_header_chunk", required=False, action="store_true")
+        parser.add_argument("--failed_repeats", metavar="failed_repeats", default=1000,
+                            help="Number of permutations to try if the decoding fails", required=False, type=int)
         args = parser.parse_args()
         _file = args.filename
         _repair_symbols = args.repair_symbols
@@ -74,6 +118,7 @@ if __name__ == "__main__":
         _is_null_terminated = args.is_null_terminated
         _use_header_chunk = args.use_header_chunk
         _header_crc_str = args.header_crc_str
+        _failed_repeats = args.failed_repeats
         if _number_of_splits != 0:
             _split_index_length = find_ceil_power_of_four(_number_of_splits)
         _last_split_folder = None
@@ -98,7 +143,8 @@ if __name__ == "__main__":
                     demo.decode(_file, error_correction=_error_correction, null_is_terminator=_is_null_terminated,
                                 mode_1_bmp=_mode_1_bmp, number_of_chunks=_number_of_chunks + (
                             -1 if _file == _last_split_folder and _last_split_smaller else 0),
-                                use_header_chunk=_use_header_chunk, checksum_len_str=_header_crc_str))
+                                use_header_chunk=_use_header_chunk, checksum_len_str=_header_crc_str,
+                                failed_repeats=_failed_repeats))
             except:
                 pass
         if len(folders) > 1:

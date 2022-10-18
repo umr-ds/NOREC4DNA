@@ -67,7 +67,7 @@ if __name__ == "__main__":
                         help="convert to a header-less B/W BMP format. (use only for image/bmp input)", required=False)
     parser.add_argument("--split_input", metavar="split_input", required=False, type=int, default=1,
                         help="number of subcodings to split input file into")
-    parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
+    parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="B")
     parser.add_argument("--drop_upper_bound", metavar="drop_upper_bound", required=False, type=float, default=0.5,
                         help="upper bound for calculated error probability of packet before dropping")
     parser.add_argument("--overhead", metavar="overhead", required=False, type=float, default=0.40, help="desired overhead of packets")

@@ -4,7 +4,8 @@ from random import random
 import zlib, numpy
 from functools import reduce, lru_cache
 import typing
-
+from crccheck.crc import Crc8Lte as crc8
+from crccheck.crc import Crc32, Crc16, Crc64
 try:
     from cdnarules import xorArray as xor_intern
 except ImportError:
@@ -50,8 +51,17 @@ def should_drop_packet(rules, packet: 'Packet', upper_bound: float = 1.0, limit_
     return (drop_chance > upper_bound) if limit_only else (drop_chance > rand)
 
 
-def calc_crc(data) -> int:
-    return zlib.crc32(data) & 0xFFFFFFFF
+def calc_crc(data, crc_len_format="B") -> int:
+    if crc_len_format == "L":
+        return Crc32.calc(data)
+    elif crc_len_format == "H":
+        return Crc16.calc(data)
+    elif crc_len_format == "B":
+        return crc8.calc(data)
+    elif crc_len_format == "Q":
+        return Crc64.calc(data)
+    else:
+        raise ValueError("Unknown crc_len_format: " + str(crc_len_format))
 
 
 @lru_cache(maxsize=1024)
