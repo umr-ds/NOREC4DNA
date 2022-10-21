@@ -17,17 +17,17 @@ class ConfigReadAndExecute:
         self.config.read(filename)
         self.coder = None
 
-    def execute(self, return_decoder: bool = False) -> typing.Optional[typing.List[typing.Union[str, Decoder]]]:
+    def execute(self, return_decoder: bool = False, skip_solve=False) -> typing.Optional[
+        typing.List[typing.Union[str, Decoder]]]:
         decoders = []
         if len(self.config.sections()) == 0:
             print("Empty or missing config file. Does the config file exist?")
         for section in self.config.sections():
             print("Decoding {}".format(section))
-            decoder = self.__decode(section, self.config[section], return_decoder)
+            decoder = self.__decode(section, self.config[section], return_decoder, skip_solve=skip_solve)
             if return_decoder:
                 decoders.append(decoder)
         return decoders
-
 
     def warn_unknown_items(self, config):
         known = ["error_correction", "repair_symbols", "as_mode_1_bmp", "number_of_splits", "split_index_position",
@@ -41,7 +41,7 @@ class ConfigReadAndExecute:
                 print(f"[Warning] Config-entry '{cfg}' not known!")
 
     # @staticmethod
-    def __decode(self, filename, decode_conf, return_decoder=False):
+    def __decode(self, filename, decode_conf, return_decoder=False, skip_solve=False):
         self.warn_unknown_items(decode_conf)
         algorithm = decode_conf.get("algorithm")
         number_of_chunks = decode_conf.getint("number_of_chunks", None)
@@ -100,7 +100,7 @@ class ConfigReadAndExecute:
                                     -1 if f_file == last_split_folder and last_split_smaller else 0),
                                 use_header_chunk=use_header_chunk, read_all=read_all_packets,
                                 distribution_cfg_str=distribution_cfg_str, return_decoder=return_decoder,
-                                checksum_len_str=checksum_len_str))
+                                checksum_len_str=checksum_len_str, skip_solve=skip_solve))
             except Exception as ex:
                 raise ex
         if len(folders) > 1:

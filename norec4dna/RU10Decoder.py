@@ -114,6 +114,7 @@ class RU10Decoder(Decoder):
         if not decoded and self.EOF:
             print("Unable to retrieve File from Chunks. Too many errors?")
             return -1
+        return decoded
 
     def decodeFolder(self, packet_len_format: str = "I", crc_len_format: str = "I",
                      number_of_chunks_len_format: str = "I", id_len_format: str = "I"):
@@ -171,11 +172,12 @@ class RU10Decoder(Decoder):
         if self.GEPP is None:
             print("No Packet was correctly decoded. Check your configuration.")
             return -1
-        if self.GEPP.isPotentionallySolvable():
+        if self.GEPP.isPotentionallySolvable() and not self.read_all_before_decode:
             decoded = self.GEPP.solve()
         if not decoded and self.EOF:
             print("Unable to retrieve File from Chunks. Too many errors?")
             return -1
+        return decoded
 
     def decodeFile(self, packet_len_format: str = "I", crc_len_format: str = "L",
                    number_of_chunks_len_format: str = "I", id_len_format: str = "I"):
@@ -245,11 +247,12 @@ class RU10Decoder(Decoder):
                 #
         print("Decoded Packets: " + str(self.correct))
         print("Corrupt Packets : " + str(self.corrupt))
-        if self.GEPP.isPotentionallySolvable():
-            return self.GEPP.solve()
+        if self.GEPP.isPotentionallySolvable() and not self.read_all_before_decode:
+            decoded = self.GEPP.solve()
         if not decoded and self.EOF:
             print("Unable to retrieve File from Chunks. Too much errors?")
             return -1
+        return decoded
         # self.f.close()
 
     def getNumberOfLDPCBlocks(self):
