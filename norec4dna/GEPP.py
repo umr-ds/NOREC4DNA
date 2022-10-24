@@ -227,7 +227,6 @@ class GEPP_intern:
         self.b = np.delete(self.b, row_id, 0)
         self.packet_mapping = np.delete(self.packet_mapping, row_id, 0)
         self._update_input()
-        self._elimination()
 
     def find_missing_chunks(self):
         """
