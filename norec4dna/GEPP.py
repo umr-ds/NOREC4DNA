@@ -30,7 +30,7 @@ class GEPP_intern:
         self.chunk_to_used_packets: np.array = np.identity(max(self.A.shape[0], self.A.shape[1]), dtype=bool)  # inverse part
         while len(self.chunk_to_used_packets) < len(self.A):
             self.chunk_to_used_packets = np.vstack((self.chunk_to_used_packets, np.full((1, len(self.A[1])), False)))
-        self.packet_mapping: np.array = np.array([x + 1 for x in range(len(self.A))], dtype=np.uint)
+        self.packet_mapping: np.array = np.array([x for x in range(len(self.A))], dtype=np.uint)
         self.n: int = 0  # n is the length of A
         self.m: int = 0  # m is the width of A
         self.tmp_A: typing.List = []
