@@ -26,8 +26,9 @@ class GEPP_intern:
 
     def __init__(self, A: np.array, b: np.array):
         self.A: np.array = A  # input: A is an n x n np matrix
-        self.b: np.array = b # np.fromstring(b, dtype='uint8')  # b is an n x 1 np array
-        self.chunk_to_used_packets: np.array = np.identity(max(self.A.shape[0], self.A.shape[1]), dtype=bool)  # inverse part
+        self.b: np.array = b  # np.fromstring(b, dtype='uint8')  # b is an n x 1 np array
+        self.chunk_to_used_packets: np.array = np.identity(max(self.A.shape[0], self.A.shape[1]),
+                                                           dtype=bool)  # inverse part
         while len(self.chunk_to_used_packets) < len(self.A):
             self.chunk_to_used_packets = np.vstack((self.chunk_to_used_packets, np.full((1, len(self.A[1])), False)))
         self.packet_mapping: np.array = np.array([x for x in range(len(self.A))], dtype=np.uint)
@@ -39,7 +40,7 @@ class GEPP_intern:
         self.result_mapping: np.array = np.zeros((np.int64(self.m), np.int64(1)), np.int32)
 
     def solve(self, partial=False) -> bool:
-        #TODO we might want to remove the added lines if partial=True to avoid unexpected behaviour
+        # TODO we might want to remove the added lines if partial=True to avoid unexpected behaviour
         # if the same instance is used with partial=False afterwards
         # additionally the additional lines will most likely slow down the algorithm
         if not (self.isPotentionallySolvable() or partial):
@@ -56,7 +57,7 @@ class GEPP_intern:
                     else:
                         tmp = len(self.b[0])
                     self.b = np.vstack((self.b, np.array([0 for x in range(tmp)], dtype="uint8")))
-                    self.packet_mapping = np.concatenate((self.packet_mapping, [len(self.A) + 1]))
+                    self.packet_mapping = np.concatenate((self.packet_mapping, [len(self.A)]))
                 self._update_input()
             return self._elimination()
         except Exception as ex:
@@ -90,7 +91,8 @@ class GEPP_intern:
             # as a new identity matrix on the fly...
             tmp = np.identity(len(self.A), dtype=bool)
             # create a view overlapping the new matrix with the old one for the top left corner
-            tmp[0:self.chunk_to_used_packets.shape[0], 0:self.chunk_to_used_packets.shape[1]] = self.chunk_to_used_packets
+            tmp[0:self.chunk_to_used_packets.shape[0],
+            0:self.chunk_to_used_packets.shape[1]] = self.chunk_to_used_packets
 
             self.chunk_to_used_packets = tmp
 
@@ -113,7 +115,8 @@ class GEPP_intern:
         # Elimination
         if self.chunk_to_used_packets is None:
             # TODO OR if len(self.chunk_to_used_packets) < len(self.A) fill with Identity rows
-            self.chunk_to_used_packets: np.array = np.identity(max(self.A.shape()[0], self.A.shape()[1]), dtype=np.bool)  # inverse part
+            self.chunk_to_used_packets: np.array = np.identity(max(self.A.shape()[0], self.A.shape()[1]),
+                                                               dtype=np.bool)  # inverse part
             while len(self.chunk_to_used_packets) < self.A.shape()[1]:
                 self.chunk_to_used_packets = np.vstack(
                     (self.chunk_to_used_packets, np.full((1, len(self.A[1])), False)))
@@ -166,7 +169,8 @@ class GEPP_intern:
             from cdnarules import elimination
             if self.chunk_to_used_packets is None:
                 # TODO OR if len(self.chunk_to_used_packets) < len(self.A) fill with Identity rows
-                self.chunk_to_used_packets: np.array = np.identity(max(self.A.shape()[0], self.A.shape()[1]), dtype=bool)  # inverse part
+                self.chunk_to_used_packets: np.array = np.identity(max(self.A.shape()[0], self.A.shape()[1]),
+                                                                   dtype=bool)  # inverse part
             elimination(self.A, self.b, self.packet_mapping, self.chunk_to_used_packets)
             self.result_mapping = self.generateResultMapping()
             return self.isSolved()
@@ -198,7 +202,8 @@ class GEPP_intern:
     def getSolvedCount(self) -> int:
         return len(set(x[0] for x in self.result_mapping))
 
-    def get_common_packets(self, chunk_id_lst: typing.List[int], valid_chunks_lst: typing.List[int] = None) -> np.array:
+    def get_common_packets(self, chunk_id_lst: typing.List[int], valid_chunks_lst: typing.List[int] = None,
+                           multi_error_packet_mode=False) -> np.array:
         """
         returns a list of packets that are used to reconstruct all chunks in chunk_id_lst
         :param chunk_id_lst: list of chunk ids that contain invalid data (corrupted)
@@ -213,7 +218,10 @@ class GEPP_intern:
             return None
         res = np.ones(len(self.chunk_to_used_packets[0]), dtype=bool)
         for i in chunk_id_lst:
-            res = np.logical_and(res, self.chunk_to_used_packets[i])
+            if multi_error_packet_mode:
+                res = np.logical_or(res, self.chunk_to_used_packets[i])
+            else:
+                res = np.logical_and(res, self.chunk_to_used_packets[i])
         for i in valid_chunks_lst:
             res = np.logical_and(res, np.invert(self.chunk_to_used_packets[i]))
         return res
@@ -274,7 +282,8 @@ def main():
     print("Is solved: " + str(gauss_elem_inverse.isSolved()))
     print("".join([chr(x) for x in gauss_elem_inverse.b.reshape(-1)]))
 
-#TODO create a function that (interactivley) shows which chunks could be affected by a given list of packets
+
+# TODO create a function that (interactivley) shows which chunks could be affected by a given list of packets
 # that way we can guide the user to which chunks might also be invalid so that the user can further finetune the search
 # and won't waste time tagging packets as valid that are not even in consideration
 
