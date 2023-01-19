@@ -20,7 +20,7 @@ class demo_decode:
                number_of_chunks=STATIC_NUM_CHUNKS, use_header_chunk=False, id_len_format=ID_LEN_FORMAT,
                number_of_chunks_len_format=NUMBER_OF_CHUNKS_LEN_FORMAT, packet_len_format=PACKET_LEN_FORMAT,
                crc_len_format=CRC_LEN_FORMAT, read_all=READ_ALL_BEFORE_DECODER, distribution_cfg_str="",
-               checksum_len_str=None):
+               return_decoder=False, checksum_len_str=None, skip_solve=False):
         print("Pure Gauss-Mode")
         x = RU10Decoder(file, use_headerchunk=use_header_chunk, error_correction=error_correction,
                         static_number_of_chunks=number_of_chunks, checksum_len_str=checksum_len_str)
@@ -28,9 +28,12 @@ class demo_decode:
         x.decode(id_len_format=id_len_format,
                  number_of_chunks_len_format=number_of_chunks_len_format, packet_len_format=packet_len_format,
                  crc_len_format=crc_len_format)
-        x.solve(partial=True)
+        if not skip_solve:
+            x.solve(partial=True)
         if mode_1_bmp:
             return x.mode_1_bmp_decode()
+        elif return_decoder:
+            return x
         else:
             return x.saveDecodedFile(null_is_terminator=null_is_terminator, print_to_output=False,
                                      return_file_name=True, partial_decoding=True)
