@@ -82,7 +82,7 @@ static PyObject* buildGraySequence(PyObject* self, PyObject *args) {
     return result;
 }
 
-static void do_xor_bool(bool* arr_a, bool* arr_b, int length, bool* outArr) {
+static void do_xor_bool(bool* arr_a, bool* arr_b, npy_intp length, bool* outArr) {
     for (int i = 0; i < length; i++){ // we might have to change to non-continuous assumption...
         outArr[i] = arr_a[i] ^ arr_b[i];
     }
@@ -133,8 +133,8 @@ static bool isSolvable(PyArrayObject* A) {
 
 static PyObject* elimination(PyObject *self, PyObject *args)
 {
-   PyArrayObject *A, *b, *packet_mapping;
-   if (!PyArg_ParseTuple(args, "O!O!O!", &PyArray_Type, &A, &PyArray_Type, &b, &PyArray_Type, &packet_mapping)) {
+   PyArrayObject *A, *b, *packet_mapping, *chunk_to_used_packets;
+   if (!PyArg_ParseTuple(args, "O!O!O!O!", &PyArray_Type, &A, &PyArray_Type, &b, &PyArray_Type, &packet_mapping, &PyArray_Type, &chunk_to_used_packets)) {
       PyErr_BadArgument();
       return NULL;
    }
@@ -144,6 +144,8 @@ static PyObject* elimination(PyObject *self, PyObject *args)
    npy_intp dims_a_0 = PyArray_DIM(A,0); // rows
    npy_intp dims_a_1 = PyArray_DIM(A,1); // columns
    npy_intp dims_b_1 = PyArray_DIM(b,1);
+   //npy_intp dims_chunk_to_used_packets_0 = PyArray_DIM(chunk_to_used_packets,0); // rows
+   npy_intp dims_chunk_to_used_packets_1 = PyArray_DIM(chunk_to_used_packets,1); // columns
    bool *dirty_rows = PyMem_RawMalloc(((unsigned int)dims_a_0) * sizeof(char));
    if (dirty_rows == NULL)
        return PyErr_NoMemory();
@@ -153,27 +155,36 @@ static PyObject* elimination(PyObject *self, PyObject *args)
    bool dirty = false;
    uint8_t num_dirty_rows = 0;
     for (uint32_t i = 0; i < dims_a_1; i++) {
-        for (uint32_t j = i - num_dirty_rows; j < dims_a_0; j++) {
+        for (uint32_t j = i; j < dims_a_0; j++) { // j = i - num_dirty_rows
             if (*((bool*)PyArray_GETPTR2(A, j, i)) ) {
                 if (i == j)
                     //A[i,i] is true, no need to swap rows
                     break;
                 // we found the first row j with A[j,i] = True. char_xor it with row i: A[i] = A[i] ^ A[j]
                 // we go for a xor-swap
+                // swap A
                 do_xor_bool((bool*)PyArray_GETPTR2(A, i,0), (bool*)PyArray_GETPTR2(A, j,0),
                          dims_a_1, (bool*)PyArray_GETPTR2(A, i,0));
                 do_xor_bool((bool*)PyArray_GETPTR2(A,i,0),  (bool*)PyArray_GETPTR2(A, j,0),
                          dims_a_1, (bool*)PyArray_GETPTR2(A,j,0));
                 do_xor_bool((bool*)PyArray_GETPTR2(A, i,0), (bool*)PyArray_GETPTR2(A, j,0),
                          dims_a_1, (bool*)PyArray_GETPTR2(A, i,0));
+                // swap b
                 do_xor_byte((BYTE*)PyArray_GETPTR2(b,i,0), (BYTE*)PyArray_GETPTR2(b,j,0),
                          dims_b_1, (BYTE*)PyArray_GETPTR2(b,i,0));
                 do_xor_byte((BYTE*)PyArray_GETPTR2(b,j,0), (BYTE*)PyArray_GETPTR2(b,i,0),
                          dims_b_1, (BYTE*)PyArray_GETPTR2(b,j,0));
                 do_xor_byte((BYTE*)PyArray_GETPTR2(b,i,0), (BYTE*)PyArray_GETPTR2(b,j,0),
                          dims_b_1, (BYTE*)PyArray_GETPTR2(b,i,0));
+                // swap inverse matrix
+                do_xor_bool((bool*)PyArray_GETPTR2(chunk_to_used_packets,i,0), (bool*)PyArray_GETPTR2(chunk_to_used_packets,j,0),
+                         dims_chunk_to_used_packets_1, (bool*)PyArray_GETPTR2(chunk_to_used_packets,i,0));
+                do_xor_bool((bool*)PyArray_GETPTR2(chunk_to_used_packets,i,0),  (bool*)PyArray_GETPTR2(chunk_to_used_packets, j,0),
+                         dims_chunk_to_used_packets_1, (bool*)PyArray_GETPTR2(chunk_to_used_packets,j,0));
+                do_xor_bool((bool*)PyArray_GETPTR2(chunk_to_used_packets, i,0), (bool*)PyArray_GETPTR2(chunk_to_used_packets, j,0),
+                         dims_chunk_to_used_packets_1, (bool*)PyArray_GETPTR2(chunk_to_used_packets, i,0));
                 // swap packet_mapping...
-                unsigned long tmp = (*(unsigned long*)PyArray_GETPTR1(packet_mapping, i));
+                //unsigned long tmp = (*(unsigned long*)PyArray_GETPTR1(packet_mapping, i));
                 //if (i >= dims_mapping || j >= dims_mapping)
                 //    PySys_WriteStdout("Packet Mappings ( dim= %lu ): i = %u, j = %u\n", dims_mapping, i, j);
 
@@ -218,6 +229,9 @@ static PyObject* elimination(PyObject *self, PyObject *args)
                             (bool*)PyArray_GETPTR2(A,i,0), dims_a_1, (bool*)PyArray_GETPTR2(A,j,0));
                 do_xor_byte((BYTE*)PyArray_GETPTR2(b,j,0), (BYTE*)PyArray_GETPTR2(b,i,0),
                           dims_b_1, (BYTE*)PyArray_GETPTR2(b,j,0));
+                do_xor_bool((bool*)PyArray_GETPTR2(chunk_to_used_packets,j,0),
+                            (bool*)PyArray_GETPTR2(chunk_to_used_packets,i,0),
+                            dims_chunk_to_used_packets_1, (bool*)PyArray_GETPTR2(chunk_to_used_packets,j,0));
             }
         }
 
@@ -227,7 +241,7 @@ static PyObject* elimination(PyObject *self, PyObject *args)
         if (dirty_rows[col]) {
             continue; //skip this column if it was marked as dirty previously
         }
-        for (int32_t row = dims_a_0 - 1; row >= 0; row--) {
+        for (npy_intp row = col; row >= 0; row--) {
             if (dirty_rows[row]) {
                 continue; //skip this column if it was marked as dirty previously
             }
@@ -242,6 +256,10 @@ static PyObject* elimination(PyObject *self, PyObject *args)
                 // char_xor the content
                 do_xor_byte((BYTE*)PyArray_GETPTR2(b,row,0), (BYTE*)PyArray_GETPTR2(b,col,0),
                             dims_b_1, (BYTE*)PyArray_GETPTR2(b,row,0));
+                // same for inverse matrix
+                do_xor_bool((bool*)PyArray_GETPTR2(chunk_to_used_packets,row,0),
+                            (bool*)PyArray_GETPTR2(chunk_to_used_packets,col,0),
+                            dims_chunk_to_used_packets_1, (bool*)PyArray_GETPTR2(chunk_to_used_packets,row,0));
             }
         }
    }
@@ -289,8 +307,8 @@ static PyObject* microsatellite(PyObject* self,  PyObject *args)
    if (!PyArg_ParseTuple(args, "si", &text, &lengthToLookFor)) {
       return NULL;
    }
-   int i = 0;
-   int n = strlen(text);
+   size_t i = 0;
+   size_t n = strlen(text);
    int res = 1;
    char *resChars = PyMem_RawMalloc((lengthToLookFor + 1) * sizeof(char));
    if (resChars == NULL)
@@ -337,9 +355,9 @@ static PyObject* longestSequenceOfChar(PyObject* self,  PyObject *args)
    }
    int c = 0; // max homopolymer length found so far
    char res = char_x[0];  // text[0]
-   int n = strlen(text);
+   size_t n = strlen(text);
    int curr = 1;
-   int i = 0;
+   uint32_t i = 0;
    while (i < n-1) {
         if (i < n - 1 && text[i] == text[i+1]) {
            curr += 1;
@@ -370,13 +388,13 @@ static PyObject* repeatRegion(PyObject* self,  PyObject *args)
    if (!PyArg_ParseTuple(args, "si", &text, &lengthToLookFor)) {
       return NULL;
    }
-   int len = strlen(text);
+   size_t len = strlen(text);
    char *subseq = PyMem_RawMalloc((lengthToLookFor+1) * sizeof(char));
    if (subseq == NULL)
        return PyErr_NoMemory();
    strncpy( subseq, text, lengthToLookFor );
    subseq[lengthToLookFor] = '\0';
-   for (int i = 0; i < len-lengthToLookFor;i++) {
+   for (size_t i = 0; i < len-lengthToLookFor;i++) {
         strncpy( subseq, &text[i], lengthToLookFor);
         if (strstr(&text[i+1], subseq) != NULL) {
             res = 1;
@@ -396,13 +414,13 @@ static PyObject* smallRepeatRegion(PyObject* self,  PyObject *args)
    if (!PyArg_ParseTuple(args, "si", &text, &lengthToLookFor)) {
       return NULL;
    }
-   int len = strlen(text);
+   size_t len = strlen(text);
    char *subseq = PyMem_RawMalloc((lengthToLookFor+1) * sizeof(char));
    if (subseq == NULL)
        return PyErr_NoMemory();
    strncpy(subseq, text, lengthToLookFor );
    subseq[lengthToLookFor] = '\0';
-   for (int i = 0; i <= len-lengthToLookFor;i++) {
+   for (size_t i = 0; i <= len-lengthToLookFor;i++) {
         strncpy(subseq, &text[i], lengthToLookFor);
         if (strstr(&text[i+1], subseq) != NULL) {
             res += 1.0;
@@ -411,7 +429,7 @@ static PyObject* smallRepeatRegion(PyObject* self,  PyObject *args)
    if (res * lengthToLookFor / strlen(text) > 0.44) {
        res = 1.0;
    } else {
-       res = res * lengthToLookFor / strlen(text) * 0.5;
+       res = res * lengthToLookFor / strlen(text) * 0.5f;
    }
    PyObject *return_val = Py_BuildValue("d", res);
    PyMem_RawFree(subseq);
@@ -508,13 +526,13 @@ static char bitsSet_docs[] =
 static char grayCode_docs[] =
     "grayCode(integer): create a new int for graycode construction";
 static char buildGraySequence_docs[] =
-"buildGraySequence(length, b): build up a grey sequence of length <length> with bit b set";
+    "buildGraySequence(length, b): build up a grey sequence of length <length> with bit b set";
 static char bitSet_docs[] =
-"bitSet(X,b): returns if bit b is set in X";
+    "bitSet(X,b): returns if bit b is set in X";
 static char xorarray_docs[] =
-"xor_array(X,Y): returns the xor of the two input arrays";
+    "xor_array(X,Y): returns the xor of the two input arrays";
 static char elimination_docs[] =
-"elimination(A,b,packet_mapping): performs gaussian elimination on A and b. returns true (for now)";
+    "elimination(A,b,packet_mapping, chunk_to_used_packets): performs gaussian elimination on A and b. returns true (for now); chunk_to_used_packets MUST be a square matrix >= max(A[rows], A[cols])";
 static PyMethodDef cdnarules_funcs[] = {
    //{"microsatellite", (PyCFunction)microsatellite, METH_NOARGS, cdnarules_docs},
    {"bitsSet", bitsSet, METH_VARARGS, bitsSet_docs},

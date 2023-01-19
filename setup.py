@@ -10,7 +10,7 @@ except IOError:
 
 setup(
     name="norec4dna",
-    version="0.1.1",
+    version="0.1.2",
     description="NOREC4DNA - a Fountain Code based approach to DNA-Storage",
     author="Michael Schwarz",
     packages=find_packages(),

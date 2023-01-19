@@ -1,9 +1,11 @@
 import sys
 import configparser
+import typing
 
-from demo_raptor_decode import demo_decode as demo_raptor_decode
-from demo_online_decode import demo_decode as demo_online_decode
-from demo_decode import demo_decode as demo_lt_decode
+from .demo_raptor_decode import demo_decode as demo_raptor_decode
+from .demo_online_decode import demo_decode as demo_online_decode
+from .demo_decode import demo_decode as demo_lt_decode
+from norec4dna.Decoder import Decoder
 from norec4dna.ErrorCorrection import get_error_correction_decode
 from norec4dna.helper import find_ceil_power_of_four, fasta_cluster_and_remove_index, cluster_and_remove_index, \
     merge_parts
@@ -15,12 +17,17 @@ class ConfigReadAndExecute:
         self.config.read(filename)
         self.coder = None
 
-    def execute(self):
+    def execute(self, return_decoder: bool = False, skip_solve=False) -> typing.Optional[
+        typing.List[typing.Union[str, Decoder]]]:
+        decoders = []
         if len(self.config.sections()) == 0:
             print("Empty or missing config file. Does the config file exist?")
         for section in self.config.sections():
             print("Decoding {}".format(section))
-            self.__decode(section, self.config[section])
+            decoder = self.__decode(section, self.config[section], return_decoder, skip_solve=skip_solve)
+            if return_decoder:
+                decoders.append(decoder)
+        return decoders
 
     def warn_unknown_items(self, config):
         known = ["error_correction", "repair_symbols", "as_mode_1_bmp", "number_of_splits", "split_index_position",
@@ -34,7 +41,7 @@ class ConfigReadAndExecute:
                 print(f"[Warning] Config-entry '{cfg}' not known!")
 
     # @staticmethod
-    def __decode(self, filename, decode_conf):
+    def __decode(self, filename, decode_conf, return_decoder=False, skip_solve=False):
         self.warn_unknown_items(decode_conf)
         algorithm = decode_conf.get("algorithm")
         number_of_chunks = decode_conf.getint("number_of_chunks", None)
@@ -92,17 +99,20 @@ class ConfigReadAndExecute:
                                 number_of_chunks=number_of_chunks + (
                                     -1 if f_file == last_split_folder and last_split_smaller else 0),
                                 use_header_chunk=use_header_chunk, read_all=read_all_packets,
-                                distribution_cfg_str=distribution_cfg_str, checksum_len_str=checksum_len_str))
+                                distribution_cfg_str=distribution_cfg_str, return_decoder=return_decoder,
+                                checksum_len_str=checksum_len_str, skip_solve=skip_solve))
             except Exception as ex:
                 raise ex
         if len(folders) > 1:
             merge_parts(decoded_files, remove_tmp_on_success=True)
+        else:
+            return decoded_files[0]
 
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         file = sys.argv[1]
     else:
-        file = ".OUTFILES/parallel_LT/LT_Dorn_Thu_Mar_18_13_52_28_2021.ini"  # SpringBlossoms.txt_Thu_Nov_26_16_13_20_2020.ini"
+        file = "./Dorn_Mon_Oct_10_10_45_15_2022.ini"  # SpringBlossoms.txt_Thu_Nov_26_16_13_20_2020.ini"
     x = ConfigReadAndExecute(file)
     x.execute()

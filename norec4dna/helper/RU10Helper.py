@@ -96,3 +96,6 @@ def r_int63(rng: np.random) -> int:
 
 def from_true_false_list(tf_list: typing.List[bool]) -> typing.List[int]:
     return [i for i, x in enumerate(tf_list) if x]
+
+if __name__ == '__main__':
+    print(choose_packet_numbers(500, 123, RaptorDistribution.RaptorDistribution(500)), False,None)

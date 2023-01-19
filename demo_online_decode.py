@@ -18,7 +18,8 @@ class demo_decode:
     def decode(file, error_correction=nocode, null_is_terminator=NULL_IS_TERMINATOR, mode_1_bmp=False,
                number_of_chunks=STATIC_NUM_CHUNKS, use_header_chunk=False, id_len_format=ID_LEN_FORMAT,
                number_of_chunks_len_format=NUMBER_OF_CHUNKS_LEN_FORMAT, packet_len_format=PACKET_LEN_FORMAT,
-               crc_len_format=CRC_LEN_FORMAT, read_all=False, distribution_cfg_str="", checksum_len_str=None):
+               crc_len_format=CRC_LEN_FORMAT, read_all=False, distribution_cfg_str="", return_decoder=False,
+               checksum_len_str=None):
         def _internal(decoder):
             decoder.decode(quality_len_format="B", check_block_number_len_format=id_len_format,
                            number_of_chunks_len_format=number_of_chunks_len_format, crc_len_format=crc_len_format)
@@ -28,6 +29,8 @@ class demo_decode:
         print("[1/2] Approximation Decode")
         _internal(x)
         x.saveDecodedFile(null_is_terminator=null_is_terminator, print_to_output=PRINT_TO_OUTPUT)
+        if return_decoder:
+            return x
 
 
 if __name__ == "__main__":
