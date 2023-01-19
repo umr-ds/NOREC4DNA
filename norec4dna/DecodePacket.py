@@ -17,6 +17,8 @@ class DecodePacket(Packet):
         self.update_degree()
         self.total_number_of_chunks = number_of_chunks
         self.error_prob = None
+        self.id = None
+        self.dna_data = None
 
     @classmethod
     def from_packet(cls, packet: Packet, pseudo: bool = False):

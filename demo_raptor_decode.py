@@ -19,10 +19,11 @@ class demo_decode:
     def decode(file, error_correction=nocode, null_is_terminator=False, mode_1_bmp=False,
                number_of_chunks=STATIC_NUM_CHUNKS, use_header_chunk=False, id_len_format=ID_LEN_FORMAT,
                number_of_chunks_len_format=NUMBER_OF_CHUNKS_LEN_FORMAT, packet_len_format=PACKET_LEN_FORMAT,
-               crc_len_format=CRC_LEN_FORMAT, read_all=READ_ALL_BEFORE_DECODER):
+               crc_len_format=CRC_LEN_FORMAT, read_all=READ_ALL_BEFORE_DECODER, distribution_cfg_str="",
+               checksum_len_str=None):
         print("Pure Gauss-Mode")
         x = RU10Decoder(file, use_headerchunk=use_header_chunk, error_correction=error_correction,
-                        static_number_of_chunks=number_of_chunks)
+                        static_number_of_chunks=number_of_chunks, checksum_len_str=checksum_len_str)
         x.read_all_before_decode = read_all
         x.decode(id_len_format=id_len_format,
                  number_of_chunks_len_format=number_of_chunks_len_format, packet_len_format=packet_len_format,
@@ -59,6 +60,7 @@ if __name__ == "__main__":
                             default=STATIC_NUM_CHUNKS,
                             help="static number of chunks (only set this if not stored in each packet)")
         parser.add_argument("--is_null_terminated", required=False, action="store_true")
+        parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
         parser.add_argument("--use_header_chunk", required=False, action="store_true")
         args = parser.parse_args()
         _file = args.filename
@@ -71,6 +73,7 @@ if __name__ == "__main__":
         _number_of_splits = args.number_of_splits
         _is_null_terminated = args.is_null_terminated
         _use_header_chunk = args.use_header_chunk
+        _header_crc_str = args.header_crc_str
         if _number_of_splits != 0:
             _split_index_length = find_ceil_power_of_four(_number_of_splits)
         _last_split_folder = None
@@ -95,7 +98,7 @@ if __name__ == "__main__":
                     demo.decode(_file, error_correction=_error_correction, null_is_terminator=_is_null_terminated,
                                 mode_1_bmp=_mode_1_bmp, number_of_chunks=_number_of_chunks + (
                             -1 if _file == _last_split_folder and _last_split_smaller else 0),
-                                use_header_chunk=_use_header_chunk))
+                                use_header_chunk=_use_header_chunk, checksum_len_str=_header_crc_str))
             except:
                 pass
         if len(folders) > 1:

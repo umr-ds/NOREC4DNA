@@ -37,7 +37,10 @@ def run_between_tests():
 @pytest.mark.parametrize("dna_rules", [DNARules2()])
 @pytest.mark.parametrize("error_correction", [nocode])
 @pytest.mark.parametrize("headerchunk", [True, False])
-def test_suite(as_dna, chunk_size, dna_rules, error_correction, headerchunk):
+@pytest.mark.parametrize("checksum_len_str", ["", "I", "H", "B"])
+def test_suite(as_dna, chunk_size, dna_rules, error_correction, headerchunk, checksum_len_str):
+    if not headerchunk and checksum_len_str != "":
+        return # not supported
     chunksize = chunk_size
     number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunksize)
     dist = RaptorDistribution(number_of_chunks)
@@ -46,7 +49,7 @@ def test_suite(as_dna, chunk_size, dna_rules, error_correction, headerchunk):
     rules = dna_rules if as_dna else None
     encoder = RU10Encoder(
         file, number_of_chunks, dist, pseudo_decoder=pseudo_decoder, rules=rules, error_correction=error_correction,
-        insert_header=headerchunk
+        insert_header=headerchunk, checksum_len_str=checksum_len_str
     )
     encoder.encode_to_packets()
     encoder.save_packets(split_to_multiple_files=True, save_as_dna=as_dna)
@@ -55,7 +58,8 @@ def test_suite(as_dna, chunk_size, dna_rules, error_correction, headerchunk):
             and pseudo_decoder.getSolvedCount() == pseudo_decoder.number_of_chunks
     )
     assert os.path.exists(out_dir)
-    decoder = decoder_instance(out_dir, error_correction=error_correction, use_headerchunk=headerchunk)
+    decoder = decoder_instance(out_dir, error_correction=error_correction, use_headerchunk=headerchunk,
+                               checksum_len_str=checksum_len_str)
     decoder.decode()
     assert decoder.is_decoded() and decoder.getSolvedCount() == encoder.number_of_chunks
     os.remove(file)

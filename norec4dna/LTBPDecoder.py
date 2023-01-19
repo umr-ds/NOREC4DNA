@@ -122,7 +122,7 @@ class LTBPDecoder(BPDecoder):
         return self.updatePackets(packet)
 
     def addPacket(self, packet: Packet) -> None:
-        if (not packet.get_degree() in self.degreeToPacket) or (
+        if (packet.get_degree() not in self.degreeToPacket) or (
                 not isinstance(self.degreeToPacket[packet.get_degree()], set)):
             self.degreeToPacket[packet.get_degree()] = set()
         self.number_of_chunks = packet.get_total_number_of_chunks()
