@@ -49,7 +49,8 @@ class RU10Decoder(Decoder):
                 self.f = open(self.file, "rb")
         self.correct: int = 0
         self.corrupt: int = 0
-        self.number_of_chunks: int = 1000000
+        if static_number_of_chunks is not None:
+            self.number_of_chunks = static_number_of_chunks
         self.headerChunk: typing.Optional[HeaderChunk] = None
         self.GEPP: typing.Optional[GEPP] = None
         self.pseudoCount: int = 0

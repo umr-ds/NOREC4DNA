@@ -47,6 +47,8 @@ class LTDecoder(Decoder):
         self.counter: typing.Dict[int, int] = dict()
         self.error_correction: typing.Callable = error_correction
         self.static_number_of_chunks: int = static_number_of_chunks
+        if static_number_of_chunks is not None:
+            self.number_of_chunks = static_number_of_chunks
         self.implicit_mode: bool = implicit_mode
         self.dist: typing.Optional[Distribution] = dist
         self.EOF: bool = False

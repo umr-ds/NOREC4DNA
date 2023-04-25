@@ -40,7 +40,8 @@ class OnlineDecoder(Decoder):
         self.correct: int = 0
         self.corrupt: int = 0
         self.rng: numpy.random = numpy.random
-        self.number_of_chunks: int = 1000000
+        if static_number_of_chunks is not None:
+            self.number_of_chunks = static_number_of_chunks
         self.headerChunk: typing.Optional[HeaderChunk] = None
         self.auxBlockNumbers: typing.Dict[int, typing.Set[int]] = dict()
         self.auxBlocks: typing.Dict[int, OnlineAuxPacket] = dict()
