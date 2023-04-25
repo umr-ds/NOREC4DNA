@@ -336,13 +336,13 @@ class FastDNARules:
 
         undes_motifs = [
             # Promoter recognition motif (Euk).
-            ("TATAAA", 0.01),
+            ("TATAAA", 1.01),
             # Promoter recognition motifs (Prok).
-            ("TTGACA", 0.05),
-            ("TGTATAATG", 0.05),
+            ("TTGACA", 1.05),
+            ("TGTATAATG", 1.05),
             # Polyadenylation signals (Euk).
-            ("AATAAA", 0.01),
-            ("TTGTGTGTTG", 0.01),
+            ("AATAAA", 1.01),
+            ("TTGTGTGTTG", 1.01),
             # Lox sites.
             ("ATAACTTCGTATAGCATACATTATACGAAGTTAT", 1.01),
             ("ATAACTTCGTATAGCATACATTATACGAACGGTA", 1.01),
@@ -373,16 +373,16 @@ class FastDNARules:
             # inverse BsaI
             ("CCAGAG", 1.01),
 
-            ("CGTCTC", 0.01),
-            ("GCGATG", 0.01),
-            ("GCTCTTC", 0.01),
+            ("CGTCTC", 1.01),
+            ("GCGATG", 1.01),
+            ("GCTCTTC", 1.01),
             # Oligo Adapters.
-            ("CTCGTAGACTGCGTACCA", 0.01),
-            ("GACGATGAGTCCTGAGTA", 0.01),
+            ("CTCGTAGACTGCGTACCA", 1.01),
+            ("GACGATGAGTCCTGAGTA", 1.01),
             # 5' extensions.
-            ("GGTTCCACGTAAGCTTCC", 0.01),
-            ("GCGATTACCCTGTACACC", 0.01),
-            ("GCCAGTACATCAATTGCC", 0.01),
+            ("GGTTCCACGTAAGCTTCC", 1.01),
+            ("GCGATTACCCTGTACACC", 1.01),
+            ("GCCAGTACATCAATTGCC", 1.01),
             # Twister Adapters:
             ("GAAGTGCCATTCCGCCTGACCT", 1.0),  # Twister 5' Adapter
             ("AGGCTAGGTGGAGGCTCAGTG", 1.0)  # Twister 3' Adapter
