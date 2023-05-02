@@ -339,11 +339,11 @@ class RU10Encoder(Encoder):
               " Distribution: " + self.dist.get_config_string()
         return res
 
-    def save_config_file(self, default_map=None, section_name=None):
+    def save_config_file(self, default_map=None, section_name=None, add_dot_fasta=False):
         if default_map is None:
             default_map = {}
         if section_name is None:
-            section_name = self.out_file
+            section_name = self.out_file + (".fasta" if add_dot_fasta else "")
         config = configparser.ConfigParser()
         config[section_name] = {'algorithm': "RU10",
                                 'error_correction': self.error_correction.__code__,
