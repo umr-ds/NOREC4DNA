@@ -601,7 +601,7 @@ class RU10Decoder(Decoder):
             if self.headerChunk.checksum != decoded_crc:
                 print("Decoded CRC:", decoded_crc)
                 print("Header CRC:", self.headerChunk.checksum)
-                raise ValueError("Checksum of decoded file does not match checksum in header chunk!")
+                raise ValueError("Checksum of decoded file does not match checksum in header chunk!", file_name)
         if dirty:
             print("Some parts could not be restored, file WILL contain sections with \\x00 !")
         if print_to_output:
