@@ -39,6 +39,68 @@ except:
                 count += 1
         return 1.0 if 1.0 * count * repeat_length / len(data) > 0.44 else count * repeat_length / len(data) * 0.5
 
+_undes_motifs = [
+    ("CTCGTAGACTGCGTACCA", 1.01),
+    ("GACGATGAGTCCTGAGTA", 1.01),
+    ("CTGTCTCTTATACACATCT", 1.01),
+    ("TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG", 1.01),
+    ("GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAG", 1.01),
+]
+
+undes_motifs = [
+    # Promoter recognition motif (Euk).
+    ("TATAAA", 0.01),
+    # Promoter recognition motifs (Prok).
+    ("TTGACA", 0.05),
+    ("TGTATAATG", 0.05),
+    # Polyadenylation signals (Euk).
+    ("AATAAA", 0.01),
+    ("TTGTGTGTTG", 0.01),
+    # Lox sites.
+    ("ATAACTTCGTATAGCATACATTATACGAAGTTAT", 1.01),
+    ("ATAACTTCGTATAGCATACATTATACGAACGGTA", 1.01),
+    ("TACCGTTCGTATAGCATACATTATACGAAGTTAT", 1.01),
+    ("TACCGTTCGTATAGCATACATTATACGAACGGTA", 1.01),
+    ("TACCGTTCGTATATGGTATTATATACGAAGTTAT", 1.01),
+    ("TACCGTTCGTATATTCTATCTTATACGAAGTTAT", 1.01),
+    ("TACCGTTCGTATAGGATACTTTATACGAAGTTAT", 1.01),
+    ("TACCGTTCGTATATACTATACTATACGAAGTTAT", 1.01),
+    ("TACCGTTCGTATACTATAGCCTATACGAAGTTAT", 1.01),
+    ("ATAACTTCGTATATGGTATTATATACGAACGGTA", 1.01),
+    ("ATAACTTCGTATAGTATACCTTATACGAAGTTAT", 1.01),
+    # Lox site spacers not covered by the Lox sites.
+    ("AGGTATGC", 1.01),
+    ("TTGTATGG", 1.01),
+    ("GGATAGTA", 1.01),
+    ("GTGTATTT", 1.01),
+    ("GGTTACGG", 1.01),
+    ("TTTTAGGT", 1.01),
+    ("GTACACAT", 1.01),
+    # Restriction enzyme recognition motifs.
+    # BpiI
+    ("GAAGAC", 1.01),
+    # inverse BpiI
+    ("CTTCTG", 1.01),
+    # BsaI
+    ("GGTCTC", 1.01),
+    # inverse BsaI
+    ("CCAGAG", 1.01),
+
+    ("CGTCTC", 0.01),
+    ("GCGATG", 0.01),
+    ("GCTCTTC", 0.01),
+    # Oligo Adapters.
+    ("CTCGTAGACTGCGTACCA", 0.01),
+    ("GACGATGAGTCCTGAGTA", 0.01),
+    # 5' extensions.
+    ("GGTTCCACGTAAGCTTCC", 0.01),
+    ("GCGATTACCCTGTACACC", 0.01),
+    ("GCCAGTACATCAATTGCC", 0.01),
+    # Twister Adapters:
+    ("GAAGTGCCATTCCGCCTGACCT", 1.0),  # Twister 5' Adapter
+    ("AGGCTAGGTGGAGGCTCAGTG", 1.0)  # Twister 3' Adapter
+]
+
 
 def gc_error_calculation(gc_percentage):
     return (100 + (175 * gc_percentage) / 6 - (121 * gc_percentage ** 2) / 72 + (gc_percentage ** 3) / 36 - (
@@ -55,7 +117,7 @@ def ts_gc_error_calculation(gc_percentage):
 
 def gc_strict_calculation(gc_percentage):
     return (
-                   100 + 49970.8 * gc_percentage - 2582 * gc_percentage ** 2 + 41.6458 * gc_percentage ** 3 - 0.208229 * gc_percentage ** 4) / 100
+            100 + 49970.8 * gc_percentage - 2582 * gc_percentage ** 2 + 41.6458 * gc_percentage ** 3 - 0.208229 * gc_percentage ** 4) / 100
 
 
 def strict_homopolymers():
@@ -326,67 +388,6 @@ class FastDNARules:
         :param data:
         :return:
         """
-        _undes_motifs = [
-            ("CTCGTAGACTGCGTACCA", 1.01),
-            ("GACGATGAGTCCTGAGTA", 1.01),
-            ("CTGTCTCTTATACACATCT", 1.01),
-            ("TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG", 1.01),
-            ("GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAG", 1.01),
-        ]
-
-        undes_motifs = [
-            # Promoter recognition motif (Euk).
-            ("TATAAA", 0.01),
-            # Promoter recognition motifs (Prok).
-            ("TTGACA", 0.05),
-            ("TGTATAATG", 0.05),
-            # Polyadenylation signals (Euk).
-            ("AATAAA", 0.01),
-            ("TTGTGTGTTG", 0.01),
-            # Lox sites.
-            ("ATAACTTCGTATAGCATACATTATACGAAGTTAT", 1.01),
-            ("ATAACTTCGTATAGCATACATTATACGAACGGTA", 1.01),
-            ("TACCGTTCGTATAGCATACATTATACGAAGTTAT", 1.01),
-            ("TACCGTTCGTATAGCATACATTATACGAACGGTA", 1.01),
-            ("TACCGTTCGTATATGGTATTATATACGAAGTTAT", 1.01),
-            ("TACCGTTCGTATATTCTATCTTATACGAAGTTAT", 1.01),
-            ("TACCGTTCGTATAGGATACTTTATACGAAGTTAT", 1.01),
-            ("TACCGTTCGTATATACTATACTATACGAAGTTAT", 1.01),
-            ("TACCGTTCGTATACTATAGCCTATACGAAGTTAT", 1.01),
-            ("ATAACTTCGTATATGGTATTATATACGAACGGTA", 1.01),
-            ("ATAACTTCGTATAGTATACCTTATACGAAGTTAT", 1.01),
-            # Lox site spacers not covered by the Lox sites.
-            ("AGGTATGC", 1.01),
-            ("TTGTATGG", 1.01),
-            ("GGATAGTA", 1.01),
-            ("GTGTATTT", 1.01),
-            ("GGTTACGG", 1.01),
-            ("TTTTAGGT", 1.01),
-            ("GTACACAT", 1.01),
-            # Restriction enzyme recognition motifs.
-            # BpiI
-            ("GAAGAC", 1.01),
-            # inverse BpiI
-            ("CTTCTG", 1.01),
-            # BsaI
-            ("GGTCTC", 1.01),
-            # inverse BsaI
-            ("CCAGAG", 1.01),
-
-            ("CGTCTC", 0.01),
-            ("GCGATG", 0.01),
-            ("GCTCTTC", 0.01),
-            # Oligo Adapters.
-            ("CTCGTAGACTGCGTACCA", 0.01),
-            ("GACGATGAGTCCTGAGTA", 0.01),
-            # 5' extensions.
-            ("GGTTCCACGTAAGCTTCC", 0.01),
-            ("GCGATTACCCTGTACACC", 0.01),
-            ("GCCAGTACATCAATTGCC", 0.01),
-            # Twister Adapters:
-            ("GAAGTGCCATTCCGCCTGACCT", 1.0),  # Twister 5' Adapter
-            ("AGGCTAGGTGGAGGCTCAGTG", 1.0)  # Twister 3' Adapter
-        ]
         # undes_motifs = FastDNARules.add_reverse_complementary(undes_motifs)
         dropchance = 0.0
         for motif in undes_motifs:

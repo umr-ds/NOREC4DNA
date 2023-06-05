@@ -56,19 +56,13 @@ class RU10Packet(Packet):
         # super().__init__(data, used_packets, total_number_of_chunks, read_only, error_correction=error_correction)
 
     def set_used_packets(self, u_packets):
-        self.used_packets = frozenset(u_packets)
-        self.internal_hash = hash(self.used_packets)
+        self.used_packets = u_packets
         tmp_lst = np.zeros(self.total_number_of_chunks, dtype=bool)
         valid_indices = np.array(u_packets)[np.array(u_packets) < self.total_number_of_chunks]
         tmp_lst[valid_indices] = True
-        #for x in self.used_packets:
-        #    if x < self.total_number_of_chunks:
-        #        tmp_lst[x] = True
+        self.internal_hash = hash(tmp_lst.tobytes())
         self.bool_arrayused_packets = tmp_lst
         self.update_degree()
-        # [
-        #    x in self.used_packets for x in range(0, self.total_number_of_chunks)
-        # ]
 
     def prepare_and_pack(self) -> bytes:
         # Format = Highest possible Packetnumber for this file,

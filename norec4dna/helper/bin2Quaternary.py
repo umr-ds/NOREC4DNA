@@ -2,12 +2,6 @@
 # -*- coding: latin-1 -*-
 import os, typing
 
-try:
-    from cdnarules import byte2QUATS as b2quats
-    from cdnarules import getQUAT
-except ImportError:
-    print("C Module failed to load, falling back to slow mode")
-
 """
 Mapping:
 A = 0
@@ -16,39 +10,37 @@ G = 2
 T = 3
 """
 
+try:
+    from cdnarules import byte2QUATS
+    from cdnarules import getQUAT
+except ImportError:
+    print("C Module failed to load, falling back to slow mode")
 
-def getQUAT(bit1: bool, bit2: bool):
-    if not (bit1 or bit2):
-        return "A"
-    elif (not bit1) and bit2:
-        return "C"
-    elif bit1 and (not bit2):
-        return "G"
-    elif bit1 and bit2:
-        return "T"
-    else:
-        print("ERROR, this might never happen.")
-        return "E"
-
-
-def old_b2quats(byte):
-    res = ""
-    if not isinstance(byte, int):
-        byte = byte[0]
-    if not isinstance(byte, str):
-        byt = iter(bin(byte)[2:].rjust(8, "0"))
-    else:
-        byt = iter(bin(ord(byte))[2:].rjust(8, "0"))
-    for x, y in zip(byt, byt):
-        res += getQUAT(str2bool(x), str2bool(y))
-    return res
+    def getQUAT(bit1: bool, bit2: bool):
+        if not (bit1 or bit2):
+            return "A"
+        elif (not bit1) and bit2:
+            return "C"
+        elif bit1 and (not bit2):
+            return "G"
+        elif bit1 and bit2:
+            return "T"
+        else:
+            print("ERROR, this might never happen.")
+            return "E"
 
 
-def byte2QUATS(byte: typing.Union[str, bytes]):
-    try:
-        return b2quats(byte)
-    except:
-        return old_b2quats(byte)
+    def byte2QUATS(byte):
+        res = ""
+        if not isinstance(byte, int):
+            byte = byte[0]
+        if not isinstance(byte, str):
+            byt = iter(bin(byte)[2:].rjust(8, "0"))
+        else:
+            byt = iter(bin(ord(byte))[2:].rjust(8, "0"))
+        for x, y in zip(byt, byt):
+            res += getQUAT(str2bool(x), str2bool(y))
+        return res
 
 
 def bin2Quaternary(filename: str):
@@ -87,7 +79,6 @@ if __name__ == "__main__":
     )  # ""RU10_b_lq.webm/1.RU10"  # "raptor.pdf"
     x = [0, 0, 0, 1, 2, 3, 1, 1, 1, ]
     print(quads2dna(x))
-    print(b2quats(x))
 
 
     def bitstring_to_bytes(s: typing.Union[str, bytes, bytearray]):
