@@ -74,7 +74,8 @@ class Encoder(ABC):
         self.encodedPackets.add(packet)
         return packet
 
-    def encode_header_info(self, checksum: bytes = None, checksum_len_str: str = None, last_chunk_len_format = "I") -> bytes:
+    def encode_header_info(self, checksum: bytes = None, checksum_len_str: str = None,
+                           last_chunk_len_format="I") -> bytes:
         # Size of last Chunk
         # Filename
         # PAD-Bytes
@@ -83,13 +84,16 @@ class Encoder(ABC):
         last_chunk = self.chunks[-1]
         file_name_only = os.path.basename(self.file)
         file_name_length = len(bytes(file_name_only, encoding="utf-8"))
-        assert file_name_length + 4 + struct.calcsize("" + last_chunk_len_format + checksum_len_str) < self.chunk_size,\
+        assert file_name_length + 4 + struct.calcsize("" + last_chunk_len_format + checksum_len_str) < self.chunk_size, \
             "Chunks too small for HeaderInfo"
         struct_string = ("<" + last_chunk_len_format + checksum_len_str + str(file_name_length) + "s" + str(
             self.chunk_size - file_name_length - struct.calcsize("" + last_chunk_len_format + checksum_len_str)) + "x")
         if checksum_len_str == "" or checksum is None:
-            return struct.pack(struct_string, len(last_chunk), bytes(file_name_only, encoding="utf-8"))
-        return struct.pack(struct_string, len(last_chunk), checksum, bytes(file_name_only, encoding="utf-8"))
+            return np.frombuffer(struct.pack(struct_string, len(last_chunk), bytes(file_name_only, encoding="utf-8")),
+                                 dtype=np.uint8)
+        return np.frombuffer(
+            struct.pack(struct_string, len(last_chunk), checksum, bytes(file_name_only, encoding="utf-8")),
+            dtype=np.uint8)
 
     def fill_last_chunk(self):
         last = self.chunks[-1]
@@ -100,7 +104,7 @@ class Encoder(ABC):
             else:
                 filler = (self.chunk_size - len(last)) * b"\x00"
             struct_str = "<" + str(len(last)) + "s" + str(self.chunk_size - len(last)) + "s"
-            self.chunks[-1] = struct.pack(struct_str, bytes(last), filler)
+            self.chunks[-1] = np.frombuffer(struct.pack(struct_str, bytes(last), filler), dtype=np.uint8)
 
     def number_of_packets_encoded_already(self) -> int:
         return len(self.encodedPackets)
@@ -114,7 +118,7 @@ class Encoder(ABC):
         else:
             with open(self.file, "rb") as f:
                 data = f.read()
-        res = [data[i: i + chunk_size] for i in range(0, len(data), chunk_size)]
+        res = [np.frombuffer(data[i: i + chunk_size], dtype=np.uint8) for i in range(0, len(data), chunk_size)]
         if self.number_of_chunks != len(res):
             print("Number of Chunks does not work for given file. New Number of Chunks = " + str(
                 len(res) + (1 if self.insert_header else 0)))

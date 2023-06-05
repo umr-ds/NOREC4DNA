@@ -19,7 +19,7 @@ class RU10Packet(Packet):
                  id_len_format="L", save_number_of_chunks_in_packet=True, method=None, window=None, prepend="",
                  append=""):
         self.id: int = id
-        self.bool_arrayused_packets: typing.Optional[typing.List[bool]] = None
+        self.bool_arrayused_packets: typing.Optional[np.ndarray] = None
         self.total_number_of_chunks: int = total_number_of_chunks
         self.data: bytes = data
         self.used_packets: typing.Optional[typing.Iterable[int]] = None
@@ -56,13 +56,13 @@ class RU10Packet(Packet):
         # super().__init__(data, used_packets, total_number_of_chunks, read_only, error_correction=error_correction)
 
     def set_used_packets(self, u_packets):
-        self.used_packets = u_packets
-        self.internal_hash = hash(frozenset(i for i in self.used_packets))
-        tmp_lst = np.full((1, self.total_number_of_chunks), False)
+        self.used_packets = frozenset(u_packets)
+        self.internal_hash = hash(self.used_packets)
+        tmp_lst = np.full(self.total_number_of_chunks, False, dtype=bool)
         for x in self.used_packets:
             if x < self.total_number_of_chunks:
-                tmp_lst[0, x] = True
-        self.bool_arrayused_packets = tmp_lst[0]
+                tmp_lst[x] = True
+        self.bool_arrayused_packets = tmp_lst
         self.update_degree()
         # [
         #    x in self.used_packets for x in range(0, self.total_number_of_chunks)

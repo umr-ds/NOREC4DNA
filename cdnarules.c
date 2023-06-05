@@ -292,7 +292,7 @@ static PyObject* xor_array(PyObject *self, PyObject *args)
 
    npy_intp dims[1];
    dims[0] = dims_x;
-   out = PyArray_SimpleNew(1, dims, NPY_BYTE); // we can treat any input as byte for bitwise xor...
+   out = PyArray_SimpleNew(1, dims, NPY_UINT8); // we can treat any input as byte for bitwise xor...
     BYTE* out_DataPtr = (BYTE*)(PyArray_DATA((PyArrayObject*)out));
    for (i=0; i<dims_x;i++) {
       out_DataPtr[i] = x_DataPtr[i] ^ y_DataPtr[i];
