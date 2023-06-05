@@ -62,7 +62,8 @@ class Encoder(ABC):
         print("number_of_chunks from chunk_size:" + str(self.number_of_chunks))
 
     def update_progress_bar(self):
-        self.progress_bar.update(len(self.get_encoded_packets()), Dropped=self.ruleDrop)
+        if self.progress_bar is not None:
+            self.progress_bar.update(len(self.get_encoded_packets()), Dropped=self.ruleDrop)
 
     @staticmethod
     def get_number_of_chunks_for_file_with_chunk_size(file: str, chunk_size: int, insert_header: bool = True) -> int:

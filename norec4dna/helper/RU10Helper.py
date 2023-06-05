@@ -26,19 +26,18 @@ def choose_packet_numbers(number_of_chunks: int, code_block_index: int, dist: Ra
     if d > l:
         d = l
     l = np.uint32(l)
-    indices: typing.List[int] = []
+    indices: typing.List[int] = [0] * d
     while b >= l:
         b = (b + a) % lprime
 
-    indices.append(b)
+    indices[0] = b
 
-    for _ in range(1, d):
+    for idx in range(1, d):
         b = (b + a) % lprime
         while b >= l:
             b = (b + a) % lprime
-        indices.append(b)
-    #indices.sort()
-    return indices
+        indices[idx] = b
+    return sorted(indices)
 
 
 @lru_cache(maxsize=None)

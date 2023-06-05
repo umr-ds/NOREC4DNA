@@ -278,22 +278,21 @@ static PyObject* xor_array(PyObject *self, PyObject *args)
    int i;
 
    if (!PyArg_ParseTuple(args, "O!O!", &PyArray_Type, &X, &PyArray_Type, &Y)) {
-      PyErr_BadArgument();
-      return NULL;
+      return PyErr_BadArgument();
    }
    npy_intp dims_x = PyArray_DIM(X,0);
    if (dims_x != PyArray_DIM(Y,0)) { // arrays have to be same size
       PyErr_SetString(PyExc_TypeError, "input dimensions differ");
       return NULL;
    }
-   BYTE* x_DataPtr = (BYTE*)(PyArray_DATA((PyArrayObject*)X));
-   BYTE* y_DataPtr = (BYTE*)(PyArray_DATA((PyArrayObject*)Y));
+   unsigned char* x_DataPtr = (BYTE*)(PyArray_DATA((PyArrayObject*)X));
+   unsigned char* y_DataPtr = (BYTE*)(PyArray_DATA((PyArrayObject*)Y));
 
 
    npy_intp dims[1];
    dims[0] = dims_x;
    out = PyArray_SimpleNew(1, dims, NPY_UINT8); // we can treat any input as byte for bitwise xor...
-    BYTE* out_DataPtr = (BYTE*)(PyArray_DATA((PyArrayObject*)out));
+   unsigned char* out_DataPtr = (BYTE*)(PyArray_DATA((PyArrayObject*)out));
    for (i=0; i<dims_x;i++) {
       out_DataPtr[i] = x_DataPtr[i] ^ y_DataPtr[i];
    }
@@ -461,36 +460,61 @@ static PyObject* getQUAT(PyObject* self,  PyObject *args)
 
 static PyObject* byte2QUATS(PyObject* self,  PyObject *args)
 {
-   int byte;
-   int bit1, bit2;
-   char *res = PyMem_RawMalloc(5 * sizeof(char));
-   if (res == NULL)
-       return PyErr_NoMemory();
-   res[0] = 'A';
-   res[1] = 'A';
-   res[2] = 'A';
-   res[3] = 'A';
-   res[4] = '\0';
-   if (!PyArg_ParseTuple(args, "i", &byte)) {
-      return NULL;
-   }
-   int pos = 6;
-   for (int i=0; i < 4; i++) {
-        bit1 = ((byte >> (pos+1))  & 0x01);
-        bit2 = ((byte >> pos)  & 0x01);
-        if (bit1 && bit2 ) {
-           res[i] = 'T';
-        } else if (!bit1 && bit2) {
-           res[i] = 'C';
-        } else if (bit1 && !bit2) {
-           res[i] = 'G';
+    int byte;
+    int bit1, bit2;
+    char res[5];
+    int pos = 6;
+    int i;
+
+    if (!PyArg_ParseTuple(args, "i", &byte)) {
+        return NULL;
+    }
+
+    for (i = 0; i < 4; i++) {
+        bit1 = (byte >> (pos + 1)) & 0x01;
+        bit2 = (byte >> pos) & 0x01;
+        switch ((bit1 << 1) | bit2) {
+            case 0b11:
+                res[i] = 'T';
+                break;
+            case 0b01:
+                res[i] = 'C';
+                break;
+            case 0b10:
+                res[i] = 'G';
+                break;
+            default:
+                res[i] = 'A';
+                break;
         }
         pos -= 2;
-   }
-   PyObject *return_val = Py_BuildValue("s", res);
-   PyMem_RawFree(res);
-   return return_val;
+    }
+    res[4] = '\0';
+
+    PyObject* return_val = PyUnicode_FromString(res);
+    return return_val;
 }
+
+PyObject* gc_content(PyObject* self, PyObject* args) {
+    const char* text;
+
+    if (!PyArg_ParseTuple(args, "s", &text)) {
+        return NULL;  // Return an error value
+    }
+
+    unsigned long long count_gc = 0;
+    unsigned long long text_length = strlen(text);
+
+    for (unsigned long long i = 0; i < text_length; i++) {
+        if (text[i] == 'G' || text[i] == 'C') {
+            count_gc++;
+        }
+    }
+
+    double percentage = (count_gc * 100.0) / text_length;
+    return Py_BuildValue("f", percentage);
+}
+
 
 static PyObject* strContainsSub(PyObject* self,  PyObject *args)
 {
@@ -533,6 +557,8 @@ static char xorarray_docs[] =
     "xor_array(X,Y): returns the xor of the two input arrays";
 static char elimination_docs[] =
     "elimination(A,b,packet_mapping, chunk_to_used_packets): performs gaussian elimination on A and b. returns true (for now); chunk_to_used_packets MUST be a square matrix >= max(A[rows], A[cols])";
+static char gc_content_docs[] =
+    "gc_content(text): returns the percentage of GC in the given text";
 static PyMethodDef cdnarules_funcs[] = {
    //{"microsatellite", (PyCFunction)microsatellite, METH_NOARGS, cdnarules_docs},
    {"bitsSet", bitsSet, METH_VARARGS, bitsSet_docs},
@@ -549,6 +575,7 @@ static PyMethodDef cdnarules_funcs[] = {
    {"bitSet", bitSet, METH_VARARGS, bitSet_docs},
    {"xorArray", xor_array, METH_VARARGS, xorarray_docs},
    {"elimination", elimination, METH_VARARGS, elimination_docs},
+   {"gc_content", gc_content, METH_VARARGS, gc_content_docs},
    {NULL, NULL, 0, NULL}
 };
 

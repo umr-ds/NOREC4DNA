@@ -58,10 +58,12 @@ class RU10Packet(Packet):
     def set_used_packets(self, u_packets):
         self.used_packets = frozenset(u_packets)
         self.internal_hash = hash(self.used_packets)
-        tmp_lst = np.full(self.total_number_of_chunks, False, dtype=bool)
-        for x in self.used_packets:
-            if x < self.total_number_of_chunks:
-                tmp_lst[x] = True
+        tmp_lst = np.zeros(self.total_number_of_chunks, dtype=bool)
+        valid_indices = np.array(u_packets)[np.array(u_packets) < self.total_number_of_chunks]
+        tmp_lst[valid_indices] = True
+        #for x in self.used_packets:
+        #    if x < self.total_number_of_chunks:
+        #        tmp_lst[x] = True
         self.bool_arrayused_packets = tmp_lst
         self.update_degree()
         # [
