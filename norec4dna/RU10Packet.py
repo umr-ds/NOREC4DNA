@@ -7,6 +7,7 @@ import numpy as np
 from norec4dna.helper import xor_mask
 from norec4dna.Packet import Packet
 from bitstring import BitArray
+from norec4dna.helper.helper import xor_with_seed
 from norec4dna.helper.RU10Helper import intermediate_symbols
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.ErrorCorrection import nocode
@@ -17,7 +18,7 @@ class RU10Packet(Packet):
                  read_only=False,
                  error_correction=nocode, packet_len_format="I", crc_len_format="L", number_of_chunks_len_format="L",
                  id_len_format="L", save_number_of_chunks_in_packet=True, method=None, window=None, prepend="",
-                 append=""):
+                 append="", xor_by_seed=False):
         self.id: int = id
         self.bool_arrayused_packets: typing.Optional[np.ndarray] = None
         self.total_number_of_chunks: int = total_number_of_chunks
@@ -34,6 +35,7 @@ class RU10Packet(Packet):
         self.error_correction: typing.Callable[[typing.Any], typing.Any] = error_correction
         self.save_number_of_chunks_in_packet: bool = save_number_of_chunks_in_packet
         self.error_prob: typing.Optional[float] = None
+        self.xor_by_seed = xor_by_seed
         if method:
             self.method: typing.Optional[str] = method
             self.window: typing.Optional[int] = window
@@ -60,7 +62,7 @@ class RU10Packet(Packet):
         tmp_lst = np.zeros(self.total_number_of_chunks, dtype=bool)
         valid_indices = np.array(u_packets)[np.array(u_packets) < self.total_number_of_chunks]
         tmp_lst[valid_indices] = True
-        self.internal_hash = hash(tmp_lst.tobytes())
+        self.internal_hash = hash(np.packbits(tmp_lst).tobytes())
         self.bool_arrayused_packets = tmp_lst
         self.update_degree()
 
@@ -99,6 +101,8 @@ class RU10Packet(Packet):
     def calculate_packed_data(self) -> bytes:
         # size of the packets + UsedPackets + Data + crc
         self.packed_data = struct.pack("<" + str(len(self.data)) + "s", bytes(self.data))
+        if self.xor_by_seed:
+            self.packed_data = xor_with_seed(self.packed_data, self.id)
         if self.packedMethod:
             payload = struct.pack(
                 "<" + str(len(self.packed_used_packets)) + "s" + str(len(self.packed_data)) + "s" + str(
@@ -138,7 +142,8 @@ class RU10Packet(Packet):
 
     def get_bool_array_all_used_packets(self) -> typing.List[bool]:
         return [x in self.used_packets for x in
-                range(self.total_number_of_chunks + self.get_number_of_ldpc_blocks() + self.get_number_of_half_blocks())]
+                range(
+                    self.total_number_of_chunks + self.get_number_of_ldpc_blocks() + self.get_number_of_half_blocks())]
 
     def get_bool_array_used_and_ldpc_packets(self) -> typing.List[bool]:
         # speedup candidate

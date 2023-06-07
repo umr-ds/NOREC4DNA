@@ -7,6 +7,7 @@ import typing
 import struct
 from math import ceil
 
+import numpy as np
 from norec4dna.BPDecoder import BPDecoder
 from norec4dna.ErrorCorrection import crc32, nocode
 from norec4dna.HeaderChunk import HeaderChunk
@@ -207,8 +208,9 @@ class OnlineBPDecoder(BPDecoder):
             self.createAuxBlocks()
 
         self.correct += 1
-        res = OnlinePacket(data, self.number_of_chunks, self.quality, self.epsilon, check_block_number, read_only=True,
-                           crc_len_format=crc_len_format, number_of_chunks_len_format=number_of_chunks_len_format,
+        res = OnlinePacket(np.frombuffer(data, dtype=np.uint8), self.number_of_chunks, self.quality, self.epsilon,
+                           check_block_number, read_only=True, crc_len_format=crc_len_format,
+                           number_of_chunks_len_format=number_of_chunks_len_format,
                            quality_len_format=quality_len_format, epsilon_len_format=epsilon_len_format,
                            check_block_number_len_format=check_block_number_len_format,
                            save_number_of_chunks_in_packet=self.static_number_of_chunks is None)

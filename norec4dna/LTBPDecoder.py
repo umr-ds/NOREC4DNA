@@ -252,7 +252,7 @@ class LTBPDecoder(BPDecoder):
         data = packet[struct_len:crc_len]
 
         self.correct += 1
-        res = DecodePacket(data, used_packets, error_correction=self.error_correction,
+        res = DecodePacket(np.frombuffer(data, dtype=np.uint8), used_packets, error_correction=self.error_correction,
                            number_of_chunks=self.number_of_chunks)
         if used_packets.issubset({0}) and self.headerChunk is None and self.use_headerchunk:
             self.headerChunk = HeaderChunk(res)

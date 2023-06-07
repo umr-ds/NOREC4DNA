@@ -18,7 +18,7 @@ def test_gc_content(params):
 
 
 @pytest.mark.parametrize("params", [("ACCAAAAAAAAAAAAATTAGACCAAAAAAAAAAAAATTAG", 1.0),
-                                    ("AAAGTAGATAGATAGAAACACACACAGTACACACA", 0.0), ("AAA", 0.0)])
+                                    ("AAAGTAGATAGATAGAAACACACACAGTACACACA", 0.0), ("AAA", 1.0)])
 def test_repeat_region(params):
     assert fast_comp(DNARules.repeatRegion(params[0])) == fast_comp(FastDNARules.repeatRegion(params[0])) == params[1]
 

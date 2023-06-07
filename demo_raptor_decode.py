@@ -22,10 +22,11 @@ class demo_decode:
                number_of_chunks=STATIC_NUM_CHUNKS, use_header_chunk=False, id_len_format=ID_LEN_FORMAT,
                number_of_chunks_len_format=NUMBER_OF_CHUNKS_LEN_FORMAT, packet_len_format=PACKET_LEN_FORMAT,
                crc_len_format=CRC_LEN_FORMAT, read_all=READ_ALL_BEFORE_DECODER, distribution_cfg_str="",
-               return_decoder=False, checksum_len_str=None, skip_solve=False, failed_repeats=1000):
+               return_decoder=False, checksum_len_str=None, skip_solve=False, failed_repeats=1000, xor_by_seed=False):
         print("Pure Gauss-Mode")
         x = RU10Decoder(file, use_headerchunk=use_header_chunk, error_correction=error_correction,
-                        static_number_of_chunks=number_of_chunks, checksum_len_str=checksum_len_str)
+                        static_number_of_chunks=number_of_chunks, checksum_len_str=checksum_len_str,
+                        xor_by_seed=xor_by_seed)
         x.read_all_before_decode = read_all
         x.decode(id_len_format=id_len_format,
                  number_of_chunks_len_format=number_of_chunks_len_format, packet_len_format=packet_len_format,
@@ -108,6 +109,7 @@ if __name__ == "__main__":
         parser.add_argument("--use_header_chunk", required=False, action="store_true")
         parser.add_argument("--failed_repeats", metavar="failed_repeats", default=1000,
                             help="Number of permutations to try if the decoding fails", required=False, type=int)
+        parser.add_argument("--xor_by_seed", required=False, action="store_true")
         args = parser.parse_args()
         _file = args.filename
         _repair_symbols = args.repair_symbols
@@ -121,6 +123,7 @@ if __name__ == "__main__":
         _use_header_chunk = args.use_header_chunk
         _header_crc_str = args.header_crc_str
         _failed_repeats = args.failed_repeats
+        _xor_by_seed = args.xor_by_seed
         if _number_of_splits != 0:
             _split_index_length = find_ceil_power_of_four(_number_of_splits)
         _last_split_folder = None
@@ -146,7 +149,7 @@ if __name__ == "__main__":
                                 mode_1_bmp=_mode_1_bmp, number_of_chunks=_number_of_chunks + (
                             -1 if _file == _last_split_folder and _last_split_smaller else 0),
                                 use_header_chunk=_use_header_chunk, checksum_len_str=_header_crc_str,
-                                failed_repeats=_failed_repeats))
+                                failed_repeats=_failed_repeats, xor_by_seed=_xor_by_seed))
             except:
                 pass
         if len(folders) > 1:

@@ -141,7 +141,8 @@ class LTEncoder(Encoder):
         last_chunk_len_struct_size = struct.calcsize("<" + self.last_chunk_len_format)
         struct_str = "<" + self.last_chunk_len_format + str(file_name_length) + "s" + \
                      str(self.chunk_size - file_name_length - last_chunk_len_struct_size) + "x"
-        return struct.pack(struct_str, len(last_chunk), bytes(self.file, encoding="utf-8"))
+        return np.frombuffer(struct.pack(struct_str, len(last_chunk), bytes(self.file, encoding="utf-8")),
+                             dtype=np.uint8)
 
     def number_of_packets_encoded_already(self) -> int:
         return len(self.setOfEncodedPackets)

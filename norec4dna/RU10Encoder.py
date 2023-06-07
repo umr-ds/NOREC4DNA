@@ -25,7 +25,7 @@ class RU10Encoder(Encoder):
                  chunk_size=0, rules=None, error_correction=nocode, packet_len_format="I", crc_len_format="L",
                  number_of_chunks_len_format="L", id_len_format="L", save_number_of_chunks_in_packet=True,
                  mode_1_bmp=False, prepend="", append="", drop_upper_bound=1.0, keep_all_packets=False,
-                 checksum_len_str=None):
+                 checksum_len_str=None, xor_by_seed=False):
         super().__init__(file, number_of_chunks, distribution, insert_header, pseudo_decoder,
                          chunk_size, mode_1_bmp)
         if checksum_len_str is None:
@@ -46,6 +46,7 @@ class RU10Encoder(Encoder):
         self.rules = rules
         self.mode_1_bmp: bool = mode_1_bmp
         self.upper_bound = drop_upper_bound
+        self.xor_by_seed = xor_by_seed
         if self.chunk_size == 0:
             self.number_of_chunks: int = number_of_chunks
         else:
@@ -122,7 +123,7 @@ class RU10Encoder(Encoder):
                     del new_pack
                     new_pack = self.create_new_packet()
                     self.ruleDrop += 1
-            if pseudo:
+            if pseudo and new_pack not in self.encodedPackets:
                 self.pseudo_decoder.input_new_packet(new_pack)
             self.encodedPackets.add(new_pack)
             self.update_progress_bar()
@@ -180,7 +181,7 @@ class RU10Encoder(Encoder):
                           number_of_chunks_len_format=self.number_of_chunks_len_format,
                           id_len_format=self.id_len_format,
                           save_number_of_chunks_in_packet=self.save_number_of_chunks_in_packet, prepend=self.prepend,
-                          append=self.append)
+                          append=self.append, xor_by_seed=self.xor_by_seed)
 
     def create_new_packet_from_chunks(self, method: str, systematic: bool = False, seed: typing.Optional[int] = None,
                                       window: int = 0) -> typing.Optional[RU10Packet]:
@@ -229,7 +230,8 @@ class RU10Encoder(Encoder):
                             number_of_chunks_len_format=self.number_of_chunks_len_format,
                             id_len_format=self.id_len_format,
                             save_number_of_chunks_in_packet=self.save_number_of_chunks_in_packet,
-                            method=method, window=window, prepend=self.prepend, append=self.append)
+                            method=method, window=window, prepend=self.prepend, append=self.append,
+                            xor_by_seed=self.xor_by_seed)
         self.encodedPackets.add(packet)
         return packet
 
@@ -359,7 +361,8 @@ class RU10Encoder(Encoder):
                                 'chunk_size': self.chunk_size, 'dropped_packets': self.ruleDrop,
                                 'created_packets': len(self.encodedPackets),
                                 'checksum': self.checksum if self.checksum is not None else "",
-                                'checksum_len_str': self.checksum_len_str}
+                                'checksum_len_str': self.checksum_len_str,
+                                'xor_by_seed': self.xor_by_seed}
         for key, val in default_map.items():
             config[section_name][str(key)] = str(val)
         config_file_name = "{}_{}.ini".format(self.file, datetime.datetime.now().ctime().replace(" ", "_")).replace(":",
@@ -371,12 +374,12 @@ class RU10Encoder(Encoder):
 
 def main(in_file: str, num_chunks=0, chunk_size=0, as_dna=True,
          err_correction: typing.Callable[[typing.Any], typing.Any] = nocode, insert_header=False,
-         save_number_of_chunks_in_packet=False, mode_1_bmp=False, arg_header_crc_str=""):
+         save_number_of_chunks_in_packet=False, mode_1_bmp=False, arg_header_crc_str="", xor_by_seed=False):
     if chunk_size != 0:
         num_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(in_file, chunk_size)
         dist = RaptorDistribution(num_chunks)
     elif num_chunks != 0:
-        dist = RaptorDistribution.RaptorDistribution(num_chunks)
+        dist = RaptorDistribution(num_chunks)
     else:
         print("Aborting. Please set either chunk_size or number_of_chunks!")
         return
@@ -387,7 +390,7 @@ def main(in_file: str, num_chunks=0, chunk_size=0, as_dna=True,
     x = RU10Encoder(in_file, num_chunks, dist, chunk_size=chunk_size, insert_header=insert_header, rules=rules,
                     error_correction=err_correction, id_len_format="H", number_of_chunks_len_format="B",
                     save_number_of_chunks_in_packet=save_number_of_chunks_in_packet, mode_1_bmp=mode_1_bmp,
-                    checksum_len_str=arg_header_crc_str)
+                    checksum_len_str=arg_header_crc_str, xor_by_seed=xor_by_seed)
     x.encode_to_packets()
     x.save_packets(True, save_as_dna=as_dna, seed_is_filename=False)
     conf = {'error_correction': e_correction, 'repair_symbols': norepair_symbols, 'asdna': as_dna,
@@ -415,6 +418,7 @@ if __name__ == "__main__":
                         default=False)
     parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
     parser.add_argument("--as_mode_1_bmp", required=False, action="store_true")
+    parser.add_argument("--xor_by_seed", required=False, action="store_true")
     overhead = 6.0
     args = parser.parse_args()
     arg_file = args.filename
@@ -425,6 +429,7 @@ if __name__ == "__main__":
     norepair_symbols = args.repair_symbols
     arg_insert_header = args.insert_header
     arg_header_crc_str = args.header_crc_str
+    xor_by_seed = args.xor_by_seed
     if (not arg_insert_header and arg_header_crc_str != "") or arg_header_crc_str not in ["", "I", "H", "B"]:
         print("Invalid config for header_crc_str: Cannot set header_crc_str if insert_header is False,\nAllowed values:"
               "I, H, B")
@@ -437,5 +442,5 @@ if __name__ == "__main__":
     arg_error_correction = get_error_correction_encode(e_correction, norepair_symbols)
     print("File to encode: " + str(arg_file))
     main(arg_file, arg_number_of_chunks, arg_chunk_size, arg_as_dna, arg_error_correction, arg_insert_header,
-         save_number_of_chunks, arg_mode_1_bmp, arg_header_crc_str)
+         save_number_of_chunks, arg_mode_1_bmp, arg_header_crc_str, xor_by_seed)
     print("File encoded.")

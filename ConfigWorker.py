@@ -61,6 +61,7 @@ class ConfigReadAndExecute:
         read_all_packets = decode_conf.getboolean("read_all", False)
         distribution_cfg_str = decode_conf.get("distribution", "")
         checksum_len_str = decode_conf.get("checksum_len_str", "")
+        xor_by_seed = decode_conf.getboolean("xor_by_seed", False)
         # extract preconfig steps:
         if number_of_splits != 0:
             split_index_length = find_ceil_power_of_four(number_of_splits)

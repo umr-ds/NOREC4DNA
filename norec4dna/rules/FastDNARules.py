@@ -123,9 +123,13 @@ def gc_strict_calculation(gc_percentage):
 def strict_homopolymers():
     return [0.0, 0.0, 0.2, 0.5, 0.8, 1.0]
 
-
+# x = |Homopolymer| ; x > 3 -> 100% ; x <= 3 -> 0%
 def three_strict_homopolymers():
     return [0.0, 0.0, 0.0, 0.0, 1.0]
+
+
+def lax_increasing_homopolymers():
+    return [0.0, 0.0, 0.01, 0.05, 0.4, 0.7, 0.9, 1.0]
 
 
 def lax_homopolymers():
@@ -137,8 +141,8 @@ def lax_homopolymers():
 
 class FastDNARules:
     def __init__(self, active_rules=None):
-        self.nineteen_mers = pybloomfilter.BloomFilter(50000000, 0.0001)
-        self.tmp_nineteen_mers = pybloomfilter.BloomFilter(50000, 0.0001)
+        #self.nineteen_mers = pybloomfilter.BloomFilter(50000000, 0.0001)
+        #self.tmp_nineteen_mers = pybloomfilter.BloomFilter(50000, 0.0001)
         if active_rules is None:
             self.active_rules = [
                 # FastDNARules.a_permutation,
@@ -150,7 +154,7 @@ class FastDNARules:
                 partial(FastDNARules.homopolymers, probs=three_strict_homopolymers()),
                 # FastDNARules.overall_gc_content,
                 # To change the GC error function:
-                partial(FastDNARules.overall_gc_content, calc_func=fs_gc_error_calculation),
+                partial(FastDNARules.overall_gc_content, calc_func=ts_gc_error_calculation),
                 # FastDNARules.windowed_gc_content,
                 partial(FastDNARules.windowed_gc_content, calc_func=ts_gc_error_calculation),
                 #  FastDNARules.long_strands,

@@ -90,9 +90,9 @@ class OnlineEncoder(Encoder):
                     del pack
                     pack = self.create_new_packet()
                     self.ruleDrop += 1
-            self.encodedPackets.add(pack)
-            if pseudo:
+            if pseudo and pack not in self.encodedPackets:
                 self.pseudo_decoder.input_new_packet(pack)
+            self.encodedPackets.add(pack)
             self.update_progress_bar()
 
         self.prepare()

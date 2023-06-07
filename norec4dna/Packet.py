@@ -1,6 +1,7 @@
 import struct
 import typing
 
+import numpy as np
 from norec4dna.ErrorCorrection import nocode
 from norec4dna.helper import xor_mask, xor_numpy
 from norec4dna.helper.bin2Quaternary import string2QUATS, quads2dna
@@ -166,7 +167,8 @@ class Packet:
         # if self.error_prob is not None and other.error_prob is not None:
         #    return self.error_prob == other.error_prob
         # else:
-        return hash(self) == hash(other)
+        return isinstance(other, self.__class__) and hash(self) == hash(other) and np.all(
+            np.equal(self.data, other.data))
 
     def __lt__(self, other) -> bool:
         if self.error_prob is not None and other.error_prob is not None:
@@ -178,7 +180,8 @@ class Packet:
         if self.internal_hash is None:
             self.internal_hash = hash(
                 str(self.total_number_of_chunks) + str(self.id) + str(
-                    ("" if self.error_prob is None else self.error_prob)) + self.__module__ + (str(self.data) if self.dna_data is None else self.dna_data))
+                    ("" if self.error_prob is None else self.error_prob)) + self.__module__ + (
+                    str(self.data) if self.dna_data is None else self.dna_data))
         return self.internal_hash
 
 

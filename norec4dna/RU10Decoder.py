@@ -22,6 +22,8 @@ from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.GEPP import GEPP
 from norec4dna.Decoder import Decoder
 from norec4dna.helper.quaternary2Bin import quat_file_to_bin, quad_file_to_bytes, tranlate_quat_to_byte
+from norec4dna.helper.helper import xor_with_seed
+
 from zipfile import ZipFile
 
 DEBUG = False
@@ -30,7 +32,7 @@ DEBUG = False
 class RU10Decoder(Decoder):
     def __init__(self, file: typing.Optional[str] = None, error_correction=nocode, use_headerchunk: bool = True,
                  static_number_of_chunks: typing.Optional[int] = None, use_method: bool = False,
-                 checksum_len_str: str = None):
+                 checksum_len_str: str = None, xor_by_seed=False):
         self.debug = False
         super().__init__()
         if checksum_len_str is None:
@@ -42,6 +44,7 @@ class RU10Decoder(Decoder):
         self.file: typing.Optional[str] = file
         self.degreeToPacket: dict = {}
         self.use_method: bool = use_method
+        self.xor_by_seed = xor_by_seed
         if file is not None:
             self.isFolder = os.path.isdir(file)
             self.isZip = file.endswith(".zip")
@@ -487,6 +490,8 @@ class RU10Decoder(Decoder):
             unxored_id = xor_mask(len_data[1], id_len_format)
         else:
             unxored_id = xor_mask(len_data[0], id_len_format)
+        if self.xor_by_seed:
+            data = xor_with_seed(data, unxored_id)
         if self.distribution is None:
             self.distribution = RaptorDistribution(self.number_of_chunks)
             _, self.s, self.h = intermediate_symbols(self.number_of_chunks, self.distribution)
@@ -642,10 +647,10 @@ class RU10Decoder(Decoder):
 
 
 def main(file: str, number_of_chunks: int, error_correction: typing.Callable = nocode, insert_header: bool = False,
-         mode_1_bmp: bool = False,_header_crc_str: str = None):
+         mode_1_bmp: bool = False,_header_crc_str: str = None, xor_by_seed=False):
     print("Pure Gauss-Mode")
     x = RU10Decoder(file, use_headerchunk=insert_header, error_correction=error_correction,
-                    static_number_of_chunks=number_of_chunks, checksum_len_str=_header_crc_str)
+                    static_number_of_chunks=number_of_chunks, checksum_len_str=_header_crc_str, xor_by_seed=xor_by_seed)
     x.decode(id_len_format="I", number_of_chunks_len_format="I")
     x.saveDecodedFile(null_is_terminator=False, print_to_output=False)
 
@@ -666,6 +671,7 @@ if __name__ == "__main__":
     parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
     parser.add_argument("--as_mode_1_bmp", required=False, action="store_true",
                         help="convert to a header-less B/W BMP format. (use only for image/bmp input)")
+    parser.add_argument("--xor_by_seed", required=False, action="store_true")
     args = parser.parse_args()
     _file = args.filename
     _repair_symbols = args.repair_symbols
@@ -674,6 +680,7 @@ if __name__ == "__main__":
     _number_of_chunks = args.number_of_chunks
     _error_correction = get_error_correction_decode(args.error_correction, _repair_symbols)
     _header_crc_str = args.header_crc_str
+    _xor_by_seed = args.xor_by_seed
     print("File / Folder to decode: " + str(_file))
-    main(_file, _number_of_chunks, _error_correction, _insert_header, _mode_1_bmp, _header_crc_str)
+    main(_file, _number_of_chunks, _error_correction, _insert_header, _mode_1_bmp, _header_crc_str, _xor_by_seed)
     print("Decoding finished.")
