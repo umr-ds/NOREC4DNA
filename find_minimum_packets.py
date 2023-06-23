@@ -7,9 +7,9 @@ import random
 import argparse
 import typing
 from zipfile import ZipFile
-#from pathos.multiprocessing import ProcessingPool as Pool
-#from pathos import multiprocessing
-#import dill
+# from pathos.multiprocessing import ProcessingPool as Pool
+# from pathos import multiprocessing
+# import dill
 import progressbar
 import multiprocessing
 from functools import partial
@@ -41,7 +41,7 @@ ONLINE_EPS = 0.068
 # NUMBER_OF_PACKETS_TO_CREATE = 655360
 
 # global counter for progressbar
-#counter = None
+# counter = None
 progress_bar = None
 
 
@@ -49,8 +49,8 @@ def run(seq_seed=None, file='logo.jpg', repair_symbols=2, insert_header=False,
         error_correction=reed_solomon_encode, save_number_of_chunks_in_packet=False, l_size=1000, while_count=1000,
         chunk_size=0, number_of_chunks=300, prepend="", append="", seed_len_format=DEFAULT_ID_LEN_FORMAT,
         number_of_chunks_len_format=DEFAULT_NUMBER_OF_CHUNKS_LEN_FORMAT, method='RU10',
-        mode1bmp=False, drop_above=0.4, packets_to_create=None):
-    #global counter
+        mode1bmp=False, drop_above=0.4, packets_to_create=None, xor_by_seed=False, id_spacing=0):
+    # global counter
     if chunk_size != 0:
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
     dna_rules = FastDNARules()
@@ -66,7 +66,7 @@ def run(seq_seed=None, file='logo.jpg', repair_symbols=2, insert_header=False,
                         error_correction=error_correction, id_len_format=seed_len_format,
                         number_of_chunks_len_format=number_of_chunks_len_format,
                         save_number_of_chunks_in_packet=save_number_of_chunks_in_packet, mode_1_bmp=mode1bmp,
-                        prepend=prepend, append=append)
+                        prepend=prepend, append=append, xor_by_seed=xor_by_seed, id_spacing=id_spacing)
         x.prepare()
     elif method == 'LT':
         x = LTEncoder(file, number_of_chunks, dist, chunk_size=chunk_size, insert_header=insert_header, rules=rules,
@@ -91,7 +91,7 @@ def run(seq_seed=None, file='logo.jpg', repair_symbols=2, insert_header=False,
             packet = x.create_new_packet(seed=seq_seed + i)
         else:
             packet = x.create_new_packet()
-        #if i == 0:
+        # if i == 0:
         #    print(f"%i , %s" % (len(packet.get_dna_struct(True)), packet.get_dna_struct(True)))
         _ = should_drop_packet(rules, packet)
         if packet.error_prob <= drop_above and (len(tmp_list) < l_size or packet.error_prob < tmp_list[-1].error_prob):
@@ -112,12 +112,12 @@ def run(seq_seed=None, file='logo.jpg', repair_symbols=2, insert_header=False,
             del packet
         i += 1
         # += operation is not atomic, so we need to get a lock:
-        #with counter.get_lock():
+        # with counter.get_lock():
         #    counter.value += 1
     # save_packets_fasta(tmp_list, out_file=method + "_out_partial", file_ending="." + method + "_DNA",
     #                   clear_output=False)
     conf = {'error_correction': error_correction, 'repair_symbols': repair_symbols,
-            #'number_of_splits': _number_of_splits,
+            # 'number_of_splits': _number_of_splits,
             'find_minimum_mode': True, 'seq_seed': seq_seed}
     # x.save_config_file(conf, section_name=method + "_" + file)
     if x.progress_bar is not None:
@@ -215,7 +215,7 @@ def reduce_lists(base, input_list=None, l_size=100):
     return base
 
 
-#def init_mp(args):
+# def init_mp(args):
 #    global counter
 #    counter = args
 
@@ -236,7 +236,7 @@ def create_progress_bar(max_value):
 
 def update_progressbar():
     pass
-    #progress_bar.update(counter.value)
+    # progress_bar.update(counter.value)
 
 
 # multiprocess and merge all created lists at the end
@@ -244,15 +244,15 @@ def main(filename="logo.jpg", repair_symbols=2, while_count=1000, out_size=1000,
          sequential=False, spare1core=False, prepend="", append="", insert_header=False,
          seed_len_format=DEFAULT_ID_LEN_FORMAT,
          method='RU10', mode1bmp=False, drop_above=0.4, save_as_fasta=DEFAULT_SAVE_AS_FASTA,
-         packets_to_create=None, save_as_zip=DEFAULT_SAVE_AS_ZIP):
-    #global progress_bar, counter
+         packets_to_create=None, save_as_zip=DEFAULT_SAVE_AS_ZIP, xor_by_seed=False, id_spacing=0):
+    # global progress_bar, counter
     if packets_to_create is None:
         packets_to_create = math.pow(2, 8 * struct.calcsize(seed_len_format))
     cores = multiprocessing.cpu_count()
     if spare1core:
         cores = cores - 1
-    #counter = multiprocessing.Value('i', 0)
-    p = multiprocessing.Pool(cores) # , initializer=init_mp, initargs=(counter,))
+    # counter = multiprocessing.Value('i', 0)
+    p = multiprocessing.Pool(cores)  # , initializer=init_mp, initargs=(counter,))
     param = [None] * cores
     if sequential:
         stepsize = packets_to_create / cores
@@ -266,7 +266,7 @@ def main(filename="logo.jpg", repair_symbols=2, while_count=1000, out_size=1000,
         partial(run, file=filename, repair_symbols=repair_symbols, l_size=out_size, while_count=while_count,
                 chunk_size=chunk_size, number_of_chunks=number_of_chunks, prepend=prepend, append=append,
                 insert_header=insert_header, seed_len_format=_seed_size_str, method=method, mode1bmp=mode1bmp,
-                drop_above=drop_above), param)
+                drop_above=drop_above, xor_by_seed=xor_by_seed, id_spacing=id_spacing), param)
     rt.stop()
     progress_bar.finish()
     print("Merging results...")
@@ -373,6 +373,8 @@ if __name__ == "__main__":
                         action="store_true", help="if set, store result as fasta file")
     parser.add_argument("--store_as_zip", required=False, default=DEFAULT_SAVE_AS_ZIP,
                         action="store_true", help="if set, store result as zip file")
+    parser.add_argument("--xor_by_seed", required=False, default=False, action="store_true")
+    parser.add_argument("--id_spacing", required=False, default=0, type=int)
     """
     parser.add_argument("--savenumberofchunks", metavar="savenumberofchunks", required=False, type=bool,
                         default=False)
@@ -401,6 +403,8 @@ if __name__ == "__main__":
     _overhead_factor = args.overhead_factor
     _error_prob_factor = args.error_prob_factor
     _plot = args.plot
+    _xor_by_seed = args.xor_by_seed
+    _id_spacing = args.id_spacing
 
     _error_correction = instantiate_error_correction(_error_correction, _repair_symbols)
 
@@ -424,18 +428,18 @@ if __name__ == "__main__":
         for _input_file in input_files:
             try:
                 print("File to encode: " + str(_input_file))
-                #def callab():
+                # def callab():
                 main(_input_file, _repair_symbols, _list_size, _out_size, _chunk_size, _number_of_hunks,
-                         _sequential, _spare1core, method=_method, append=prepend_matching[_input_file],
-                         insert_header=_insert_header, seed_len_format=_seed_size_str, drop_above=_drop_above,
-                         save_as_fasta=_store_as_fasta, save_as_zip=_store_as_zip)
+                     _sequential, _spare1core, method=_method, append=prepend_matching[_input_file],
+                     insert_header=_insert_header, seed_len_format=_seed_size_str, drop_above=_drop_above,
+                     save_as_fasta=_store_as_fasta, save_as_zip=_store_as_zip, xor_by_seed=_xor_by_seed,
+                     id_spacing=_id_spacing)
 
-
-                #print(timeit.repeat(callab, number=1111, repeat=5))
+                # print(timeit.repeat(callab, number=1111, repeat=5))
             except Exception as ex:
                 print(ex)
                 raise ex
-                #list_fds()
+                # list_fds()
         # if len(input_files) > 1:
         #    merge_folder_content("split_" + os.path.basename(_input_file), _input_file + "_combined_split_output",
         #                         append_folder_name=True,

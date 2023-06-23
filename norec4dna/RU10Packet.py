@@ -18,7 +18,7 @@ class RU10Packet(Packet):
                  read_only=False,
                  error_correction=nocode, packet_len_format="I", crc_len_format="L", number_of_chunks_len_format="L",
                  id_len_format="L", save_number_of_chunks_in_packet=True, method=None, window=None, prepend="",
-                 append="", xor_by_seed=False):
+                 append="", xor_by_seed=False, id_spacing=0):
         self.id: int = id
         self.bool_arrayused_packets: typing.Optional[np.ndarray] = None
         self.total_number_of_chunks: int = total_number_of_chunks
@@ -36,6 +36,9 @@ class RU10Packet(Packet):
         self.save_number_of_chunks_in_packet: bool = save_number_of_chunks_in_packet
         self.error_prob: typing.Optional[float] = None
         self.xor_by_seed = xor_by_seed
+        if id_spacing < 0:
+            id_spacing = 0
+        self.id_spacing = id_spacing
         if method:
             self.method: typing.Optional[str] = method
             self.window: typing.Optional[int] = window
@@ -109,8 +112,15 @@ class RU10Packet(Packet):
                     len(self.packedMethod)) + "s",  # method data
                 self.packed_used_packets, self.packed_data, self.packedMethod)
         else:
-            payload = struct.pack("<" + str(len(self.packed_used_packets)) + "s" + str(len(self.packed_data)) + "s",
-                                  self.packed_used_packets, self.packed_data)
+            i = 0
+            payload = b""
+            for fragment in self.packed_used_packets:
+                payload += fragment.to_bytes(1, "little") + self.packed_data[i:i + self.id_spacing]
+                i += self.id_spacing
+            payload += self.packed_data[i:]
+            # self.packed_used_packets = ""
+            # payload = struct.pack("<" + str(len(self.packed_used_packets)) + "s" + str(len(self.packed_data)) + "s",
+            #                      self.packed_used_packets, self.packed_data)
         return self.error_correction(payload)  # proxy payload through dynamic error correction / detection
 
     def getId(self) -> int:

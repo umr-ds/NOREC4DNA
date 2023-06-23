@@ -32,7 +32,7 @@ DEBUG = False
 class RU10Decoder(Decoder):
     def __init__(self, file: typing.Optional[str] = None, error_correction=nocode, use_headerchunk: bool = True,
                  static_number_of_chunks: typing.Optional[int] = None, use_method: bool = False,
-                 checksum_len_str: str = None, xor_by_seed=False):
+                 checksum_len_str: str = None, xor_by_seed=False, id_spacing=0):
         self.debug = False
         super().__init__()
         if checksum_len_str is None:
@@ -68,6 +68,7 @@ class RU10Decoder(Decoder):
         self.error_correction: typing.Callable = error_correction
         self.use_headerchunk: bool = use_headerchunk
         self.static_number_of_chunks: typing.Optional[int] = static_number_of_chunks
+        self.id_spacing = id_spacing
 
     def decodeZip(self, packet_len_format: str = "I", crc_len_format: str = "I",
                   number_of_chunks_len_format: str = "I", id_len_format: str = "I"):
@@ -460,8 +461,14 @@ class RU10Decoder(Decoder):
         except:
             self.corrupt += 1
             return "CORRUPT"
-
-        data = packet[struct_len:]
+        if self.id_spacing == 0:
+            header = packet[:struct_len]
+            data = packet[struct_len:]
+        else:
+            header = packet[:struct_len*self.id_spacing:self.id_spacing+1]
+            tmp = bytearray(packet[:struct_len * self.id_spacing])
+            del tmp[: struct_len * self.id_spacing:self.id_spacing + 1]
+            data = bytes(tmp) + packet[struct_len * self.id_spacing:]
         chunk_lst = []
         if self.use_method:
             method_data = bin(data[-1])[2:]
@@ -484,7 +491,7 @@ class RU10Decoder(Decoder):
                 chunk_lst = [ch for ch in range(start, start + window_size) if ch <= self.number_of_chunks]
             else:
                 raise RuntimeError("Not a valid start:", method_data)
-        len_data = struct.unpack(struct_str, packet[0:struct_len])
+        len_data = struct.unpack(struct_str, header)
         if self.static_number_of_chunks is None:
             self.number_of_chunks = xor_mask(len_data[0], number_of_chunks_len_format)
             unxored_id = xor_mask(len_data[1], id_len_format)
@@ -647,10 +654,11 @@ class RU10Decoder(Decoder):
 
 
 def main(file: str, number_of_chunks: int, error_correction: typing.Callable = nocode, insert_header: bool = False,
-         mode_1_bmp: bool = False,_header_crc_str: str = None, xor_by_seed=False):
+         mode_1_bmp: bool = False, _header_crc_str: str = None, xor_by_seed=False, _id_spacing=0):
     print("Pure Gauss-Mode")
     x = RU10Decoder(file, use_headerchunk=insert_header, error_correction=error_correction,
-                    static_number_of_chunks=number_of_chunks, checksum_len_str=_header_crc_str, xor_by_seed=xor_by_seed)
+                    static_number_of_chunks=number_of_chunks, checksum_len_str=_header_crc_str, xor_by_seed=xor_by_seed,
+                    id_spacing=_id_spacing)
     x.decode(id_len_format="I", number_of_chunks_len_format="I")
     x.saveDecodedFile(null_is_terminator=False, print_to_output=False)
 
@@ -672,6 +680,7 @@ if __name__ == "__main__":
     parser.add_argument("--as_mode_1_bmp", required=False, action="store_true",
                         help="convert to a header-less B/W BMP format. (use only for image/bmp input)")
     parser.add_argument("--xor_by_seed", required=False, action="store_true")
+    parser.add_argument("--id_spacing", metavar="id_spacing", required=False, type=int, default=0)
     args = parser.parse_args()
     _file = args.filename
     _repair_symbols = args.repair_symbols
@@ -681,6 +690,8 @@ if __name__ == "__main__":
     _error_correction = get_error_correction_decode(args.error_correction, _repair_symbols)
     _header_crc_str = args.header_crc_str
     _xor_by_seed = args.xor_by_seed
+    _id_spacing = args.id_spacing
     print("File / Folder to decode: " + str(_file))
-    main(_file, _number_of_chunks, _error_correction, _insert_header, _mode_1_bmp, _header_crc_str, _xor_by_seed)
+    main(_file, _number_of_chunks, _error_correction, _insert_header, _mode_1_bmp, _header_crc_str, _xor_by_seed,
+         _id_spacing)
     print("Decoding finished.")

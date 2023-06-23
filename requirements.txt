@@ -1,18 +1,18 @@
-numpy~=1.23.5
-scipy==1.10.0
-numba==0.56.4
+numpy==1.23.5
+scipy==1.10.1
+numba==0.57.1
 requests==2.31.0
 colorama==0.4.6
 bcolors==1.0.4
-bitarray==2.6.2
+bitarray==2.7.5
 reedsolo==0.3
-Pillow==9.4.0
-matplotlib==3.6.3
-pycryptodomex==3.16.0
-pytest==7.2.1
-bitstring==4.0.1
+Pillow==9.5.0
+matplotlib==3.7.1
+pycryptodomex==3.18.0
+pytest==7.3.2
+bitstring==4.0.2
 cycler==0.11.0
-setuptools==66.0.0
+setuptools==68.0.0
 #pybloomfiltermmap3==0.5.3 # comment for windows
 pybloom3==0.0.3 # this is only needed for windows
 pandas==1.5.3

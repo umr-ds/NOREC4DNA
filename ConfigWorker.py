@@ -2,9 +2,9 @@ import sys
 import configparser
 import typing
 
-from .demo_raptor_decode import demo_decode as demo_raptor_decode
-from .demo_online_decode import demo_decode as demo_online_decode
-from .demo_decode import demo_decode as demo_lt_decode
+from demo_raptor_decode import demo_decode as demo_raptor_decode
+from demo_online_decode import demo_decode as demo_online_decode
+from demo_decode import demo_decode as demo_lt_decode
 from norec4dna.Decoder import Decoder
 from norec4dna.ErrorCorrection import get_error_correction_decode
 from norec4dna.helper import find_ceil_power_of_four, fasta_cluster_and_remove_index, cluster_and_remove_index, \
@@ -35,7 +35,7 @@ class ConfigReadAndExecute:
                  "number_of_chunks_len_format", "packet_len_format", "crc_len_format", "algorithm", "number_of_chunks",
                  "read_all", "epsilon", "quality", "rules", "quality_len_format", "epsilon_len_format", "config_str",
                  "savenumberofchunks", "dropped_packets", "created_packets", "upper_bound", "asdna", "master_seed",
-                 "mode_1_bmp", "chunk_size", "distribution", "checksum_len_str"]
+                 "mode_1_bmp", "chunk_size", "distribution", "checksum_len_str","xor_by_seed", "id_spacing"]
         for cfg in config:
             if cfg not in known:
                 print(f"[Warning] Config-entry '{cfg}' not known!")
@@ -62,6 +62,7 @@ class ConfigReadAndExecute:
         distribution_cfg_str = decode_conf.get("distribution", "")
         checksum_len_str = decode_conf.get("checksum_len_str", "")
         xor_by_seed = decode_conf.getboolean("xor_by_seed", False)
+        id_spacing = decode_conf.getint("id_spacing", 0)
         # extract preconfig steps:
         if number_of_splits != 0:
             split_index_length = find_ceil_power_of_four(number_of_splits)
@@ -101,7 +102,8 @@ class ConfigReadAndExecute:
                                     -1 if f_file == last_split_folder and last_split_smaller else 0),
                                 use_header_chunk=use_header_chunk, read_all=read_all_packets,
                                 distribution_cfg_str=distribution_cfg_str, return_decoder=return_decoder,
-                                checksum_len_str=checksum_len_str, skip_solve=skip_solve))
+                                checksum_len_str=checksum_len_str, skip_solve=skip_solve, xor_by_seed=xor_by_seed,
+                                id_spacing=id_spacing))
             except Exception as ex:
                 raise ex
         if len(folders) > 1:
