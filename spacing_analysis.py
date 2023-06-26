@@ -75,13 +75,50 @@ def calculate_impossible_seeds(seed_len_format="H"):
             bad+=1
     print(f"Seed format: {seed_len_format}, Bad: {bad}, Total: {total_packets}, Percentage: {1.0*bad/total_packets}")
 
+def create_pandas(filename):
+    import pandas as pd
+
+    # Read the file
+    with open(filename, 'r') as file:
+        lines = file.readlines()[4:]
+
+    # Initialize empty lists to store the data
+    spacings = []
+    means = []
+    stds = []
+    packets = []
+
+    # Process the lines and extract the data
+    for i in range(0, len(lines), 4):
+        spacing = int(lines[i].split(': ')[1])
+        mean = float(lines[i + 1].split(': ')[1])
+        std = float(lines[i + 2].split(': ')[1])
+        packet = int(lines[i + 3].split(': ')[1])
+
+        spacings.append(spacing)
+        means.append(mean)
+        stds.append(std)
+        packets.append(packet)
+
+    # Create a DataFrame
+    data = {
+        'Spacing': spacings,
+        'Mean': means,
+        'Std': stds,
+        'Packets < 1.0': packets
+    }
+    return pd.DataFrame(data)
+
 if __name__ == '__main__':
     freeze_support()
-    #calculate_impossible_seeds("H")
-    #calculate_impossible_seeds("I")
-    #calculate_impossible_seeds("L")
+    calculate_impossible_seeds("H")
+    calculate_impossible_seeds("I")
+    calculate_impossible_seeds("Q")
 
     cores = multiprocessing.cpu_count() - 1
     p = multiprocessing.Pool(cores)
     analyse_spacing("Dorn", 288, 10, 20, False)
     analyse_spacing("Dorn", 288, 10, 20, True)
+
+    create_pandas("spacing_results")
+    create_pandas("spacing_results_w_xor")
