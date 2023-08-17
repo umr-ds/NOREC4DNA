@@ -32,7 +32,7 @@ DEBUG = False
 class RU10Decoder(Decoder):
     def __init__(self, file: typing.Optional[str] = None, error_correction=nocode, use_headerchunk: bool = True,
                  static_number_of_chunks: typing.Optional[int] = None, use_method: bool = False,
-                 checksum_len_str: str = None, xor_by_seed=False, id_spacing=0):
+                 checksum_len_str: str = None, xor_by_seed=False, mask_id=True, id_spacing=0):
         self.debug = False
         super().__init__()
         if checksum_len_str is None:
@@ -45,6 +45,7 @@ class RU10Decoder(Decoder):
         self.degreeToPacket: dict = {}
         self.use_method: bool = use_method
         self.xor_by_seed = xor_by_seed
+        self.mask_id = mask_id
         if file is not None:
             self.isFolder = os.path.isdir(file)
             self.isZip = file.endswith(".zip")
@@ -465,7 +466,7 @@ class RU10Decoder(Decoder):
             header = packet[:struct_len]
             data = packet[struct_len:]
         else:
-            header = packet[:struct_len*self.id_spacing:self.id_spacing+1]
+            header = packet[:struct_len * self.id_spacing:self.id_spacing + 1]
             tmp = bytearray(packet[:struct_len * self.id_spacing])
             del tmp[: struct_len * self.id_spacing:self.id_spacing + 1]
             data = bytes(tmp) + packet[struct_len * self.id_spacing:]
@@ -494,9 +495,9 @@ class RU10Decoder(Decoder):
         len_data = struct.unpack(struct_str, header)
         if self.static_number_of_chunks is None:
             self.number_of_chunks = xor_mask(len_data[0], number_of_chunks_len_format)
-            unxored_id = xor_mask(len_data[1], id_len_format)
+            unxored_id = xor_mask(len_data[1], id_len_format, enabled=self.mask_id)
         else:
-            unxored_id = xor_mask(len_data[0], id_len_format)
+            unxored_id = xor_mask(len_data[0], id_len_format, enabled=self.mask_id)
         if self.xor_by_seed:
             data = xor_with_seed(data, unxored_id)
         if self.distribution is None:

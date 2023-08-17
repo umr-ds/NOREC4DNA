@@ -21,7 +21,7 @@ class demo_raptor_encode:
     def encode(file, asdna=True, chunk_size=DEFAULT_CHUNK_SIZE, error_correction=nocode, insert_header=False,
                save_number_of_chunks_in_packet=False, mode_1_bmp=False, prepend="", append="", upper_bound=0.5,
                save_as_fasta=True, save_as_zip=True, overhead=0.40, checksum_len_str=None, xor_by_seed=False,
-               id_spacing=0):
+               mask_id=True, id_spacing=0):
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
         dist = RaptorDistribution(number_of_chunks)
         if asdna:
@@ -34,7 +34,8 @@ class demo_raptor_encode:
                         crc_len_format=CRC_LEN_FORMAT, number_of_chunks_len_format=NUMBER_OF_CHUNKS_LEN_FORMAT,
                         id_len_format=ID_LEN_FORMAT, save_number_of_chunks_in_packet=save_number_of_chunks_in_packet,
                         mode_1_bmp=mode_1_bmp, prepend=prepend, append=append, drop_upper_bound=upper_bound,
-                        checksum_len_str=checksum_len_str, xor_by_seed=xor_by_seed, id_spacing=id_spacing)
+                        checksum_len_str=checksum_len_str, xor_by_seed=xor_by_seed, mask_id=mask_id,
+                        id_spacing=id_spacing)
         x.set_overhead_limit(overhead)
         x.encode_to_packets()
         if save_as_fasta and asdna:
@@ -75,6 +76,7 @@ if __name__ == "__main__":
                         help="desired overhead of packets")
     parser.add_argument("--xor_by_seed", action="store_true", required=False)
     parser.add_argument("--id_spacing", required=False, type=int, default=0, help="spacing between ids (default=0)")
+    parser.add_argument("--no_mask_id", action="store_true", required=False, help="do not mask ids")
     args = parser.parse_args()
     _file = args.filename
     _as_dna = args.as_dna
@@ -92,6 +94,7 @@ if __name__ == "__main__":
     _header_crc_str = args.header_crc_str
     _xor_by_seed = args.xor_by_seed
     _id_spacing = args.id_spacing
+    __mask_id = not args.no_mask_id
     if _number_of_splits > 1:
         input_files = split_file(_file, _number_of_splits)
         power_of_four = find_ceil_power_of_four(len(input_files))
@@ -110,7 +113,7 @@ if __name__ == "__main__":
                                        append=prepend_matching[_file],
                                        save_number_of_chunks_in_packet=_save_number_of_chunks, upper_bound=_upper_bound,
                                        save_as_fasta=_save_as_fasta, save_as_zip=_save_as_zip, overhead=_overhead,
-                                       checksum_len_str=_header_crc_str, xor_by_seed=_xor_by_seed,
+                                       checksum_len_str=_header_crc_str, xor_by_seed=_xor_by_seed, mask_id=__mask_id,
                                        id_spacing=_id_spacing)
         conf = {'error_correction': args.error_correction, 'repair_symbols': _no_repair_symbols, 'asdna': _as_dna,
                 'number_of_splits': _number_of_splits, 'read_all': True}

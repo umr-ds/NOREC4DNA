@@ -35,7 +35,7 @@ class ConfigReadAndExecute:
                  "number_of_chunks_len_format", "packet_len_format", "crc_len_format", "algorithm", "number_of_chunks",
                  "read_all", "epsilon", "quality", "rules", "quality_len_format", "epsilon_len_format", "config_str",
                  "savenumberofchunks", "dropped_packets", "created_packets", "upper_bound", "asdna", "master_seed",
-                 "mode_1_bmp", "chunk_size", "distribution", "checksum_len_str","xor_by_seed", "id_spacing"]
+                 "mode_1_bmp", "chunk_size", "distribution", "checksum_len_str","xor_by_seed", "id_spacing", "mask_id"]
         for cfg in config:
             if cfg not in known:
                 print(f"[Warning] Config-entry '{cfg}' not known!")
@@ -63,6 +63,7 @@ class ConfigReadAndExecute:
         checksum_len_str = decode_conf.get("checksum_len_str", "")
         xor_by_seed = decode_conf.getboolean("xor_by_seed", False)
         id_spacing = decode_conf.getint("id_spacing", 0)
+        mask_id = decode_conf.getboolean("mask_id", True)
         # extract preconfig steps:
         if number_of_splits != 0:
             split_index_length = find_ceil_power_of_four(number_of_splits)
@@ -103,7 +104,7 @@ class ConfigReadAndExecute:
                                 use_header_chunk=use_header_chunk, read_all=read_all_packets,
                                 distribution_cfg_str=distribution_cfg_str, return_decoder=return_decoder,
                                 checksum_len_str=checksum_len_str, skip_solve=skip_solve, xor_by_seed=xor_by_seed,
-                                id_spacing=id_spacing))
+                                id_spacing=id_spacing, mask_id=mask_id))
             except Exception as ex:
                 raise ex
         if len(folders) > 1:

@@ -66,7 +66,9 @@ def calc_crc(data):
 
 
 @jit(cache=True)
-def xor_mask(data, mask=0b11110000101011000011101001101010):
+def xor_mask(data, mask=0b11110000101011000011101001101010, enabled=True):
+    if not enabled:
+        return data
     return numpy.bitwise_xor(data, mask)
 
 

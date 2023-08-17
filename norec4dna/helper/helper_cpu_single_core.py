@@ -66,7 +66,9 @@ def calc_crc(data, crc_len_format="B") -> int:
 
 @lru_cache(maxsize=1024)
 def xor_mask(data: typing.Union[int, float, bytes, numpy.ndarray, typing.Iterable], len_format: str = "I",
-             mask: int = 0b11111001110000110110111110011100):
+             mask: int = 0b11111001110000110110111110011100, enabled=True):
+    if not enabled:
+        return data
     if len_format == "B":
         return data
     if len_format == "H":

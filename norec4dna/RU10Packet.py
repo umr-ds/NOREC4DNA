@@ -18,7 +18,7 @@ class RU10Packet(Packet):
                  read_only=False,
                  error_correction=nocode, packet_len_format="I", crc_len_format="L", number_of_chunks_len_format="L",
                  id_len_format="L", save_number_of_chunks_in_packet=True, method=None, window=None, prepend="",
-                 append="", xor_by_seed=False, id_spacing=0):
+                 append="", xor_by_seed=False, mask_id=True, id_spacing=0):
         self.id: int = id
         self.bool_arrayused_packets: typing.Optional[np.ndarray] = None
         self.total_number_of_chunks: int = total_number_of_chunks
@@ -36,6 +36,7 @@ class RU10Packet(Packet):
         self.save_number_of_chunks_in_packet: bool = save_number_of_chunks_in_packet
         self.error_prob: typing.Optional[float] = None
         self.xor_by_seed = xor_by_seed
+        self.mask_id = mask_id
         if id_spacing < 0:
             id_spacing = 0
         self.id_spacing = id_spacing
@@ -75,9 +76,9 @@ class RU10Packet(Packet):
         if self.save_number_of_chunks_in_packet:
             return struct.pack("<" + self.number_of_chunks_len_format + self.id_len_format,
                                xor_mask(self.total_number_of_chunks, self.number_of_chunks_len_format),
-                               xor_mask(self.id, self.id_len_format))
+                               xor_mask(self.id, self.id_len_format, enabled=self.mask_id))
         else:
-            return struct.pack("<" + self.id_len_format, xor_mask(self.id, self.id_len_format))
+            return struct.pack("<" + self.id_len_format, xor_mask(self.id, self.id_len_format, enabled=self.mask_id))
 
     def packMethod(self) -> bytes:
         if "window" not in self.method:
