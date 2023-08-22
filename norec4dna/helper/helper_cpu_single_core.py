@@ -7,12 +7,12 @@ import typing
 from crccheck.crc import Crc8Lte as crc8
 from crccheck.crc import Crc32, Crc16, Crc64
 try:
-    from cdnarules import xorArray as xor_numpy
+    from cdnarules import xorArray as xor_numpy_internal
 except ImportError:
-    from norec4dna.helper.fallback_code import xor_numpy
+    from norec4dna.helper.fallback_code import xor_numpy_internal
 
 
-def xor_numpy_old(p1, p2):
+def xor_numpy(p1, p2):
     if (isinstance(p2, numpy.ndarray) and isinstance(p1, numpy.ndarray)) and (
             (p1.dtype == numpy.uint8 and p2.dtype == numpy.uint8)
             or (p1.dtype == numpy.int64 and p2.dtype == numpy.int64)
@@ -23,7 +23,7 @@ def xor_numpy_old(p1, p2):
     else:
         n_p1 = numpy.frombuffer(p1, dtype="uint8")
         n_p2 = numpy.frombuffer(p2, dtype="uint8")
-    return xor_numpy(n_p1, n_p2)
+    return xor_numpy_internal(n_p1, n_p2)
 
 
 def listXOR(plist):
