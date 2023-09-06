@@ -225,6 +225,20 @@ class RU10Decoder(Decoder):
                     self.EOF = True
                     break
                 dna_str = line.replace("\n", "")
+                # un-space the dna string:
+                struct_len = struct.calcsize(packet_len_format) * 4
+                if self.id_spacing > 0 and struct_len > 0:
+                    res = ""
+                    input_str = list(dna_str)
+                    i = 0
+                    while len(res) < struct_len:
+                        res += input_str[i]
+                        input_str[i] = " "
+                        i += self.id_spacing + 1
+                    input_str = "".join(input_str)
+                    input_str = input_str.replace(" ", "")
+                    res += input_str
+                    dna_str = res
                 raw_packet_list.append((error_prob, seed, dna_str))
                 try:
                     new_pack = self.parse_raw_packet(BytesIO(tranlate_quat_to_byte(dna_str)).read(),
@@ -462,14 +476,8 @@ class RU10Decoder(Decoder):
         except:
             self.corrupt += 1
             return "CORRUPT"
-        if self.id_spacing == 0:
-            header = packet[:struct_len]
-            data = packet[struct_len:]
-        else:
-            header = packet[:struct_len * self.id_spacing:self.id_spacing + 1]
-            tmp = bytearray(packet[:struct_len * self.id_spacing])
-            del tmp[: struct_len * self.id_spacing:self.id_spacing + 1]
-            data = bytes(tmp) + packet[struct_len * self.id_spacing:]
+        header = packet[:struct_len]
+        data = packet[struct_len:]
         chunk_lst = []
         if self.use_method:
             method_data = bin(data[-1])[2:]

@@ -7,6 +7,29 @@ from norec4dna.helper import xor_mask, xor_numpy
 from norec4dna.helper.bin2Quaternary import string2QUATS, quads2dna
 
 
+def interleave_spacing(input_str: str, spacing: int, spacing_length: int) -> str:
+    if spacing <= 0 or spacing_length <= 0:
+        return input_str
+
+    left, right = input_str[:spacing_length], input_str[spacing_length:]
+
+    interleaved_str = ''
+    i = 0
+    j = 0
+
+    while i < len(left) and j < len(right):
+        if j % spacing == 0:
+            interleaved_str += left[i]
+            i += 1
+        interleaved_str += right[j]
+        j += 1
+
+    # If there are remaining characters in left or right
+    interleaved_str += left[i:] + right[j:]
+
+    return interleaved_str
+
+
 class Packet:
     def __init__(self, data, used_packets: typing.Collection[int], total_number_of_chunks: int, read_only: bool = False,
                  seed: int = 0, implicit_mode: bool = True, error_correction: typing.Callable = nocode,
@@ -100,11 +123,12 @@ class Packet:
         else:
             return packed
 
-    def get_dna_struct(self, split_to_multiple_files: bool) -> str:
+    def get_dna_struct(self, split_to_multiple_files: bool, spacing: int = 0, spacing_length: int = 0) -> str:
         if self.dna_data is None and self.error_correction.__name__ == 'dna_reed_solomon_encode':
             self.dna_data = self.prepend + quads2dna(self.get_struct(split_to_multiple_files)) + self.append
         elif self.dna_data is None:
-            self.dna_data = self.prepend + "".join(string2QUATS(self.get_struct(split_to_multiple_files))) + self.append
+            self.dna_data = self.prepend + interleave_spacing(
+                "".join(string2QUATS(self.get_struct(split_to_multiple_files))), spacing, spacing_length) + self.append
         self.internal_hash = None  # enforce recalculation of hash
         return self.dna_data
 

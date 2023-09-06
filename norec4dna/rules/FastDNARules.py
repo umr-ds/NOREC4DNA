@@ -48,14 +48,6 @@ _undes_motifs = [
 ]
 
 undes_motifs = [
-    # Promoter recognition motif (Euk).
-    ("TATAAA", 0.01),
-    # Promoter recognition motifs (Prok).
-    ("TTGACA", 0.05),
-    ("TGTATAATG", 0.05),
-    # Polyadenylation signals (Euk).
-    ("AATAAA", 0.01),
-    ("TTGTGTGTTG", 0.01),
     # Lox sites.
     ("ATAACTTCGTATAGCATACATTATACGAAGTTAT", 1.01),
     ("ATAACTTCGTATAGCATACATTATACGAACGGTA", 1.01),
@@ -68,34 +60,6 @@ undes_motifs = [
     ("TACCGTTCGTATACTATAGCCTATACGAAGTTAT", 1.01),
     ("ATAACTTCGTATATGGTATTATATACGAACGGTA", 1.01),
     ("ATAACTTCGTATAGTATACCTTATACGAAGTTAT", 1.01),
-    # Lox site spacers not covered by the Lox sites.
-    ("AGGTATGC", 1.01),
-    ("TTGTATGG", 1.01),
-    ("GGATAGTA", 1.01),
-    ("GTGTATTT", 1.01),
-    ("GGTTACGG", 1.01),
-    ("TTTTAGGT", 1.01),
-    ("GTACACAT", 1.01),
-    # Restriction enzyme recognition motifs.
-    # BpiI
-    ("GAAGAC", 1.01),
-    # inverse BpiI
-    ("CTTCTG", 1.01),
-    # BsaI
-    ("GGTCTC", 1.01),
-    # inverse BsaI
-    ("CCAGAG", 1.01),
-
-    ("CGTCTC", 0.01),
-    ("GCGATG", 0.01),
-    ("GCTCTTC", 0.01),
-    # Oligo Adapters.
-    ("CTCGTAGACTGCGTACCA", 0.01),
-    ("GACGATGAGTCCTGAGTA", 0.01),
-    # 5' extensions.
-    ("GGTTCCACGTAAGCTTCC", 0.01),
-    ("GCGATTACCCTGTACACC", 0.01),
-    ("GCCAGTACATCAATTGCC", 0.01),
     # Twister Adapters:
     ("GAAGTGCCATTCCGCCTGACCT", 1.0),  # Twister 5' Adapter
     ("AGGCTAGGTGGAGGCTCAGTG", 1.0)  # Twister 3' Adapter
@@ -127,6 +91,8 @@ def strict_homopolymers():
 def three_strict_homopolymers():
     return [0.0, 0.0, 0.0, 0.0, 1.0]
 
+def four_strict_homopolymers():
+    return [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 
 def lax_increasing_homopolymers():
     return [0.0, 0.0, 0.01, 0.05, 0.4, 0.7, 0.9, 1.0]
@@ -151,7 +117,7 @@ class FastDNARules:
                 # FastDNARules.g_permutation,
                 # FastDNARules.dinucleotid_runs,
                 # FastDNARules.homopolymers,
-                partial(FastDNARules.homopolymers, probs=three_strict_homopolymers()),
+                partial(FastDNARules.homopolymers, probs=four_strict_homopolymers()),
                 # FastDNARules.overall_gc_content,
                 # To change the GC error function:
                 partial(FastDNARules.overall_gc_content, calc_func=ts_gc_error_calculation),

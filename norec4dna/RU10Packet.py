@@ -40,18 +40,13 @@ class RU10Packet(Packet):
         if id_spacing < 0:
             id_spacing = 0
         self.id_spacing = id_spacing
+        self.id_spacing_length = struct.calcsize(id_len_format) * 4
         if method:
             self.method: typing.Optional[str] = method
             self.window: typing.Optional[int] = window
             self.packedMethod: typing.Optional[bytes] = self.packMethod()
         else:
             self.packedMethod = None
-        if not read_only and (len(self.data) > 0 or self.data != ""):
-            self.packed_used_packets = self.prepare_and_pack()
-            self.packed = self.calculate_packed_data()
-        else:
-            self.packed_used_packets = None
-            self.packed = None
         if dist is None:
             self.dist = RaptorDistribution(total_number_of_chunks)
         else:
@@ -59,6 +54,13 @@ class RU10Packet(Packet):
         _, self.s, self.h = intermediate_symbols(total_number_of_chunks, self.dist)
         self.prepend = prepend
         self.append = append
+        if not read_only and (len(self.data) > 0 or self.data != ""):
+            self.packed_used_packets = self.prepare_and_pack()
+            self.packed = self.calculate_packed_data()
+            self.get_dna_struct(True, self.id_spacing, self.id_spacing_length)
+        else:
+            self.packed_used_packets = None
+            self.packed = None
         # super().__init__(data, used_packets, total_number_of_chunks, read_only, error_correction=error_correction)
 
     def set_used_packets(self, u_packets):
@@ -113,15 +115,15 @@ class RU10Packet(Packet):
                     len(self.packedMethod)) + "s",  # method data
                 self.packed_used_packets, self.packed_data, self.packedMethod)
         else:
-            i = 0
-            payload = b""
-            for fragment in self.packed_used_packets:
-                payload += fragment.to_bytes(1, "little") + self.packed_data[i:i + self.id_spacing]
-                i += self.id_spacing
-            payload += self.packed_data[i:]
-            # self.packed_used_packets = ""
-            # payload = struct.pack("<" + str(len(self.packed_used_packets)) + "s" + str(len(self.packed_data)) + "s",
-            #                      self.packed_used_packets, self.packed_data)
+            #i = 0
+            #payload = b""
+            #for fragment in self.packed_used_packets:
+            #    payload += fragment.to_bytes(1, "little") + self.packed_data[i:i + self.id_spacing]
+            #    i += self.id_spacing
+            #payload += self.packed_data[i:]
+            #self.packed_used_packets = ""
+            payload = struct.pack("<" + str(len(self.packed_used_packets)) + "s" + str(len(self.packed_data)) + "s",
+                                  self.packed_used_packets, self.packed_data)
         return self.error_correction(payload)  # proxy payload through dynamic error correction / detection
 
     def getId(self) -> int:
