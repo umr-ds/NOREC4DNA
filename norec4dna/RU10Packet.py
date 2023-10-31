@@ -68,7 +68,7 @@ class RU10Packet(Packet):
         self.used_packets = u_packets
         tmp_lst = np.zeros(self.total_number_of_chunks, dtype=bool)
         valid_indices = np.array(u_packets)[np.array(u_packets) < self.total_number_of_chunks]
-        if len(valid_indices) > 0:
+        if len(u_packets) > 0:
             tmp_lst[valid_indices] = True
         else:
             logging.warning("Degenerated Packet! - No valid indices found for used packets: " + str(u_packets))
