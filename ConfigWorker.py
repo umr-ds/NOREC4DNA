@@ -58,7 +58,7 @@ class ConfigReadAndExecute:
         number_of_chunks_len_format = decode_conf.get("number_of_chunks_len_format", "I")  # optional, str
         packet_len_format = decode_conf.get("packet_len_format", "I")  # optional, str
         crc_len_format = decode_conf.get("crc_len_format", "L")  # optional, str
-        read_all_packets = decode_conf.getboolean("read_all", False)
+        read_all_packets = decode_conf.getboolean("read_all", True)
         distribution_cfg_str = decode_conf.get("distribution", "")
         checksum_len_str = decode_conf.get("checksum_len_str", "")
         xor_by_seed = decode_conf.getboolean("xor_by_seed", False)
