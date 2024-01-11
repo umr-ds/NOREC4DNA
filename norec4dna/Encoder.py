@@ -38,7 +38,6 @@ class Encoder(ABC):
 
     @staticmethod
     def create_progress_bar(max_value):
-        return None
         widgets = [progressbar.Percentage(), progressbar.Bar(), ' Encoded: ', progressbar.Counter(), ', ',
                    progressbar.Variable('Dropped'), ', ', progressbar.AdaptiveETA(), ' ', progressbar.Timer()]
         return progressbar.ProgressBar(max_value=max_value, widgets=widgets, max_error=False,
