@@ -49,7 +49,7 @@ def run(seq_seed=None, file='logo.jpg', repair_symbols=2, insert_header=False,
         error_correction=reed_solomon_encode, save_number_of_chunks_in_packet=False, l_size=1000, while_count=1000,
         chunk_size=0, number_of_chunks=300, prepend="", append="", seed_len_format=DEFAULT_ID_LEN_FORMAT,
         number_of_chunks_len_format=DEFAULT_NUMBER_OF_CHUNKS_LEN_FORMAT, method='RU10',
-        mode1bmp=False, drop_above=0.4, packets_to_create=None, xor_by_seed=False, id_spacing=0):
+        mode1bmp=False, drop_above=0.4, packets_to_create=None, xor_by_seed=False, id_spacing=0, custom_dist=None):
     # global counter
     if chunk_size != 0:
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
@@ -61,6 +61,9 @@ def run(seq_seed=None, file='logo.jpg', repair_symbols=2, insert_header=False,
         dist, error_correction = get_err_dist(method, number_of_chunks, repair_symbols)
     else:
         dist = RaptorDistribution(number_of_chunks)
+    if custom_dist is not None:
+        dist.f = custom_dist
+        dist.d = [x for x in range(0, 41)]
     if method == 'RU10':
         x = RU10Encoder(file, number_of_chunks, dist, chunk_size=chunk_size, insert_header=insert_header, rules=rules,
                         error_correction=error_correction, id_len_format=seed_len_format,
@@ -244,7 +247,7 @@ def main(filename="logo.jpg", repair_symbols=2, while_count=1000, out_size=1000,
          sequential=False, spare1core=False, prepend="", append="", insert_header=False,
          seed_len_format=DEFAULT_ID_LEN_FORMAT,
          method='RU10', mode1bmp=False, drop_above=0.4, save_as_fasta=DEFAULT_SAVE_AS_FASTA,
-         packets_to_create=None, save_as_zip=DEFAULT_SAVE_AS_ZIP, xor_by_seed=False, id_spacing=0):
+         packets_to_create=None, save_as_zip=DEFAULT_SAVE_AS_ZIP, xor_by_seed=False, id_spacing=0, custom_dist=None):
     # global progress_bar, counter
     if packets_to_create is None:
         packets_to_create = math.pow(2, 8 * struct.calcsize(seed_len_format))
@@ -266,7 +269,7 @@ def main(filename="logo.jpg", repair_symbols=2, while_count=1000, out_size=1000,
         partial(run, file=filename, repair_symbols=repair_symbols, l_size=out_size, while_count=while_count,
                 chunk_size=chunk_size, number_of_chunks=number_of_chunks, prepend=prepend, append=append,
                 insert_header=insert_header, seed_len_format=_seed_size_str, method=method, mode1bmp=mode1bmp,
-                drop_above=drop_above, xor_by_seed=xor_by_seed, id_spacing=id_spacing), param)
+                drop_above=drop_above, xor_by_seed=xor_by_seed, id_spacing=id_spacing, custom_dist=custom_dist), param)
     rt.stop()
     progress_bar.finish()
     print("Merging results...")
