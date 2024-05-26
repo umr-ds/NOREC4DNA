@@ -226,7 +226,7 @@ class RU10Decoder(Decoder):
                     break
                 dna_str = line.replace("\n", "")
                 # un-space the dna string:
-                struct_len = struct.calcsize(packet_len_format) * 4
+                struct_len = struct.calcsize(id_len_format) * 4
                 if self.id_spacing > 0 and struct_len > 0:
                     res = ""
                     input_str = list(dna_str)
