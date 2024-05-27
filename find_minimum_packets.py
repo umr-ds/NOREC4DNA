@@ -22,7 +22,10 @@ from norec4dna.RU10Encoder import RU10Encoder
 from norec4dna.OnlineEncoder import OnlineEncoder
 from norec4dna.rules.FastDNARules import FastDNARules
 from norec4dna.helper.RepeatedTimer import RepeatedTimer
-from helpful_scripts.automatedfindminimum import AutomatedFindMinimum
+try:
+    from helpful_scripts.automatedfindminimum import AutomatedFindMinimum
+except ImportError: # when using the script as standalone import we need to specify that it belongs to NOREC4DNA
+    from NOREC4DNA.helpful_scripts.automatedfindminimum import AutomatedFindMinimum
 from norec4dna.distributions.OnlineDistribution import OnlineDistribution
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.ErrorCorrection import nocode, crc32, reed_solomon_encode, dna_reed_solomon_encode
@@ -98,18 +101,20 @@ def run(seq_seed=None, file='logo.jpg', repair_symbols=2, insert_header=False,
         #    print(f"%i , %s" % (len(packet.get_dna_struct(True)), packet.get_dna_struct(True)))
         _ = should_drop_packet(rules, packet)
         if packet.error_prob <= drop_above and (len(tmp_list) < l_size or packet.error_prob < tmp_list[-1].error_prob):
-            if packet not in tmp_list:
-                bisect.insort_left(tmp_list, packet)
-            else:
-                elem = next((x for x in tmp_list if x == packet), None)
-                if packet < elem:
-                    tmp_list.remove(elem)
-                    del elem
-                    bisect.insort_left(tmp_list, packet)
+            #if packet not in tmp_list:
+            #    bisect.insort_left(tmp_list, packet)
+            #else:
+            #    elem = next((x for x in tmp_list if x == packet), None)
+            #    if packet < elem:
+            #        tmp_list.remove(elem)
+            #        del elem
+            #        bisect.insort_left(tmp_list, packet)
+            tmp_list.append(packet.dna_data)
             if len(tmp_list) > l_size:
-                for ele1m in tmp_list[l_size + 1:]:
-                    del ele1m
-                tmp_list = tmp_list[:l_size]
+                break
+            #    for ele1m in tmp_list[l_size + 1:]:
+            #        del ele1m
+            #    tmp_list = tmp_list[:l_size]
 
         else:
             del packet
@@ -268,7 +273,7 @@ def main(filename="logo.jpg", repair_symbols=2, while_count=1000, out_size=1000,
     a = p.map(
         partial(run, file=filename, repair_symbols=repair_symbols, l_size=out_size, while_count=while_count,
                 chunk_size=chunk_size, number_of_chunks=number_of_chunks, prepend=prepend, append=append,
-                insert_header=insert_header, seed_len_format=_seed_size_str, method=method, mode1bmp=mode1bmp,
+                insert_header=insert_header, seed_len_format=seed_len_format, method=method, mode1bmp=mode1bmp,
                 drop_above=drop_above, xor_by_seed=xor_by_seed, id_spacing=id_spacing, custom_dist=custom_dist), param)
     rt.stop()
     progress_bar.finish()

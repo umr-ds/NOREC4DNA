@@ -313,10 +313,58 @@ class RU10Decoder(Decoder):
                         self.counter[i] += 1
                 else:
                     self.counter[i] = 1
+        return self.input_to_GEPP(removed, packet)
+
+
+    def input_to_GEPP(self, removed, packet: RU10Packet):
         if self.GEPP is None:
             self.GEPP = GEPP(np.array([removed], dtype=bool), np.frombuffer(packet.get_data(), dtype="uint8"), )
         else:
             self.GEPP.addRow(np.array(removed, dtype=bool), np.frombuffer(packet.get_data(), dtype="uint8"), )
+        if (self.isPseudo or not self.read_all_before_decode) and self.GEPP.isPotentionallySolvable():
+            # and self.GEPP.n % 5 == 0:  # Nur alle 5 Packete versuch starten
+            if self.debug:
+                print("current size: " + str(self.GEPP.n))
+            return self.GEPP.solve(partial=False)
+        return False
+
+    def input_new_packet_new(self, packet: RU10Packet):
+        """
+        Removes auxpackets (LDPC and Half) and adds the remaining data to the GEPP matrix.
+        :param packet: A Packet to add to the GEPP matrix
+        :return: True: If solved. False: Else.
+        """
+        if self.ldpcANDhalf == dict() and self.distribution is None:  # self.isPseudo and
+            self.distribution = RaptorDistribution(self.number_of_chunks)
+            self.number_of_chunks = packet.get_total_number_of_chunks()
+            _, self.s, self.h = intermediate_symbols(self.number_of_chunks, self.distribution)
+            self.createAuxBlocks()
+            self.progress_bar = self.create_progress_bar(self.number_of_chunks + 0.02 * self.number_of_chunks)
+        # we need to do it twice sine half symbols may contain ldpc symbols (which by definition are repair codes.)
+        if self.debug:
+            print("----")
+            print("Id = " + str(packet.id))
+            print(packet.used_packets)
+        removed = self.removeAndXorAuxPackets_new(packet)
+        if self.debug:
+            print(from_true_false_list(removed))
+            print(packet.get_error_correction())
+            print("----")
+        if self.count:
+            for i in removed:
+                if i in self.counter.keys():
+                    self.counter[i] += 1
+                else:
+                    self.counter[i] = 1
+        np_arr = np.zeros( self.number_of_chunks, dtype=bool)
+        for i in removed:
+            np_arr[i] = True
+        if self.GEPP is None:
+            # reshapre np_arr to be a (1,_) matrix:
+            np_arr = np_arr.reshape(1, self.number_of_chunks)
+            self.GEPP = GEPP(np_arr, np.frombuffer(packet.get_data(), dtype="uint8"), )
+        else:
+            self.GEPP.addRow(np_arr, np.frombuffer(packet.get_data(), dtype="uint8"), )
         if (self.isPseudo or not self.read_all_before_decode) and self.GEPP.isPotentionallySolvable():
             # and self.GEPP.n % 5 == 0:  # Nur alle 5 Packete versuch starten
             if self.debug:
@@ -342,6 +390,33 @@ class RU10Decoder(Decoder):
         aux_mapping = self.getAuxPacketListFromPacket(tmp)
         aux_mapping.append(tmp.get_bool_array_used_packets())  # [-len(self.auxBlocks):])
         res = logical_xor(aux_mapping)
+        del tmp, aux_mapping
+        return res
+
+    def removeAndXorAuxPackets_new(self, packet: RU10Packet):
+        """
+        Removes auxpackets (LDCP and Half) from a given packet to get the packets data.
+        :param packet: Packet to remove auxpackets from
+        :return: The data without the auxpackets
+        """
+        aux_mapping = self.getHalfPacketNumsFromPacket(packet)  # Enthaelt Data + LDPC Nummern
+        aux_mapping.append(packet.get_used_and_ldpc_packets())
+        # reduce using symmetric difference:
+        # reduce the list of sets in aux_mapping using symmetric difference:
+        tmp = set()
+        for i in range(len(aux_mapping)):
+            tmp = tmp.symmetric_difference(set(aux_mapping[i]))
+        # xored_list = logical_xor(aux_mapping)
+        del aux_mapping
+        # tmp = from_true_false_list(xored_list)  # Nur noch Data + LDPC sind vorhanden
+        if self.debug:
+            print(tmp)
+        tmp = RU10Packet("", tmp, self.number_of_chunks, packet.id, packet.dist, read_only=True)
+        aux_mapping = self.getAuxPacketNumFromPacket(tmp)
+        aux_mapping.append(tmp.get_valid_used_packets())
+        res = set()
+        for i in range(len(aux_mapping)):
+            res = res.symmetric_difference(set(aux_mapping[i]))
         del tmp, aux_mapping
         return res
 
@@ -383,6 +458,13 @@ class RU10Decoder(Decoder):
                 res.append((self.ldpcANDhalf[i].get_bool_array_used_packets()))
         return res
 
+    def getAuxPacketNumFromPacket(self, packet: RU10Packet):
+        res = []
+        aux_used_packets = packet.get_repair_packets()
+        for i in aux_used_packets:
+            res.append((self.ldpcANDhalf[i - packet.get_total_number_of_chunks()].get_used_packets()))
+        return res
+
     def getHalfPacketListFromPacket(self, packet: RU10Packet) -> typing.List[typing.List[bool]]:
         """
         Generates a list of halfpackets from a packet.
@@ -395,6 +477,18 @@ class RU10Decoder(Decoder):
             if aux_used_packets[i]:
                 res.append(
                     (self.ldpcANDhalf[packet.get_number_of_ldpc_blocks() + i].get_bool_array_used_and_ldpc_packets()))
+        return res
+
+    def getHalfPacketNumsFromPacket(self, packet: RU10Packet) -> typing.List:
+        """
+        Generates a list of halfpackets from a packet.
+        :param packet: The packet to get the list from
+        :return: List of halfpackets
+        """
+        res: typing.List = []
+        aux_used_packets = packet.get_half_packets()
+        for i in aux_used_packets:
+            res.append(self.ldpcANDhalf[i - (packet.get_total_number_of_chunks())].get_used_and_ldpc_packets())
         return res
 
     def solve(self, partial=False) -> bool:

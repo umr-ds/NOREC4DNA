@@ -31,7 +31,8 @@ def listXOR(plist):
 
 
 def logical_xor(plist):
-    return reduce(numpy.logical_xor, plist)
+    return numpy.logical_xor.reduce(plist)
+    # return reduce(, plist)
 
 
 def xor_pakets(packet1, packet2):
