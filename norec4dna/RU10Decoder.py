@@ -356,6 +356,9 @@ class RU10Decoder(Decoder):
                     self.counter[i] += 1
                 else:
                     self.counter[i] = 1
+        self.input_to_GEPP_new(removed, packet)
+
+    def input_to_GEPP_new(self, removed, packet: RU10Packet):
         np_arr = np.zeros( self.number_of_chunks, dtype=bool)
         for i in removed:
             np_arr[i] = True
@@ -404,8 +407,10 @@ class RU10Decoder(Decoder):
         # reduce using symmetric difference:
         # reduce the list of sets in aux_mapping using symmetric difference:
         tmp = set()
-        for i in range(len(aux_mapping)):
-            tmp = tmp.symmetric_difference(set(aux_mapping[i]))
+        #for i in range(len(aux_mapping)):
+        #    tmp = tmp.symmetric_difference(set(aux_mapping[i]))
+        for packets in aux_mapping:
+            tmp ^= set(packets)
         # xored_list = logical_xor(aux_mapping)
         del aux_mapping
         # tmp = from_true_false_list(xored_list)  # Nur noch Data + LDPC sind vorhanden
@@ -415,8 +420,8 @@ class RU10Decoder(Decoder):
         aux_mapping = self.getAuxPacketNumFromPacket(tmp)
         aux_mapping.append(tmp.get_valid_used_packets())
         res = set()
-        for i in range(len(aux_mapping)):
-            res = res.symmetric_difference(set(aux_mapping[i]))
+        for packets in aux_mapping:
+            res ^= set(packets)
         del tmp, aux_mapping
         return res
 
