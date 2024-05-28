@@ -64,7 +64,7 @@ class RU10Packet(Packet):
             self.packed = None
         # super().__init__(data, used_packets, total_number_of_chunks, read_only, error_correction=error_correction)
 
-    def set_used_packets(self, u_packets):
+    def set_used_packets_old(self, u_packets):
         self.used_packets = u_packets
         tmp_lst = np.zeros(self.total_number_of_chunks, dtype=bool)
         valid_indices = np.array(u_packets)[np.array(u_packets) < self.total_number_of_chunks]
@@ -75,6 +75,26 @@ class RU10Packet(Packet):
         self.internal_hash = hash(np.packbits(tmp_lst).tobytes())
         self.bool_arrayused_packets = tmp_lst
         self.update_degree()
+
+    def set_used_packets(self, u_packets):
+        self.used_packets = u_packets
+
+        # Create boolean array directly
+        #self.bool_arrayused_packets = np.zeros(self.total_number_of_chunks, dtype=bool)
+
+        # Set True only for valid indices in u_packets
+        #valid_indices = np.array(u_packets)[np.array(u_packets) < self.total_number_of_chunks]
+        #self.bool_arrayused_packets[valid_indices] = True
+
+        if len(u_packets) > 0:
+            # Compute hash directly from boolean array
+            try:
+                self.internal_hash = hash(np.packbits(self.used_packets).tobytes())
+            except:
+                self.internal_hash = 0
+            self.update_degree()
+        else:
+            logging.warning("Degenerated Packet! - No valid indices found for used packets: " + str(u_packets))
 
     def prepare_and_pack(self) -> bytes:
         # Format = Highest possible Packetnumber for this file,
@@ -119,13 +139,13 @@ class RU10Packet(Packet):
                     len(self.packedMethod)) + "s",  # method data
                 self.packed_used_packets, self.packed_data, self.packedMethod)
         else:
-            #i = 0
-            #payload = b""
-            #for fragment in self.packed_used_packets:
+            # i = 0
+            # payload = b""
+            # for fragment in self.packed_used_packets:
             #    payload += fragment.to_bytes(1, "little") + self.packed_data[i:i + self.id_spacing]
             #    i += self.id_spacing
-            #payload += self.packed_data[i:]
-            #self.packed_used_packets = ""
+            # payload += self.packed_data[i:]
+            # self.packed_used_packets = ""
             payload = struct.pack("<" + str(len(self.packed_used_packets)) + "s" + str(len(self.packed_data)) + "s",
                                   self.packed_used_packets, self.packed_data)
         return self.error_correction(payload)  # proxy payload through dynamic error correction / detection
@@ -155,7 +175,16 @@ class RU10Packet(Packet):
         return self.s
 
     def get_bool_array_used_packets(self) -> typing.Optional[typing.List[bool]]:
+        if self.bool_arrayused_packets is None:
+            self.bool_arrayused_packets = np.zeros(self.total_number_of_chunks, dtype=bool)
+
+            # Set True only for valid indices in u_packets
+            valid_indices = np.array(self.used_packets)[np.array(self.used_packets) < self.total_number_of_chunks]
+            self.bool_arrayused_packets[valid_indices] = True
         return self.bool_arrayused_packets
+
+    def get_valid_used_packets(self) -> typing.Set[int]:
+        return set(filter(lambda x: x < self.total_number_of_chunks, self.used_packets))
 
     def get_bool_array_all_used_packets(self) -> typing.List[bool]:
         return [x in self.used_packets for x in
@@ -173,20 +202,53 @@ class RU10Packet(Packet):
         del tmp_lst
         return res
 
+    def get_used_and_ldpc_packets(self) -> typing.Set[int]:
+        u_bound = self.total_number_of_chunks + self.get_number_of_ldpc_blocks()
+        # get all number from self.use_packets smaller than u_bound:
+        return set(filter(lambda x: x < u_bound, self.used_packets))
+
     def get_bool_array_ldpc_packets(self) -> typing.List[bool]:
         # speedup candidate
         return [x in self.used_packets for x in
                 range(self.total_number_of_chunks, self.total_number_of_chunks + self.get_number_of_ldpc_blocks(), )]
 
-    def get_bool_array_half_packets(self) -> typing.List[bool]:
+    def get_ldpc_packets(self) -> typing.Set[int]:
+        return set(filter(
+            lambda x: self.total_number_of_chunks <= x < self.total_number_of_chunks + self.get_number_of_ldpc_blocks(),
+            self.used_packets))
+
+    def get_bool_array_half_packets_old(self) -> typing.List[bool]:
         return [x in self.used_packets for x in
                 range(self.total_number_of_chunks + self.get_number_of_ldpc_blocks(),
                       self.total_number_of_chunks + self.get_number_of_ldpc_blocks() + self.get_number_of_half_blocks(), )]
 
-    def get_bool_array_repair_packets(self) -> typing.List[bool]:
+    def get_bool_array_half_packets(self) -> typing.List[bool]:
+        used_packets_set = set(self.used_packets)
+        ldpc_blocks = self.get_number_of_ldpc_blocks()
+        half_blocks = self.get_number_of_half_blocks()
+        start = self.total_number_of_chunks + ldpc_blocks
+        end = start + half_blocks
+        return [x in used_packets_set for x in range(start, end)]
+
+    def get_half_packets(self) -> typing.Set[int]:
+        return set(filter(lambda
+                              x: self.total_number_of_chunks + self.get_number_of_ldpc_blocks() <= x < self.total_number_of_chunks + self.get_number_of_ldpc_blocks() + self.get_number_of_half_blocks(),
+                          self.used_packets))
+
+    def get_bool_array_repair_packets_old(self) -> typing.List[bool]:
         return [x in self.used_packets for x in
                 range(self.total_number_of_chunks,
                       self.total_number_of_chunks + self.get_number_of_ldpc_blocks() + self.get_number_of_half_blocks(), )]
+
+    def get_bool_array_repair_packets(self) -> typing.List[bool]:
+        used_packets_set = set(self.used_packets)
+        start = self.total_number_of_chunks
+        end = start + self.get_number_of_ldpc_blocks() + self.get_number_of_half_blocks()
+        return [x in used_packets_set for x in range(start, end)]
+    def get_repair_packets(self):
+        return set(filter(lambda
+                              x: self.total_number_of_chunks <= x < self.total_number_of_chunks + self.get_number_of_ldpc_blocks() + self.get_number_of_half_blocks(),
+                          self.used_packets))
 
     def __str__(self) -> str:
         return "< used_packets: " + str(self.used_packets) + " , Data: " + str(self.data) + " >"

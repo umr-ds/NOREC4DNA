@@ -93,9 +93,18 @@ def r_int63(rng: np.random) -> int:
     return rng.randint(0, int31)
 
 
-def from_true_false_list(tf_list: typing.List[bool]) -> typing.List[int]:
+def from_true_false_list_old(tf_list: typing.List[bool]) -> typing.List[int]:
     return [i for i, x in enumerate(tf_list) if x]
 
 
+def from_true_false_list(tf_list: typing.List[bool]) -> typing.List[int]:
+    return np.nonzero(tf_list)[0].tolist()
+
+
 if __name__ == '__main__':
+    # generate a list of 1000 True/False values:
+    true_false_list = [np.random.choice([True, False]) for _ in range(1000)]
+    print(res1 := from_true_false_list(true_false_list))
+    print(res2 := from_true_false_list_old(true_false_list))
+    print(res1 == res2)
     print(choose_packet_numbers(500, 123, RaptorDistribution.RaptorDistribution(500)), False, None)

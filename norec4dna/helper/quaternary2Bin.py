@@ -37,8 +37,18 @@ def quad_file_to_bytes(filename: str) -> BytesIO:
         seq = f.read()
         return BytesIO(dna2quads(seq))
 
+QUAT_TO_BITS = {
+    "A": 0b00,
+    "C": 0b01,
+    "G": 0b10,
+    "T": 0b11
+}
 
 def quats_to_bytes(quats: typing.AnyStr) -> bytes:
+    return bytes([(QUAT_TO_BITS[quats[0]] << 6) | (QUAT_TO_BITS[quats[1]] << 4) | (QUAT_TO_BITS[quats[2]] << 2) | QUAT_TO_BITS[quats[3]]])
+
+
+def quats_to_bytes_old(quats: typing.AnyStr) -> bytes:
     return ((get_quarter_byte(quats[0]) << 6) + (get_quarter_byte(quats[1]) << 4) + (get_quarter_byte(quats[2]) << 2) + (
         get_quarter_byte(quats[3]))).to_bytes(1, "big")
 
@@ -70,5 +80,9 @@ def dna2quads(dna: typing.AnyStr) -> bytes:
 
 
 if __name__ == "__main__":
+    acgt = "ACGT"
+    print(str1 := quats_to_bytes_old(acgt))
+    print(str2 := quats_to_bytes(acgt))
+    print(str1 == str2)
     filename = "raptor.pdf.quat"
     quaternary_to_bin(filename)
