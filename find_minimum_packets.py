@@ -252,7 +252,8 @@ def main(filename="logo.jpg", repair_symbols=2, while_count=1000, out_size=1000,
          sequential=False, spare1core=False, prepend="", append="", insert_header=False,
          seed_len_format=DEFAULT_ID_LEN_FORMAT,
          method='RU10', mode1bmp=False, drop_above=0.4, save_as_fasta=DEFAULT_SAVE_AS_FASTA,
-         packets_to_create=None, save_as_zip=DEFAULT_SAVE_AS_ZIP, xor_by_seed=False, id_spacing=0, custom_dist=None):
+         packets_to_create=None, save_as_zip=DEFAULT_SAVE_AS_ZIP, xor_by_seed=False, id_spacing=0, custom_dist=None,
+         sort=True):
     # global progress_bar, counter
     if packets_to_create is None:
         packets_to_create = math.pow(2, 8 * struct.calcsize(seed_len_format))
@@ -286,7 +287,11 @@ def main(filename="logo.jpg", repair_symbols=2, while_count=1000, out_size=1000,
         tmp = []
         for i in range(0, len(a) - 1, 2):
             tmp.append([a[i], a[i + 1]])
-        a = p.map(partial(reduce_lists, input_list=None, l_size=out_size), tmp)
+        if sort:
+            a = p.map(partial(reduce_lists, input_list=None, l_size=out_size), tmp)
+        else:
+            # only flatten tmp:
+            a = [x for sublist in tmp for x in sublist]
         progress_bar.update(progress_bar.max_value - len(a))
     a = a[0]
     rt.stop()
