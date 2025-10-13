@@ -70,6 +70,7 @@ class RU10Decoder(Decoder):
         self.use_headerchunk: bool = use_headerchunk
         self.static_number_of_chunks: typing.Optional[int] = static_number_of_chunks
         self.id_spacing = id_spacing
+        self.packets = []
 
     def decodeZip(self, packet_len_format: str = "I", crc_len_format: str = "I",
                   number_of_chunks_len_format: str = "I", id_len_format: str = "I"):
@@ -186,7 +187,7 @@ class RU10Decoder(Decoder):
         return decoded
 
     def decodeFile(self, packet_len_format: str = "I", crc_len_format: str = "L",
-                   number_of_chunks_len_format: str = "I", id_len_format: str = "I"):
+                   number_of_chunks_len_format: str = "I", id_len_format: str = "I", store_parsed_packets=False):
         """
         Decodes the information from a file if self.file represents a file and the packets were saved in a single file.
         :param packet_len_format: Format of the packet length
@@ -246,10 +247,17 @@ class RU10Decoder(Decoder):
                                                      number_of_chunks_len_format=number_of_chunks_len_format,
                                                      packet_len_format=packet_len_format,
                                                      id_len_format=id_len_format)
+
                 except Exception:
                     new_pack = "CORRUPT"
+                    #TODO: as the metadata trick might invalidate the checksum, we do not want to throw this packet away!
+                    # after reverting the metadata changes, we may parse the DNA string by calling:
+                    # self.input_new_packets(self.parse_raw_packet(BytesIO(translate_quat_to_byte(repaired_dna)...)
+                    # (separate and check for exception)!
+                    self.packets.append(dna_str)
                 if new_pack != "CORRUPT":
                     decoded = self.input_new_packet(new_pack)
+                    self.packets.append(new_pack)
                     if self.progress_bar is not None:
                         self.progress_bar.update(self.correct, Corrupt=self.corrupt)
         else:
@@ -263,6 +271,7 @@ class RU10Decoder(Decoder):
                 # koennte durch input_new_packet ersetzt werden:
                 # self.addPacket(new_pack)
                 if new_pack != "CORRUPT":
+                    self.packets.append(new_pack)
                     decoded = self.input_new_packet(new_pack)
                 #
         print("Decoded Packets: " + str(self.correct))

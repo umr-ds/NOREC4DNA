@@ -198,12 +198,11 @@ def merge_parts(filenames, remove_tmp_on_success=False):
 def xor_with_seed(bin_data, seed):
     """ XOR the data with a random bytestring of the same length, the seed is the packet id """
     rng = numpy.random.default_rng(seed)
-    rng
     return xor_numpy(np.frombuffer(rng.bytes(len(bin_data)), dtype=np.uint8),
                      np.frombuffer(bin_data, dtype=np.uint8)).tobytes()
 
 
-def calc_file_crc(filename, crc_len_str="I", chunksize=65536):
+def crc_algo_from_str(crc_len_str="I"):
     if crc_len_str == "B":
         algo = crcmod.predefined.mkPredefinedCrcFun("crc-8")
     elif crc_len_str == "H":
@@ -212,11 +211,20 @@ def calc_file_crc(filename, crc_len_str="I", chunksize=65536):
         algo = crcmod.predefined.mkCrcFun('crc-32')  # zlib.crc32
     else:
         raise ValueError("crc_len_str must be one of B, H, I")
+    return algo
+
+
+def calc_file_crc(filename, crc_len_str="I", chunksize=65536):
     with open(filename, "rb") as f:
-        checksum = 0
-        while chunk := f.read(chunksize):
-            checksum = algo(chunk, checksum)
-        return checksum
+        calc_crc(f, crc_len_str, chunksize)
+
+
+def calc_crc(file_io, crc_len_str="I", chunksize=65536):
+    checksum = 0
+    algo = crc_algo_from_str(crc_len_str)
+    while chunk := file_io.read(chunksize):
+        checksum = algo(chunk, checksum)
+    return checksum
 
 
 if __name__ == "__main__":
