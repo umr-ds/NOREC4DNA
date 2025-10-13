@@ -38,7 +38,7 @@ class RU10Decoder(Decoder):
         if checksum_len_str is None:
             self.checksum_len_str = ""
         if not use_headerchunk and (checksum_len_str != "" and checksum_len_str is not None):
-            raise Exception("Header-checksums are only supported with headerchunks.")
+            print("[Warning] Header-checksums are only supported with headerchunks! Checksum from config file will be ignored!")
         self.checksum_len_str = checksum_len_str
         self.isPseudo: bool = False
         self.file: typing.Optional[str] = file
