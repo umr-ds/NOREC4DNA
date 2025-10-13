@@ -278,8 +278,8 @@ class RU10Decoder(Decoder):
         print("Corrupt Packets : " + str(self.corrupt))
         if self.GEPP.isPotentionallySolvable() and not self.read_all_before_decode:
             decoded = self.GEPP.solve()
-        if not decoded and self.EOF:
-            print("Unable to retrieve File from Chunks. Too much errors?")
+        if not decoded and self.EOF and not self.read_all_before_decode:
+            print("Unable to retrieve file from chunks. Too many errors??")
             return -1
         return decoded
         # self.f.close()

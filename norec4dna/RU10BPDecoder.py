@@ -149,7 +149,7 @@ class RU10BPDecoder(BPDecoder):
         print("Decoded Packets: " + str(self.correct))
         print("Corrupt Packets : " + str(self.corrupt))
         if not decoded and self.EOF:
-            print("Unable to retrieve File from Chunks. Too much errors?")
+            print("Unable to retrieve file from chunks. Too many errors?")
             return -1
 
     def getNumberOfLDPCBlocks(self):

@@ -90,7 +90,7 @@ class OnlineDecoder(Decoder):
         if hasattr(self, "f"):
             self.f.close()
         if not decoded and self.EOF:
-            print("Unable to retrieve File from Chunks. Too much errors?")
+            print("Unable to retrieve file from chunks. Too many errors?")
             return -1
 
     def decodeFile(self, packet_len_format: str = "I", crc_len_format: str = "L",
@@ -147,7 +147,7 @@ class OnlineDecoder(Decoder):
             return self.GEPP.solve()
         self.f.close()
         if not decoded and self.EOF:
-            print("Unable to retrieve File from Chunks. Too much errors?")
+            print("Unable to retrieve file from chunks. Too many errors?")
             return -1
 
     def createAuxBlocks(self) -> None:
