@@ -47,6 +47,7 @@ NOREC4DNA implements LT, Online, and Raptor (RU10) Fountain Codes.
 
 + Install NOREC4DNA:
     - ```python -m build . --installer pip```
+    - ```pip install -e .```
   
 **If you plan to build NOREC4DNA from source under Windows we recommend using Anaconda!**
 
