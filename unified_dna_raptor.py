@@ -1,10 +1,11 @@
 import functools
 import io
+import struct
 
 import numpy as np
 
 from norec4dna import Encoder, IdealSolitonDistribution, get_error_correction_encode, \
-    RaptorDistribution, RU10Encoder, RU10Decoder
+    RaptorDistribution, RU10Encoder, RU10Decoder, get_error_correction_decode
 from norec4dna.HeaderChunk import HeaderChunk
 from norec4dna.Packet import Packet
 from norec4dna.helper.quaternary2Bin import tranlate_quat_to_byte
@@ -15,7 +16,11 @@ INSERT_HEADER = True
 DROP_UPPER_BOUND = 1.0  # decreasing this value will drop more packets but ensure all rules are followed
 NUMBER_OF_CHUNKS_IN_PACKET = False
 
-# either set  NUMBER_OF_CHUNKS or CHUNK_SIZE !
+# These additions were introduced in 10.1016/j.csbj.2024.10.038 and are only implemented for the raptor-based code:
+XOR_BY_SEED = True  # uses the seed to create a pseudo-random sequence of length of the packet and xor's the packet with it
+SEED_SPACING = 3  # spaces out the seed to avoid
+
+# either set NUMBER_OF_CHUNKS or CHUNK_SIZE !
 CHUNK_SIZE = 100
 # the decoder needs to know the number of chunks: if CHUNK_SIZE was used, enter the number of chunks here
 # (you could store the NUMBER OF CHUNKS in each packet header but this would increase the overhead)
@@ -25,22 +30,23 @@ NUMBER_OF_CHUNKS = None
 
 # if the header is too small for the data, consider renaming the file or decreasing
 # the size of the checksum (the last chunk len field can not be changed in this tool...):
-CHECKSUM_LEN_STR = "H"
-
+CHECKSUM_LEN_STR = "H" # file level checksum stored in the header chunk
 SEED = 2
 
-ERROR_CORRECTION = "nocode"
-REPAIR_SYMBOLS = 2
+ERROR_CORRECTION = "reedsolomon" # packet level error correction
+REPAIR_SYMBOLS = 2 # number of symbols / bytes for each packet
 error_correction_func = get_error_correction_encode(ERROR_CORRECTION, REPAIR_SYMBOLS)
+error_correction_func_dec = get_error_correction_decode(ERROR_CORRECTION, REPAIR_SYMBOLS)
 
 DIST = RaptorDistribution  # in general this should be left unchanged
 
 DNA_RULES = FastDNARules()
 
-READ_ALL = True
-NULL_IS_TERMINATOR = False  # should only be set
+READ_ALL = True # reads all sequences before decoding (usefull in case of high required overhead -
+                # setting this to false will trigger a Gaussian elimination for each packet > n
+NULL_IS_TERMINATOR = False  # should only be set for c-string encoded text
 DECODER_NUM_CHUNK_LEN_FORMAT = ""  # should only be set if the number of chunks is stored in each packet
-SEED_LEN_FORMAT = "I"
+SEED_LEN_FORMAT = "I" # use "H" for smaller files / less packets to generate or "I" for larger files
 RAISE_ON_UNSOLVED = True  # if set to false, the decoder will return partial results if a full decode is not possible.
 
 
@@ -56,7 +62,8 @@ def encode(string_file_name, numpy_boolean_array):
                           rules=DNA_RULES, error_correction=error_correction_func,
                           number_of_chunks_len_format=DECODER_NUM_CHUNK_LEN_FORMAT, id_len_format=SEED_LEN_FORMAT,
                           save_number_of_chunks_in_packet=NUMBER_OF_CHUNKS_IN_PACKET, drop_upper_bound=DROP_UPPER_BOUND,
-                          checksum_len_str=CHECKSUM_LEN_STR)
+                          checksum_len_str=CHECKSUM_LEN_STR, xor_by_seed=XOR_BY_SEED, mask_id=False,
+                          id_spacing=SEED_SPACING)
     encoder.set_overhead_limit(OVERHEAD)
     encoder.encode_to_packets()
     return [x.get_dna_struct(True) for x in encoder.encodedPackets], encoder
@@ -64,11 +71,27 @@ def encode(string_file_name, numpy_boolean_array):
 
 def decode(string_file_name, list_of_dna_strings):
     # make sure that the dist is freshly initialized...
-    decoder = RU10Decoder(string_file_name, error_correction=error_correction_func, use_headerchunk=INSERT_HEADER,
-                          static_number_of_chunks=NUMBER_OF_CHUNKS)
+    decoder = RU10Decoder(string_file_name, error_correction=error_correction_func_dec, use_headerchunk=INSERT_HEADER,
+                          static_number_of_chunks=NUMBER_OF_CHUNKS, xor_by_seed=XOR_BY_SEED, mask_id=False,
+                          id_spacing=SEED_SPACING)
     decoder.read_all_before_decode = READ_ALL
 
     for dna_str in list_of_dna_strings:
+        # un-space the dna string:
+        struct_len = struct.calcsize(SEED_LEN_FORMAT) * 4
+        if SEED_SPACING > 0 and struct_len > 0:
+            res = ""
+            input_str = list(dna_str)
+            i = 0
+            while len(res) < struct_len:
+                res += input_str[i]
+                input_str[i] = " "
+                i += SEED_SPACING + 1
+            input_str = "".join(input_str)
+            input_str = input_str.replace(" ", "")
+            res += input_str
+            dna_str = res
+        #raw_packet_list.append((error_prob, seed, dna_str))
         new_pack = decoder.parse_raw_packet(io.BytesIO(tranlate_quat_to_byte(dna_str)).read(),
                                             crc_len_format=CHECKSUM_LEN_STR,
                                             number_of_chunks_len_format=DECODER_NUM_CHUNK_LEN_FORMAT,

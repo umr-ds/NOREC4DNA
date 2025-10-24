@@ -216,7 +216,7 @@ def crc_algo_from_str(crc_len_str="I"):
 
 def calc_file_crc(filename, crc_len_str="I", chunksize=65536):
     with open(filename, "rb") as f:
-        calc_crc(f, crc_len_str, chunksize)
+        return calc_crc(f, crc_len_str, chunksize)
 
 
 def calc_crc(file_io, crc_len_str="I", chunksize=65536):

@@ -20,7 +20,7 @@ NOREC4DNA implements LT, Online, and Raptor (RU10) Fountain Codes.
 ## Install
 
 ### Using docker
-
+:warning: Docker builds are currently not recommended (deprecated) 
 + Building the docker container from source:
     - ````git clone git@github.com:umr-ds/NOREC4DNA.git````
     - ```docker build . --tag norec4dna```
@@ -35,7 +35,8 @@ NOREC4DNA implements LT, Online, and Raptor (RU10) Fountain Codes.
 
 + OPTIONAL create a virtual environment (recommended):
     - ````python3 -m venv <name_of_virtualenv>````
-    - activate/source the newly created venv
+    - activate/source the newly created venv:
+        ````source <name_of_virtualenv>/bin/activate```` (for UNIX)
 
 
 + Installing the dependencies:
@@ -45,7 +46,7 @@ NOREC4DNA implements LT, Online, and Raptor (RU10) Fountain Codes.
 
 
 + Install NOREC4DNA:
-    - ```python3 setup.py install```
+    - ```python -m build . --installer pip```
   
 **If you plan to build NOREC4DNA from source under Windows we recommend using Anaconda!**
 

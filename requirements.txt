@@ -21,3 +21,4 @@ crcmod~=1.7
 crccheck
 watchdog
 imagehash
+build

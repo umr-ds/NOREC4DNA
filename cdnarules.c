@@ -10,26 +10,36 @@
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <numpy/arrayobject.h>
 
-// Alignment and optimization macros
-#define ALIGN_BYTES 32
-#define ALIGNED __attribute__((aligned(ALIGN_BYTES)))
-#define RESTRICT __restrict__
-#define INLINE static inline __attribute__((always_inline))
-#define LIKELY(x) __builtin_expect(!!(x), 1)
-#define UNLIKELY(x) __builtin_expect(!!(x), 0)
-
-// Type definitions
-#define T uint64_t
-#define BYTE uint8_t
-
-// Aligned memory allocation
-static void* aligned_malloc(size_t size) {
-    void* ptr;
-    if (posix_memalign(&ptr, ALIGN_BYTES, size) != 0) {
-        return NULL;
-    }
-    return ptr;
-}
+// Cross-compiler portability shims (MSVC vs GCC/Clang)
+#if defined(_MSC_VER)
+  #include <intrin.h>    // __popcnt64
+  #include <malloc.h>    // _aligned_malloc/_aligned_free
+  #ifndef ALIGN_BYTES
+  #define ALIGN_BYTES 32
+  #endif
+  #define ALIGNED __declspec(align(ALIGN_BYTES))
+  #define RESTRICT __restrict
+  #define INLINE static __forceinline
+  #define LIKELY(x)   (x)
+  #define UNLIKELY(x) (x)
+  static void* aligned_malloc(size_t size) { return _aligned_malloc(size, ALIGN_BYTES); }
+  static void aligned_free(void* p) { _aligned_free(p); }
+#else
+  #ifndef ALIGN_BYTES
+  #define ALIGN_BYTES 32
+  #endif
+  #define ALIGNED __attribute__((aligned(ALIGN_BYTES)))
+  #define RESTRICT __restrict__
+  #define INLINE static inline __attribute__((always_inline))
+  #define LIKELY(x)   __builtin_expect(!!(x), 1)
+  #define UNLIKELY(x) __builtin_expect(!!(x), 0)
+  static void* aligned_malloc(size_t size) {
+      void* ptr = NULL;
+      if (posix_memalign(&ptr, ALIGN_BYTES, size) != 0) return NULL;
+      return ptr;
+  }
+  static void aligned_free(void* p) { free(p); }
+#endif
 
 // Fast array pointer access with stride calculation
 INLINE void* fast_array_ptr2(PyArrayObject* arr, npy_intp i, npy_intp j) {
@@ -38,6 +48,11 @@ INLINE void* fast_array_ptr2(PyArrayObject* arr, npy_intp i, npy_intp j) {
     npy_intp stride1 = PyArray_STRIDE(arr, 1);
     return (void*)(data + i * stride0 + j * stride1);
 }
+
+// Type aliases used throughout
+#define T uint64_t
+#define BYTE uint8_t
+
 
 INLINE void* fast_array_ptr1(PyArrayObject* arr, npy_intp i) {
     char* data = (char*)PyArray_DATA(arr);
@@ -61,16 +76,19 @@ static PyObject* bitSet(PyObject* self, PyObject *args) {
 
 // Optimized bit counting using builtin when available
 INLINE int bitsSet_internal(T v) {
-#ifdef __BUILTIN_POPCOUNT
+#if defined(_MSC_VER)
+    return (int)__popcnt64((unsigned __int64)v);
+#elif defined(__BUILTIN_POPCOUNT)
     return __builtin_popcountll(v);
 #else
-    // Fallback to bit manipulation
-    v = v - ((v >> 1) & (T)~(T)0/3);
-    v = (v & (T)~(T)0/15*3) + ((v >> 2) & (T)~(T)0/15*3);
-    v = (v + (v >> 4)) & (T)~(T)0/255*15;
-    return (T)(v * ((T)~(T)0/255)) >> (sizeof(T) - 1) * CHAR_BIT;
+    T x = v;
+    x = x - ((x >> 1) & (T)~(T)0/3);
+    x = (x & (T)~(T)0/15*3) + ((x >> 2) & (T)~(T)0/15*3);
+    x = (x + (x >> 4)) & (T)~(T)0/255*15;
+    return (T)(x * ((T)~(T)0/255)) >> (sizeof(T) - 1) * CHAR_BIT;
 #endif
 }
+
 
 static PyObject* bitsSet(PyObject* self, PyObject *args) {
     T v;
@@ -132,8 +150,10 @@ static PyObject* buildGraySequence(PyObject* self, PyObject *args) {
 static void do_xor_bool_optimized(bool* RESTRICT arr_a, bool* RESTRICT arr_b,
                                  npy_intp length, bool* RESTRICT outArr) {
     npy_intp i;
+    #if defined(__GNUC__)
     #pragma GCC ivdep
     #pragma GCC vector
+    #endif // __GNUC__
     for (i = 0; i < length; i++) {
         outArr[i] = arr_a[i] ^ arr_b[i];
     }
@@ -144,9 +164,10 @@ static void do_xor_byte_optimized(BYTE* RESTRICT arr_a, BYTE* RESTRICT arr_b,
     npy_intp i;
     // Process in 8-byte chunks when possible for better vectorization
     npy_intp chunk_size = length & ~7; // Round down to multiple of 8
-
+    #if defined(__GNUC__)
     #pragma GCC ivdep
     #pragma GCC vector
+    #endif // __GNUC__
     for (i = 0; i < chunk_size; i += 8) {
         uint64_t* a64 = (uint64_t*)(arr_a + i);
         uint64_t* b64 = (uint64_t*)(arr_b + i);
@@ -216,7 +237,9 @@ static PyObject* elimination(PyObject *self, PyObject *args) {
     }
 
     // Initialize dirty_rows with vectorization hint
+    #if defined(__GNUC__)
     #pragma GCC ivdep
+    #endif // __GNUC__
     for (npy_intp i = 0; i < dims_a_0; i++) {
         dirty_rows[i] = false;
     }
@@ -236,7 +259,7 @@ static PyObject* elimination(PyObject *self, PyObject *args) {
         }
 
         if (pivot == -1) {
-            PySys_WriteStdout("Could not decode Chunk %ld\n", i);
+            PySys_WriteStdout("Could not decode Chunk %" NPY_INTP_FMT "\n", i);
             dirty_rows[i] = true;
             dirty = true;
             num_dirty_rows++;
@@ -282,10 +305,10 @@ static PyObject* elimination(PyObject *self, PyObject *args) {
                                  (bool*)fast_array_ptr2(chunk_to_used_packets, i, 0));
 
             // Swap packet_mapping
-            PyObject *old_i = PyArray_GETITEM(packet_mapping, fast_array_ptr1(packet_mapping, i));
-            PyObject *old_j = PyArray_GETITEM(packet_mapping, fast_array_ptr1(packet_mapping, pivot));
-            PyArray_SETITEM(packet_mapping, fast_array_ptr1(packet_mapping, pivot), old_i);
-            PyArray_SETITEM(packet_mapping, fast_array_ptr1(packet_mapping, i), old_j);
+            PyObject *old_i = PyArray_GETITEM(packet_mapping, (char*)fast_array_ptr1(packet_mapping, i));
+            PyObject *old_j = PyArray_GETITEM(packet_mapping, (char*)fast_array_ptr1(packet_mapping, pivot));
+            PyArray_SETITEM(packet_mapping, (char*)fast_array_ptr1(packet_mapping, pivot), old_i);
+            PyArray_SETITEM(packet_mapping, (char*)fast_array_ptr1(packet_mapping, i), old_j);
             Py_DECREF(old_i);
             Py_DECREF(old_j);
         }
@@ -330,8 +353,7 @@ static PyObject* elimination(PyObject *self, PyObject *args) {
             }
         }
     }
-
-    free(dirty_rows);
+    aligned_free(dirty_rows);
     return PyBool_FromLong(!dirty);
 }
 
@@ -583,7 +605,9 @@ static PyObject* gc_content(PyObject* self, PyObject* args) {
     size_t text_length = strlen(text);
 
     // Vectorization hint for simple counting loop
+    #if defined(__GNUC__)
     #pragma GCC ivdep
+    #endif // __GNUC__
     for (size_t i = 0; i < text_length; i++) {
         if (text[i] == 'G' || text[i] == 'C') {
             count_gc++;
