@@ -39,6 +39,17 @@ class GEPP_intern:
         self._update_input()  # method that validates input
         self.result_mapping: np.array = np.zeros((np.int64(self.m), np.int64(1)), np.int32)
 
+    def clone(self):
+        gepp_copy = GEPP(self.A, self.b)
+        gepp_copy.packet_mapping = self.packet_mapping
+        gepp_copy.result_mapping = self.result_mapping
+        gepp_copy.chunk_to_used_packets = self.chunk_to_used_packets
+        gepp_copy.tmp_A = self.tmp_A
+        gepp_copy.tmp_b = self.tmp_b
+        gepp_copy.n = self.n
+        gepp_copy.m = self.m
+        return gepp_copy
+
     def solve(self, partial=False) -> bool:
         # TODO we might want to remove the added lines if partial=True to avoid unexpected behaviour
         # if the same instance is used with partial=False afterwards

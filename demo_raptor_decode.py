@@ -23,7 +23,7 @@ class demo_decode:
                number_of_chunks_len_format=NUMBER_OF_CHUNKS_LEN_FORMAT, packet_len_format=PACKET_LEN_FORMAT,
                crc_len_format=CRC_LEN_FORMAT, read_all=READ_ALL_BEFORE_DECODER, distribution_cfg_str="",
                return_decoder=False, checksum_len_str=None, skip_solve=False, failed_repeats=1000, xor_by_seed=False,
-               id_spacing=0, mask_id=True):
+               id_spacing=0, mask_id=True, store_parsed_packets=False):
         print("Pure Gauss-Mode")
         x = RU10Decoder(file, use_headerchunk=use_header_chunk, error_correction=error_correction,
                         static_number_of_chunks=number_of_chunks, checksum_len_str=checksum_len_str,
@@ -31,7 +31,7 @@ class demo_decode:
         x.read_all_before_decode = read_all
         x.decode(id_len_format=id_len_format,
                  number_of_chunks_len_format=number_of_chunks_len_format, packet_len_format=packet_len_format,
-                 crc_len_format=crc_len_format)
+                 crc_len_format=crc_len_format, store_parsed_packets=store_parsed_packets)
 
         x.GEPP.insert_tmp()
         tmp_A = np.copy(x.GEPP.A)
