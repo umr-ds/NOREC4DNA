@@ -25,20 +25,19 @@ def choose_packet_numbers(number_of_chunks: int, code_block_index: int, dist: Ra
 
     if d > l:
         d = l
-
-    indices: typing.List[int] = []
-    while b >= np.uint32(l):
+    l = np.uint32(l)
+    indices: typing.List[int] = [0] * d
+    while b >= l:
         b = (b + a) % lprime
 
-    indices.append(int(b))
+    indices[0] = b
 
-    for _ in range(1, d):
+    for idx in range(1, d):
         b = (b + a) % lprime
-        while b >= np.uint32(l):
+        while b >= l:
             b = (b + a) % lprime
-        indices.append(int(b))
-    indices.sort()
-    return indices
+        indices[idx] = b
+    return sorted(indices)
 
 
 @lru_cache(maxsize=None)
@@ -97,5 +96,6 @@ def r_int63(rng: np.random) -> int:
 def from_true_false_list(tf_list: typing.List[bool]) -> typing.List[int]:
     return [i for i, x in enumerate(tf_list) if x]
 
+
 if __name__ == '__main__':
-    print(choose_packet_numbers(500, 123, RaptorDistribution.RaptorDistribution(500)), False,None)
+    print(choose_packet_numbers(500, 123, RaptorDistribution.RaptorDistribution(500)), False, None)

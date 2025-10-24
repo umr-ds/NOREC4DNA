@@ -3,6 +3,7 @@ import os
 import shutil
 
 import crcmod
+import numpy as np
 
 mode = "single_cpu"
 
@@ -194,13 +195,21 @@ def merge_parts(filenames, remove_tmp_on_success=False):
             os.remove(base_name + "." + str(i))
 
 
+def xor_with_seed(bin_data, seed):
+    """ XOR the data with a random bytestring of the same length, the seed is the packet id """
+    rng = numpy.random.default_rng(seed)
+    rng
+    return xor_numpy(np.frombuffer(rng.bytes(len(bin_data)), dtype=np.uint8),
+                     np.frombuffer(bin_data, dtype=np.uint8)).tobytes()
+
+
 def calc_file_crc(filename, crc_len_str="I", chunksize=65536):
     if crc_len_str == "B":
         algo = crcmod.predefined.mkPredefinedCrcFun("crc-8")
     elif crc_len_str == "H":
         algo = crcmod.predefined.mkCrcFun('crc-16')
     elif crc_len_str == "I":
-        algo = crcmod.predefined.mkCrcFun('crc-32') # zlib.crc32
+        algo = crcmod.predefined.mkCrcFun('crc-32')  # zlib.crc32
     else:
         raise ValueError("crc_len_str must be one of B, H, I")
     with open(filename, "rb") as f:
@@ -209,7 +218,8 @@ def calc_file_crc(filename, crc_len_str="I", chunksize=65536):
             checksum = algo(chunk, checksum)
         return checksum
 
+
 if __name__ == "__main__":
     print(os.listdir(os.path.curdir))
     print(calc_file_crc("../../logo.jpg", "I"))
-    #merge_folder_content("../../split_Dorn", "../../Dorn_combined_split_output", True, True)
+    # merge_folder_content("../../split_Dorn", "../../Dorn_combined_split_output", True, True)

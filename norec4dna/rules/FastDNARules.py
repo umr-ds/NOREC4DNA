@@ -39,6 +39,32 @@ except:
                 count += 1
         return 1.0 if 1.0 * count * repeat_length / len(data) > 0.44 else count * repeat_length / len(data) * 0.5
 
+_undes_motifs = [
+    ("CTCGTAGACTGCGTACCA", 1.01),
+    ("GACGATGAGTCCTGAGTA", 1.01),
+    ("CTGTCTCTTATACACATCT", 1.01),
+    ("TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG", 1.01),
+    ("GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAG", 1.01),
+]
+
+undes_motifs = [
+    # Lox sites.
+    ("ATAACTTCGTATAGCATACATTATACGAAGTTAT", 1.01),
+    ("ATAACTTCGTATAGCATACATTATACGAACGGTA", 1.01),
+    ("TACCGTTCGTATAGCATACATTATACGAAGTTAT", 1.01),
+    ("TACCGTTCGTATAGCATACATTATACGAACGGTA", 1.01),
+    ("TACCGTTCGTATATGGTATTATATACGAAGTTAT", 1.01),
+    ("TACCGTTCGTATATTCTATCTTATACGAAGTTAT", 1.01),
+    ("TACCGTTCGTATAGGATACTTTATACGAAGTTAT", 1.01),
+    ("TACCGTTCGTATATACTATACTATACGAAGTTAT", 1.01),
+    ("TACCGTTCGTATACTATAGCCTATACGAAGTTAT", 1.01),
+    ("ATAACTTCGTATATGGTATTATATACGAACGGTA", 1.01),
+    ("ATAACTTCGTATAGTATACCTTATACGAAGTTAT", 1.01),
+    # Twister Adapters:
+    ("GAAGTGCCATTCCGCCTGACCT", 1.0),  # Twister 5' Adapter
+    ("AGGCTAGGTGGAGGCTCAGTG", 1.0)  # Twister 3' Adapter
+]
+
 
 def gc_error_calculation(gc_percentage):
     return (100 + (175 * gc_percentage) / 6 - (121 * gc_percentage ** 2) / 72 + (gc_percentage ** 3) / 36 - (
@@ -55,15 +81,21 @@ def ts_gc_error_calculation(gc_percentage):
 
 def gc_strict_calculation(gc_percentage):
     return (
-                   100 + 49970.8 * gc_percentage - 2582 * gc_percentage ** 2 + 41.6458 * gc_percentage ** 3 - 0.208229 * gc_percentage ** 4) / 100
+            100 + 49970.8 * gc_percentage - 2582 * gc_percentage ** 2 + 41.6458 * gc_percentage ** 3 - 0.208229 * gc_percentage ** 4) / 100
 
 
 def strict_homopolymers():
     return [0.0, 0.0, 0.2, 0.5, 0.8, 1.0]
 
-
+# x = |Homopolymer| ; x > 3 -> 100% ; x <= 3 -> 0%
 def three_strict_homopolymers():
     return [0.0, 0.0, 0.0, 0.0, 1.0]
+
+def four_strict_homopolymers():
+    return [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+
+def lax_increasing_homopolymers():
+    return [0.0, 0.0, 0.01, 0.05, 0.4, 0.7, 0.9, 1.0]
 
 
 def lax_homopolymers():
@@ -75,8 +107,8 @@ def lax_homopolymers():
 
 class FastDNARules:
     def __init__(self, active_rules=None):
-        self.nineteen_mers = pybloomfilter.BloomFilter(50000000, 0.0001)
-        self.tmp_nineteen_mers = pybloomfilter.BloomFilter(50000, 0.0001)
+        #self.nineteen_mers = pybloomfilter.BloomFilter(50000000, 0.0001)
+        #self.tmp_nineteen_mers = pybloomfilter.BloomFilter(50000, 0.0001)
         if active_rules is None:
             self.active_rules = [
                 # FastDNARules.a_permutation,

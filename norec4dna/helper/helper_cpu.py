@@ -64,7 +64,9 @@ def calc_crc(data):
 
 
 # @jit(cache=cache)
-def xor_mask(data, len_format="I", mask=0b10101010101010101010101010101010):
+def xor_mask(data, len_format="I", mask=0b10101010101010101010101010101010, enabled=True):
+    if not enabled:
+        return data
     if len_format == "B":
         return data
     if len_format == "H":

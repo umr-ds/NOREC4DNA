@@ -3,7 +3,7 @@ from scipy.special import comb
 import typing
 import numpy as np
 from functools import lru_cache
-
+import bisect
 from norec4dna.distributions.Distribution import Distribution
 
 
@@ -512,8 +512,8 @@ class RaptorDistribution(Distribution):
         self.rng: np.random = np.random
         self.rng.seed(number_of_chunks)
         self.S: int = number_of_chunks
-        self.f: typing.List[int] = [0, 10241, 491582, 712794, 831695, 948446, 1032189, 1048576]
-        self.d: typing.List[int] = [0, 1, 2, 3, 4, 10, 11, 40]
+        self.f: np.ndarray = np.array([0, 10241, 491582, 712794, 831695, 948446, 1032189, 1048576], dtype=np.int32)
+        self.d: np.ndarray = np.array([0, 1, 2, 3, 4, 10, 11, 40], dtype=np.int8)
 
     @lru_cache(8192)
     def smallestPrimeGreaterOrEqual(self, x: int) -> int:
@@ -556,12 +556,11 @@ class RaptorDistribution(Distribution):
 
     # Deg function from section 5.4.4.2
     # deg calculates the degree to be used in code block generation.
-    @lru_cache(maxsize=8192)
     def deg(self, v: int) -> int:
-        for j in range(1, len(self.f) - 1):
-            if v < self.f[j]:
-                return self.d[j]
-        return self.d[len(self.d) - 1]
+        try:
+            return self.d[bisect.bisect_right(self.f, v)]
+        except IndexError:
+            return self.d[-1]
 
     def get_config_string(self) -> str:
         return "RaptorDistribution_S=" + str(self.S)
@@ -572,4 +571,12 @@ class RaptorDistribution(Distribution):
 
 if __name__ == "__main__":
     x = RaptorDistribution(123)
+    v = 100
+    for v in range(0, 1048590):
+        try:
+            bisect_deg = x.d[bisect.bisect_right(x.f, v)]
+        except IndexError:
+            bisect_deg = x.d[-1]
+        org_deg = x.deg(v)
+        assert bisect_deg == org_deg
     print([x.getNumber(d, 50, 400) for d in range(1, 100)])

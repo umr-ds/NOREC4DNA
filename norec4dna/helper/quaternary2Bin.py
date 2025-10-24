@@ -38,16 +38,10 @@ def quad_file_to_bytes(filename: str) -> BytesIO:
         return BytesIO(dna2quads(seq))
 
 
-def quats_to_bytes(quats: typing.AnyStr) -> bytearray:
-    byte = bytearray(
-        [
-            (get_quarter_byte(quats[0]) << 6)
-            + (get_quarter_byte(quats[1]) << 4)
-            + (get_quarter_byte(quats[2]) << 2)
-            + (get_quarter_byte(quats[3]))
-        ]
-    )
-    return byte
+def quats_to_bytes(quats: typing.AnyStr) -> bytes:
+    return ((get_quarter_byte(quats[0]) << 6) + (get_quarter_byte(quats[1]) << 4) + (get_quarter_byte(quats[2]) << 2) + (
+        get_quarter_byte(quats[3]))).to_bytes(1, "big")
+
 
 
 def tranlate_quat_to_byte(in_txt):

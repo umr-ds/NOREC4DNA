@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
+import logging
 import struct
 import typing
 import numpy as np
@@ -7,6 +8,7 @@ import numpy as np
 from norec4dna.helper import xor_mask
 from norec4dna.Packet import Packet
 from bitstring import BitArray
+from norec4dna.helper.helper import xor_with_seed
 from norec4dna.helper.RU10Helper import intermediate_symbols
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.ErrorCorrection import nocode
@@ -17,9 +19,9 @@ class RU10Packet(Packet):
                  read_only=False,
                  error_correction=nocode, packet_len_format="I", crc_len_format="L", number_of_chunks_len_format="L",
                  id_len_format="L", save_number_of_chunks_in_packet=True, method=None, window=None, prepend="",
-                 append=""):
+                 append="", xor_by_seed=False, mask_id=True, id_spacing=0):
         self.id: int = id
-        self.bool_arrayused_packets: typing.Optional[typing.List[bool]] = None
+        self.bool_arrayused_packets: typing.Optional[np.ndarray] = None
         self.total_number_of_chunks: int = total_number_of_chunks
         self.data: bytes = data
         self.used_packets: typing.Optional[typing.Iterable[int]] = None
@@ -34,18 +36,18 @@ class RU10Packet(Packet):
         self.error_correction: typing.Callable[[typing.Any], typing.Any] = error_correction
         self.save_number_of_chunks_in_packet: bool = save_number_of_chunks_in_packet
         self.error_prob: typing.Optional[float] = None
+        self.xor_by_seed = xor_by_seed
+        self.mask_id = mask_id
+        if id_spacing < 0:
+            id_spacing = 0
+        self.id_spacing = id_spacing
+        self.id_spacing_length = struct.calcsize(id_len_format) * 4
         if method:
             self.method: typing.Optional[str] = method
             self.window: typing.Optional[int] = window
             self.packedMethod: typing.Optional[bytes] = self.packMethod()
         else:
             self.packedMethod = None
-        if not read_only and (len(self.data) > 0 or self.data != ""):
-            self.packed_used_packets = self.prepare_and_pack()
-            self.packed = self.calculate_packed_data()
-        else:
-            self.packed_used_packets = None
-            self.packed = None
         if dist is None:
             self.dist = RaptorDistribution(total_number_of_chunks)
         else:
@@ -53,20 +55,26 @@ class RU10Packet(Packet):
         _, self.s, self.h = intermediate_symbols(total_number_of_chunks, self.dist)
         self.prepend = prepend
         self.append = append
+        if not read_only and (len(self.data) > 0 or self.data != ""):
+            self.packed_used_packets = self.prepare_and_pack()
+            self.packed = self.calculate_packed_data()
+            self.get_dna_struct(True, self.id_spacing, self.id_spacing_length)
+        else:
+            self.packed_used_packets = None
+            self.packed = None
         # super().__init__(data, used_packets, total_number_of_chunks, read_only, error_correction=error_correction)
 
     def set_used_packets(self, u_packets):
         self.used_packets = u_packets
-        self.internal_hash = hash(frozenset(i for i in self.used_packets))
-        tmp_lst = np.full((1, self.total_number_of_chunks), False)
-        for x in self.used_packets:
-            if x < self.total_number_of_chunks:
-                tmp_lst[0, x] = True
-        self.bool_arrayused_packets = tmp_lst[0]
+        tmp_lst = np.zeros(self.total_number_of_chunks, dtype=bool)
+        valid_indices = np.array(u_packets)[np.array(u_packets) < self.total_number_of_chunks]
+        if len(u_packets) > 0:
+            tmp_lst[valid_indices] = True
+        else:
+            logging.warning("Degenerated Packet! - No valid indices found for used packets: " + str(u_packets))
+        self.internal_hash = hash(np.packbits(tmp_lst).tobytes())
+        self.bool_arrayused_packets = tmp_lst
         self.update_degree()
-        # [
-        #    x in self.used_packets for x in range(0, self.total_number_of_chunks)
-        # ]
 
     def prepare_and_pack(self) -> bytes:
         # Format = Highest possible Packetnumber for this file,
@@ -74,9 +82,9 @@ class RU10Packet(Packet):
         if self.save_number_of_chunks_in_packet:
             return struct.pack("<" + self.number_of_chunks_len_format + self.id_len_format,
                                xor_mask(self.total_number_of_chunks, self.number_of_chunks_len_format),
-                               xor_mask(self.id, self.id_len_format))
+                               xor_mask(self.id, self.id_len_format, enabled=self.mask_id))
         else:
-            return struct.pack("<" + self.id_len_format, xor_mask(self.id, self.id_len_format))
+            return struct.pack("<" + self.id_len_format, xor_mask(self.id, self.id_len_format, enabled=self.mask_id))
 
     def packMethod(self) -> bytes:
         if "window" not in self.method:
@@ -103,12 +111,21 @@ class RU10Packet(Packet):
     def calculate_packed_data(self) -> bytes:
         # size of the packets + UsedPackets + Data + crc
         self.packed_data = struct.pack("<" + str(len(self.data)) + "s", bytes(self.data))
+        if self.xor_by_seed:
+            self.packed_data = xor_with_seed(self.packed_data, self.id)
         if self.packedMethod:
             payload = struct.pack(
                 "<" + str(len(self.packed_used_packets)) + "s" + str(len(self.packed_data)) + "s" + str(
                     len(self.packedMethod)) + "s",  # method data
                 self.packed_used_packets, self.packed_data, self.packedMethod)
         else:
+            #i = 0
+            #payload = b""
+            #for fragment in self.packed_used_packets:
+            #    payload += fragment.to_bytes(1, "little") + self.packed_data[i:i + self.id_spacing]
+            #    i += self.id_spacing
+            #payload += self.packed_data[i:]
+            #self.packed_used_packets = ""
             payload = struct.pack("<" + str(len(self.packed_used_packets)) + "s" + str(len(self.packed_data)) + "s",
                                   self.packed_used_packets, self.packed_data)
         return self.error_correction(payload)  # proxy payload through dynamic error correction / detection
@@ -142,7 +159,8 @@ class RU10Packet(Packet):
 
     def get_bool_array_all_used_packets(self) -> typing.List[bool]:
         return [x in self.used_packets for x in
-                range(self.total_number_of_chunks + self.get_number_of_ldpc_blocks() + self.get_number_of_half_blocks())]
+                range(
+                    self.total_number_of_chunks + self.get_number_of_ldpc_blocks() + self.get_number_of_half_blocks())]
 
     def get_bool_array_used_and_ldpc_packets(self) -> typing.List[bool]:
         # speedup candidate

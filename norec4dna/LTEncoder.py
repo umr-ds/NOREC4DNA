@@ -141,14 +141,8 @@ class LTEncoder(Encoder):
         last_chunk_len_struct_size = struct.calcsize("<" + self.last_chunk_len_format)
         struct_str = "<" + self.last_chunk_len_format + str(file_name_length) + "s" + \
                      str(self.chunk_size - file_name_length - last_chunk_len_struct_size) + "x"
-        return struct.pack(struct_str, len(last_chunk), bytes(self.file, encoding="utf-8"))
-
-    def fill_last_chunk(self):
-        last: bytes = self.chunks[-1]
-        assert (len(last) <= self.chunk_size), "Error, last Chunk ist bigger than ChunkSize"
-        if len(last) < self.chunk_size:
-            struct_str = ("<" + str(len(last)) + "s" + str(self.chunk_size - len(last)) + "x")
-            self.chunks[-1] = struct.pack(struct_str, bytes(last))
+        return np.frombuffer(struct.pack(struct_str, len(last_chunk), bytes(self.file, encoding="utf-8")),
+                             dtype=np.uint8)
 
     def number_of_packets_encoded_already(self) -> int:
         return len(self.setOfEncodedPackets)
@@ -357,5 +351,6 @@ if __name__ == "__main__":
         exit()
     filename = args.filename
     print("File to encode: " + str(filename))
-    main(filename, _number_of_chunks, _chunk_size, e_correction, _as_dna, _insert_header, save_number_of_chunks=_save_number_of_chunks)
+    main(filename, _number_of_chunks, _chunk_size, e_correction, _as_dna, _insert_header,
+         save_number_of_chunks=_save_number_of_chunks)
     print("File encoded.")

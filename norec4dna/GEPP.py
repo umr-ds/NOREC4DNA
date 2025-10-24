@@ -194,13 +194,19 @@ class GEPP_intern:
 
     def isSolved(self) -> bool:
         all_true = set(x for x in range(self.m))
-        res = len(all_true) == len(set(x[0] for x in self.result_mapping))
+        solved_set = set(x[0] for x in self.result_mapping)
+        if -1 in solved_set:
+            solved_set.remove(-1)
+        res = len(all_true) == len(solved_set)
         if debug and not res:
-            print("Chunk(s) " + str(all_true - set(x[0] for x in self.result_mapping)) + " are missing. ")
+            print("Chunk(s) " + str(all_true - solved_set) + " are missing. ")
         return res
 
     def getSolvedCount(self) -> int:
-        return len(set(x[0] for x in self.result_mapping))
+        solved_set = set(x[0] for x in self.result_mapping)
+        if -1 in solved_set:
+            solved_set.remove(-1)
+        return len(solved_set)
 
     def get_common_packets(self, chunk_id_lst: typing.List[int], valid_chunks_lst: typing.List[int] = None,
                            multi_error_packet_mode=False) -> np.array:

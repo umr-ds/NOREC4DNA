@@ -71,6 +71,12 @@ def switch(name: str) -> typing.Callable[[typing.AnyStr, typing.Any, typing.Any]
 
 
 def gc_content(text: typing.AnyStr) -> float:
+    try:
+        return cdnarules.gc_content(text)
+    except NameError:
+        return gc_content_python(text)
+
+def gc_content_python(text: typing.AnyStr) -> float:
     counter = Counter(text)
     count = counter["G"] + counter["C"]
     return (count / len(text)) * 100

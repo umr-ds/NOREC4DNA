@@ -86,11 +86,7 @@ class DNARules_ErlichZielinski:
 
     @staticmethod
     def apply_all_rules(packet):
-        if isinstance(packet, str):
-            dna_data = packet  # .get_dna_struct(True)
-        else:
-            dna_data = packet.get_dna_struct(True)
-
+        dna_data = packet.get_dna_struct(True)
         res_arr = [
             x(dna_data)
             for x in [

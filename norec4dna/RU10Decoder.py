@@ -22,6 +22,8 @@ from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.GEPP import GEPP
 from norec4dna.Decoder import Decoder
 from norec4dna.helper.quaternary2Bin import quat_file_to_bin, quad_file_to_bytes, tranlate_quat_to_byte
+from norec4dna.helper.helper import xor_with_seed
+
 from zipfile import ZipFile
 
 DEBUG = False
@@ -30,18 +32,20 @@ DEBUG = False
 class RU10Decoder(Decoder):
     def __init__(self, file: typing.Optional[str] = None, error_correction=nocode, use_headerchunk: bool = True,
                  static_number_of_chunks: typing.Optional[int] = None, use_method: bool = False,
-                 checksum_len_str: str = None):
+                 checksum_len_str: str = None, xor_by_seed=False, mask_id=True, id_spacing=0):
         self.debug = False
         super().__init__()
         if checksum_len_str is None:
             self.checksum_len_str = ""
         if not use_headerchunk and (checksum_len_str != "" and checksum_len_str is not None):
-            raise Exception("Header-checksums are only supported with headerchunks.")
+            print("[Warning] Header-checksums are only supported with headerchunks! Checksum from config file will be ignored!")
         self.checksum_len_str = checksum_len_str
         self.isPseudo: bool = False
         self.file: typing.Optional[str] = file
         self.degreeToPacket: dict = {}
         self.use_method: bool = use_method
+        self.xor_by_seed = xor_by_seed
+        self.mask_id = mask_id
         if file is not None:
             self.isFolder = os.path.isdir(file)
             self.isZip = file.endswith(".zip")
@@ -65,6 +69,7 @@ class RU10Decoder(Decoder):
         self.error_correction: typing.Callable = error_correction
         self.use_headerchunk: bool = use_headerchunk
         self.static_number_of_chunks: typing.Optional[int] = static_number_of_chunks
+        self.id_spacing = id_spacing
 
     def decodeZip(self, packet_len_format: str = "I", crc_len_format: str = "I",
                   number_of_chunks_len_format: str = "I", id_len_format: str = "I"):
@@ -220,6 +225,20 @@ class RU10Decoder(Decoder):
                     self.EOF = True
                     break
                 dna_str = line.replace("\n", "")
+                # un-space the dna string:
+                struct_len = struct.calcsize(id_len_format) * 4
+                if self.id_spacing > 0 and struct_len > 0:
+                    res = ""
+                    input_str = list(dna_str)
+                    i = 0
+                    while len(res) < struct_len:
+                        res += input_str[i]
+                        input_str[i] = " "
+                        i += self.id_spacing + 1
+                    input_str = "".join(input_str)
+                    input_str = input_str.replace(" ", "")
+                    res += input_str
+                    dna_str = res
                 raw_packet_list.append((error_prob, seed, dna_str))
                 try:
                     new_pack = self.parse_raw_packet(BytesIO(tranlate_quat_to_byte(dna_str)).read(),
@@ -457,7 +476,7 @@ class RU10Decoder(Decoder):
         except:
             self.corrupt += 1
             return "CORRUPT"
-
+        header = packet[:struct_len]
         data = packet[struct_len:]
         chunk_lst = []
         if self.use_method:
@@ -481,12 +500,14 @@ class RU10Decoder(Decoder):
                 chunk_lst = [ch for ch in range(start, start + window_size) if ch <= self.number_of_chunks]
             else:
                 raise RuntimeError("Not a valid start:", method_data)
-        len_data = struct.unpack(struct_str, packet[0:struct_len])
+        len_data = struct.unpack(struct_str, header)
         if self.static_number_of_chunks is None:
             self.number_of_chunks = xor_mask(len_data[0], number_of_chunks_len_format)
-            unxored_id = xor_mask(len_data[1], id_len_format)
+            unxored_id = xor_mask(len_data[1], id_len_format, enabled=self.mask_id)
         else:
-            unxored_id = xor_mask(len_data[0], id_len_format)
+            unxored_id = xor_mask(len_data[0], id_len_format, enabled=self.mask_id)
+        if self.xor_by_seed:
+            data = xor_with_seed(data, unxored_id)
         if self.distribution is None:
             self.distribution = RaptorDistribution(self.number_of_chunks)
             _, self.s, self.h = intermediate_symbols(self.number_of_chunks, self.distribution)
@@ -601,7 +622,7 @@ class RU10Decoder(Decoder):
             if self.headerChunk.checksum != decoded_crc:
                 print("Decoded CRC:", decoded_crc)
                 print("Header CRC:", self.headerChunk.checksum)
-                raise ValueError("Checksum of decoded file does not match checksum in header chunk!")
+                raise ValueError("Checksum of decoded file does not match checksum in header chunk!", file_name)
         if dirty:
             print("Some parts could not be restored, file WILL contain sections with \\x00 !")
         if print_to_output:
@@ -642,10 +663,11 @@ class RU10Decoder(Decoder):
 
 
 def main(file: str, number_of_chunks: int, error_correction: typing.Callable = nocode, insert_header: bool = False,
-         mode_1_bmp: bool = False,_header_crc_str: str = None):
+         mode_1_bmp: bool = False, _header_crc_str: str = None, xor_by_seed=False, _id_spacing=0):
     print("Pure Gauss-Mode")
     x = RU10Decoder(file, use_headerchunk=insert_header, error_correction=error_correction,
-                    static_number_of_chunks=number_of_chunks, checksum_len_str=_header_crc_str)
+                    static_number_of_chunks=number_of_chunks, checksum_len_str=_header_crc_str, xor_by_seed=xor_by_seed,
+                    id_spacing=_id_spacing)
     x.decode(id_len_format="I", number_of_chunks_len_format="I")
     x.saveDecodedFile(null_is_terminator=False, print_to_output=False)
 
@@ -666,6 +688,8 @@ if __name__ == "__main__":
     parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
     parser.add_argument("--as_mode_1_bmp", required=False, action="store_true",
                         help="convert to a header-less B/W BMP format. (use only for image/bmp input)")
+    parser.add_argument("--xor_by_seed", required=False, action="store_true")
+    parser.add_argument("--id_spacing", metavar="id_spacing", required=False, type=int, default=0)
     args = parser.parse_args()
     _file = args.filename
     _repair_symbols = args.repair_symbols
@@ -674,6 +698,9 @@ if __name__ == "__main__":
     _number_of_chunks = args.number_of_chunks
     _error_correction = get_error_correction_decode(args.error_correction, _repair_symbols)
     _header_crc_str = args.header_crc_str
+    _xor_by_seed = args.xor_by_seed
+    _id_spacing = args.id_spacing
     print("File / Folder to decode: " + str(_file))
-    main(_file, _number_of_chunks, _error_correction, _insert_header, _mode_1_bmp, _header_crc_str)
+    main(_file, _number_of_chunks, _error_correction, _insert_header, _mode_1_bmp, _header_crc_str, _xor_by_seed,
+         _id_spacing)
     print("Decoding finished.")
