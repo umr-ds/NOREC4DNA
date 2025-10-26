@@ -1,3 +1,11 @@
+#if defined(__AVX2__)
+#include <immintrin.h>
+#define USE_AVX2 1
+#elif defined(__SSE2__)
+#include <emmintrin.h>
+#define USE_SSE2 1
+#endif
+
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <string.h>
@@ -161,24 +169,48 @@ static void do_xor_bool_optimized(bool* RESTRICT arr_a, bool* RESTRICT arr_b,
 
 static void do_xor_byte_optimized(BYTE* RESTRICT arr_a, BYTE* RESTRICT arr_b,
                                  npy_intp length, BYTE* RESTRICT outArr) {
+#if defined(USE_AVX2)
+    npy_intp i = 0;
+    // Process 32 bytes at a time with AVX2
+    npy_intp avx_end = (length / 32) * 32;
+    for (i = 0; i < avx_end; i += 32) {
+        __m256i a = _mm256_loadu_si256((__m256i*)(arr_a + i));
+        __m256i b = _mm256_loadu_si256((__m256i*)(arr_b + i));
+        __m256i result = _mm256_xor_si256(a, b);
+        _mm256_storeu_si256((__m256i*)(outArr + i), result);
+    }
+    // Handle remaining bytes
+    for (; i < length; i++) {
+        outArr[i] = arr_a[i] ^ arr_b[i];
+    }
+#elif defined(USE_SSE2)
+    npy_intp i = 0;
+    // Process 16 bytes at a time with SSE2
+    npy_intp sse_end = (length / 16) * 16;
+    for (i = 0; i < sse_end; i += 16) {
+        __m128i a = _mm_loadu_si128((__m128i*)(arr_a + i));
+        __m128i b = _mm_loadu_si128((__m128i*)(arr_b + i));
+        __m128i result = _mm_xor_si128(a, b);
+        _mm_storeu_si128((__m128i*)(outArr + i), result);
+    }
+    // Handle remaining bytes
+    for (; i < length; i++) {
+        outArr[i] = arr_a[i] ^ arr_b[i];
+    }
+#else
     npy_intp i;
-    // Process in 8-byte chunks when possible for better vectorization
-    npy_intp chunk_size = length & ~7; // Round down to multiple of 8
-    #if defined(__GNUC__)
-    #pragma GCC ivdep
-    #pragma GCC vector
-    #endif // __GNUC__
+    // Fallback to 64-bit chunks
+    npy_intp chunk_size = length & ~7;
     for (i = 0; i < chunk_size; i += 8) {
         uint64_t* a64 = (uint64_t*)(arr_a + i);
         uint64_t* b64 = (uint64_t*)(arr_b + i);
         uint64_t* out64 = (uint64_t*)(outArr + i);
         *out64 = *a64 ^ *b64;
     }
-
-    // Handle remaining bytes
     for (i = chunk_size; i < length; i++) {
         outArr[i] = arr_a[i] ^ arr_b[i];
     }
+#endif
 }
 
 static void printBin(BYTE in) {

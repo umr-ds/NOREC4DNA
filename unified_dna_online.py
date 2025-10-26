@@ -10,6 +10,7 @@ from norec4dna.Packet import Packet
 from norec4dna.helper.quaternary2Bin import tranlate_quat_to_byte
 from norec4dna.rules.FastDNARules import FastDNARules
 
+INPUT_FILE = "data_1mb.test"
 OVERHEAD = 0.2
 INSERT_HEADER = True
 DROP_UPPER_BOUND = 1.0  # decreasing this value will drop more packets but ensure all rules are followed
@@ -114,9 +115,8 @@ def decode(string_file_name, list_of_dna_strings):
 
 
 if __name__ == "__main__":
-    res, encoder = encode("Dorn", None)
-    org = None
-    with open("Dorn", "r") as f:
-        org = np.unpackbits(np.frombuffer(f.read().encode(), dtype=np.uint8))
-    decoded = decode(None, res)
-    assert np.all(np.equal(org, decoded))
+    res, encoder = encode(INPUT_FILE, None)
+    with open(INPUT_FILE, "rb") as f:
+        org = np.unpackbits(np.frombuffer(f.read(), dtype=np.uint8))
+        decoded = decode(None, res)
+        assert np.all(np.equal(org, decoded))

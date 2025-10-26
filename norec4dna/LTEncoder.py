@@ -68,6 +68,7 @@ class LTEncoder(Encoder):
         self.ruleDrop: int = 0
         self.next_checkblock_id = -1
         self.sequential_seed = sequential_seed
+        self.progress_bar = self.create_progress_bar(self.number_of_chunks + 0.02 * self.number_of_chunks)
 
     def encode_file(self, split_to_multiple_files: bool = False):
         self.encode_to_packets()
@@ -98,6 +99,7 @@ class LTEncoder(Encoder):
                 new_pack: Packet = self.create_new_packet()
                 if self.rules is not None:
                     while should_drop_packet(self.rules, new_pack, self.upper_bound):
+                        self.update_progress_bar()
                         new_pack = self.create_new_packet()
                         self.ruleDrop += 1
 

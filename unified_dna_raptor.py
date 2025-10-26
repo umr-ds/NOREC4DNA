@@ -4,14 +4,19 @@ import struct
 
 import numpy as np
 
+from invivo_window_decoder import INPUT_FILE
 from norec4dna import Encoder, IdealSolitonDistribution, get_error_correction_encode, \
     RaptorDistribution, RU10Encoder, RU10Decoder, get_error_correction_decode
 from norec4dna.HeaderChunk import HeaderChunk
 from norec4dna.Packet import Packet
 from norec4dna.helper.quaternary2Bin import tranlate_quat_to_byte
 from norec4dna.rules.FastDNARules import FastDNARules
+from norec4dna import RU10InactivationDecoder
 
-OVERHEAD = 0.2
+
+INPUT_FILE = "data_1mb.test"
+
+OVERHEAD = 0.02
 INSERT_HEADER = True
 DROP_UPPER_BOUND = 1.0  # decreasing this value will drop more packets but ensure all rules are followed
 NUMBER_OF_CHUNKS_IN_PACKET = False
@@ -42,7 +47,7 @@ DIST = RaptorDistribution  # in general this should be left unchanged
 
 DNA_RULES = FastDNARules()
 
-READ_ALL = True # reads all sequences before decoding (usefull in case of high required overhead -
+READ_ALL = True # reads all sequences before decoding (useful in case of high required overhead
                 # setting this to false will trigger a Gaussian elimination for each packet > n
 NULL_IS_TERMINATOR = False  # should only be set for c-string encoded text
 DECODER_NUM_CHUNK_LEN_FORMAT = ""  # should only be set if the number of chunks is stored in each packet
@@ -71,9 +76,18 @@ def encode(string_file_name, numpy_boolean_array):
 
 def decode(string_file_name, list_of_dna_strings):
     # make sure that the dist is freshly initialized...
-    decoder = RU10Decoder(string_file_name, error_correction=error_correction_func_dec, use_headerchunk=INSERT_HEADER,
-                          static_number_of_chunks=NUMBER_OF_CHUNKS, xor_by_seed=XOR_BY_SEED, mask_id=False,
-                          id_spacing=SEED_SPACING)
+    #decoder = RU10Decoder(string_file_name, error_correction=error_correction_func_dec, use_headerchunk=INSERT_HEADER,
+    #                      static_number_of_chunks=NUMBER_OF_CHUNKS, xor_by_seed=XOR_BY_SEED, mask_id=False,
+    #                      id_spacing=SEED_SPACING)
+    decoder = RU10InactivationDecoder(
+        string_file_name,
+        error_correction=error_correction_func_dec,
+        use_headerchunk=INSERT_HEADER,
+        static_number_of_chunks=NUMBER_OF_CHUNKS,
+        xor_by_seed=XOR_BY_SEED,
+        mask_id=False,
+        id_spacing=SEED_SPACING
+    )
     decoder.read_all_before_decode = READ_ALL
 
     for dna_str in list_of_dna_strings:
@@ -136,9 +150,8 @@ def decode(string_file_name, list_of_dna_strings):
 
 
 if __name__ == "__main__":
-    res, encoder = encode("Dorn", None)
-    org = None
-    with open("Dorn", "r") as f:
-        org = np.unpackbits(np.frombuffer(f.read().encode(), dtype=np.uint8))
-    decoded = decode(None, res)
-    assert np.all(np.equal(org, decoded))
+    res, encoder = encode(INPUT_FILE, None)
+    with open(INPUT_FILE, "rb") as f:
+        org = np.unpackbits(np.frombuffer(f.read(), dtype=np.uint8))
+        decoded = decode(None, res)
+        assert np.all(np.equal(org, decoded))

@@ -12,7 +12,7 @@ from norec4dna import Encoder, RobustSolitonDistribution, IdealSolitonDistributi
     LTEncoder, LTDecoder, LTBPDecoder
 
 from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import ErlichZielinskiRobustSolitonDistribution
-
+INPUT_FILE = "data_1mb.test"
 OVERHEAD = 0.2
 INSERT_HEADER = True
 IMPLICIT_MODE = True  # should be left True
@@ -40,7 +40,7 @@ DNA_RULES = DNARules_ErlichZielinski()
 DROP_UPPER_BOUND = 0.9
 
 NUMBER_OF_CHUNKS_LEN_STR = "H"
-ID_LEN_STR = "H"
+ID_LEN_STR = "I"
 USED_PACKETS_LEN_STR = "H"
 CHECKSUM_LEN_STR = "H"
 
@@ -70,7 +70,7 @@ def encode(string_file_name, numpy_boolean_array):
                         rules=DNA_RULES, error_correction=error_correction_func,
                         number_of_chunks_len_format=NUM_CHUNK_LEN_FORMAT, id_len_format=ID_LEN_STR,
                         used_packets_len_format="H", save_number_of_chunks_in_packet=NUMBER_OF_CHUNKS_IN_PACKET,
-                        implicit_mode=IMPLICIT_MODE, drop_upper_bound=DROP_UPPER_BOUND)  # ,
+                        implicit_mode=IMPLICIT_MODE, drop_upper_bound=DROP_UPPER_BOUND, pseudo_decoder=None)  # ,
     # checksum_len_str=CHECKSUM_LEN_STR)
     encoder.set_overhead_limit(OVERHEAD)
     encoder.encode_to_packets()
@@ -127,9 +127,8 @@ def decode(string_file_name, list_of_dna_strings):
 
 
 if __name__ == "__main__":
-    res, encoder = encode("Dorn", None)
-    org = None
-    with open("Dorn", "r") as f:
-        org = np.unpackbits(np.frombuffer(f.read().encode(), dtype=np.uint8))
-    decoded = decode(None, res)
-    assert np.all(np.equal(org, decoded))
+    res, encoder = encode(INPUT_FILE, None)
+    with open(INPUT_FILE, "rb") as f:
+        org = np.unpackbits(np.frombuffer(f.read(), dtype=np.uint8))
+        decoded = decode(None, res)
+        assert np.all(np.equal(org, decoded))
