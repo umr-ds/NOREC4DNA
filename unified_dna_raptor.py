@@ -76,18 +76,18 @@ def encode(string_file_name, numpy_boolean_array):
 
 def decode(string_file_name, list_of_dna_strings):
     # make sure that the dist is freshly initialized...
-    #decoder = RU10Decoder(string_file_name, error_correction=error_correction_func_dec, use_headerchunk=INSERT_HEADER,
-    #                      static_number_of_chunks=NUMBER_OF_CHUNKS, xor_by_seed=XOR_BY_SEED, mask_id=False,
-    #                      id_spacing=SEED_SPACING)
-    decoder = RU10InactivationDecoder(
-        string_file_name,
-        error_correction=error_correction_func_dec,
-        use_headerchunk=INSERT_HEADER,
-        static_number_of_chunks=NUMBER_OF_CHUNKS,
-        xor_by_seed=XOR_BY_SEED,
-        mask_id=False,
-        id_spacing=SEED_SPACING
-    )
+    decoder = RU10Decoder(string_file_name, error_correction=error_correction_func_dec, use_headerchunk=INSERT_HEADER,
+                          static_number_of_chunks=NUMBER_OF_CHUNKS, xor_by_seed=XOR_BY_SEED, mask_id=False,
+                          id_spacing=SEED_SPACING)
+    #decoder = RU10InactivationDecoder(
+    #    string_file_name,
+    #    error_correction=error_correction_func_dec,
+    #    use_headerchunk=INSERT_HEADER,
+    #    static_number_of_chunks=NUMBER_OF_CHUNKS,
+    #    xor_by_seed=XOR_BY_SEED,
+    #    mask_id=False,
+    #    id_spacing=SEED_SPACING
+    #)
     decoder.read_all_before_decode = READ_ALL
 
     for dna_str in list_of_dna_strings:
