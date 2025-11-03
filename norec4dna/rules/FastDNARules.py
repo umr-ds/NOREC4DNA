@@ -117,7 +117,7 @@ class FastDNARules:
                 # FastDNARules.g_permutation,
                 # FastDNARules.dinucleotid_runs,
                 # FastDNARules.homopolymers,
-                partial(FastDNARules.homopolymers, probs=three_strict_homopolymers()),
+                partial(FastDNARules.homopolymers, probs=four_strict_homopolymers()),
                 # FastDNARules.overall_gc_content,
                 # To change the GC error function:
                 partial(FastDNARules.overall_gc_content, calc_func=fs_gc_error_calculation),
@@ -358,7 +358,7 @@ class FastDNARules:
         :param data:
         :return:
         """
-        _undes_motifs = [
+        undes_motifs = [
             ("CTCGTAGACTGCGTACCA", 1.01),
             ("GACGATGAGTCCTGAGTA", 1.01),
             ("CTGTCTCTTATACACATCT", 1.01),
@@ -366,7 +366,7 @@ class FastDNARules:
             ("GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAG", 1.01),
         ]
 
-        undes_motifs = [
+        _undes_motifs = [
             # Promoter recognition motif (Euk).
             ("TATAAA", 1.01),
             # Promoter recognition motifs (Prok).

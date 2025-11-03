@@ -19,7 +19,7 @@ IMPLICIT_MODE = True  # should be left True
 NUMBER_OF_CHUNKS_IN_PACKET = False
 
 # either set  NUMBER_OF_CHUNKS or CHUNK_SIZE !
-CHUNK_SIZE = 100
+CHUNK_SIZE = 75
 # the decoder needs to know the number of chunks: if CHUNK_SIZE was used, enter the number of chunks here
 # (you could store the NUMBER OF CHUNKS in each packet header but this would increase the overhead)
 # alternatively, one could infer the number of chunks from the number of encoded packets and the expected overhead

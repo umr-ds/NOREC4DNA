@@ -11,7 +11,7 @@ from norec4dna.HeaderChunk import HeaderChunk
 from norec4dna.Packet import Packet
 from norec4dna.helper.quaternary2Bin import tranlate_quat_to_byte
 from norec4dna.rules.FastDNARules import FastDNARules
-from norec4dna import RU10InactivationDecoder
+#from norec4dna.RU10InactivationDecoder import RU10RFCInactivationDecoder
 
 
 INPUT_FILE = "data_1mb.test"
@@ -26,7 +26,7 @@ XOR_BY_SEED = True  # uses the seed to create a pseudo-random sequence of length
 SEED_SPACING = 3  # spaces out the seed to avoid
 
 # either set NUMBER_OF_CHUNKS or CHUNK_SIZE !
-CHUNK_SIZE = 100
+CHUNK_SIZE = 75
 # the decoder needs to know the number of chunks: if CHUNK_SIZE was used, enter the number of chunks here
 # (you could store the NUMBER OF CHUNKS in each packet header but this would increase the overhead)
 # alternatively, one could infer the number of chunks from the number of encoded packets and the expected overhead
@@ -79,15 +79,17 @@ def decode(string_file_name, list_of_dna_strings):
     decoder = RU10Decoder(string_file_name, error_correction=error_correction_func_dec, use_headerchunk=INSERT_HEADER,
                           static_number_of_chunks=NUMBER_OF_CHUNKS, xor_by_seed=XOR_BY_SEED, mask_id=False,
                           id_spacing=SEED_SPACING)
-    #decoder = RU10InactivationDecoder(
-    #    string_file_name,
-    #    error_correction=error_correction_func_dec,
-    #    use_headerchunk=INSERT_HEADER,
-    #    static_number_of_chunks=NUMBER_OF_CHUNKS,
-    #    xor_by_seed=XOR_BY_SEED,
-    #    mask_id=False,
-    #    id_spacing=SEED_SPACING
-    #)
+    """
+    decoder = RU10RFCInactivationDecoder(
+        string_file_name,
+        error_correction=error_correction_func_dec,
+        use_headerchunk=INSERT_HEADER,
+        static_number_of_chunks=NUMBER_OF_CHUNKS,
+        xor_by_seed=XOR_BY_SEED,
+        mask_id=False,
+        id_spacing=SEED_SPACING
+    )
+    """
     decoder.read_all_before_decode = READ_ALL
 
     for dna_str in list_of_dna_strings:
@@ -151,7 +153,8 @@ def decode(string_file_name, list_of_dna_strings):
 
 if __name__ == "__main__":
     res, encoder = encode(INPUT_FILE, None)
-    with open(INPUT_FILE, "rb") as f:
+    with (open(INPUT_FILE, "rb") as f):
         org = np.unpackbits(np.frombuffer(f.read(), dtype=np.uint8))
         decoded = decode(None, res)
         assert np.all(np.equal(org, decoded))
+        print(f"{INPUT_FILE}, True")

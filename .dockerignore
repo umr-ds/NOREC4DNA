@@ -1,0 +1,15 @@
+**/venv
+venv/**
+__pycache__
+*.pyc
+.env
+.DS_Store
+build/**
+dist/**
+*.egg-info
+.idea/**
+.vscode/**
+*.log
+unified_venv/**
+venv2/**
+*.so
