@@ -7,13 +7,13 @@ import typing
 import numpy as np
 
 from norec4dna import Encoder, IdealSolitonDistribution, get_error_correction_encode, \
-    OnlineDistribution, OnlineEncoder, OnlineDecoder
+    OnlineDistribution, OnlineEncoder, OnlineDecoder, get_error_correction_decode
 from norec4dna.HeaderChunk import HeaderChunk
 from norec4dna.Packet import Packet
 from norec4dna.helper.quaternary2Bin import tranlate_quat_to_byte
 from norec4dna.rules.FastDNARules import FastDNARules
 
-INPUT_FILE = "Dorn"
+# INPUT_FILE = "Dorn"
 OVERHEAD = 0.2
 INSERT_HEADER = True
 DROP_UPPER_BOUND = 1.0  # decreasing this value will drop more packets but ensure all rules are followed
@@ -32,13 +32,14 @@ NUMBER_OF_CHUNKS = None
 CHECKSUM_LEN_STR = "H"
 
 # For Online encoding, one should set the epsilon and quality parameters and derive the number of chunks from the file size..
-#EPS = 0.19
+# EPS = 0.19
 QUALITY = 8
 SEED = 2
 
-ERROR_CORRECTION = "nocode"
-REPAIR_SYMBOLS = 2
+ERROR_CORRECTION = "reedsolomon" # packet level error correction
+REPAIR_SYMBOLS = 2 # number of symbols / bytes for each packet
 error_correction_func = get_error_correction_encode(ERROR_CORRECTION, REPAIR_SYMBOLS)
+error_correction_func_dec = get_error_correction_decode(ERROR_CORRECTION, REPAIR_SYMBOLS)
 
 DIST = OnlineDistribution  # in general this should be left unchanged
 
@@ -48,6 +49,7 @@ READ_ALL = True
 NULL_IS_TERMINATOR = False  # should only be set
 DECODER_NUM_CHUNK_LEN_FORMAT = ""  # should only be set if the number of chunks is stored in each packet
 SEED_LEN_FORMAT = "I"
+
 
 def _s_from_eps(eps: float) -> typing.Optional[int]:
     if not (0.0 < eps < 1.0):
@@ -59,19 +61,21 @@ def _s_from_eps(eps: float) -> typing.Optional[int]:
     s = math.ceil(num / den)
     return s if s > 0 else None
 
+
 def _p1_from_eps_s(eps: float, s: int) -> float:
     # p1 = 1 - (1 + 1/s) / (1 + eps)
     return 1.0 - (1.0 + 1.0 / s) / (1.0 + eps)
 
+
 def best_epsilon_online(
-    file_size_bytes: int,
-    droplet_len_bytes: int,
-    # tuning knobs
-    s_max_frac: float = 0.05,   # require s <= s_max_frac * K
-    p1_min: float = 0.2,        # require degree-1 mass >= p1_min
-    eps_min: float = 0.02,      # search lower bound
-    eps_max: float = 0.50,      # search upper bound
-    steps: int = 2000           # grid resolution for the search
+        file_size_bytes: int,
+        droplet_len_bytes: int,
+        # tuning knobs
+        s_max_frac: float = 0.05,  # require s <= s_max_frac * K
+        p1_min: float = 0.2,  # require degree-1 mass >= p1_min
+        eps_min: float = 0.02,  # search lower bound
+        eps_max: float = 0.50,  # search upper bound
+        steps: int = 2000  # grid resolution for the search
 ) -> typing.Tuple[float, int, int, int, float]:
     """
     Find the smallest epsilon in [eps_min, eps_max] such that:
@@ -132,6 +136,7 @@ def best_epsilon_online(
 
     return best
 
+
 def encode(string_file_name):
     global NUMBER_OF_CHUNKS
     # we operate on files, not raw bits, thus we only use the file name and load the data from disk,
@@ -155,7 +160,7 @@ def encode(string_file_name):
 
 def decode(string_file_name, list_of_dna_strings):
     # make sure that the dist is freshly initialized...
-    decoder = OnlineDecoder(string_file_name, error_correction=error_correction_func, use_headerchunk=INSERT_HEADER,
+    decoder = OnlineDecoder(string_file_name, error_correction=error_correction_func_dec, use_headerchunk=INSERT_HEADER,
                             static_number_of_chunks=NUMBER_OF_CHUNKS)
     decoder.read_all_before_decode = READ_ALL
 
@@ -200,10 +205,15 @@ def decode(string_file_name, list_of_dna_strings):
 
 
 if __name__ == "__main__":
-    file_size = os.path.getsize(INPUT_FILE)
-    EPS, extra, K, s, p1 = best_epsilon_online(file_size, CHUNK_SIZE)
-    res, encoder = encode(INPUT_FILE)
-    with open(INPUT_FILE, "rb") as f:
-        org = np.unpackbits(np.frombuffer(f.read(), dtype=np.uint8))
-        decoded = decode(None, res)
-        assert np.all(np.equal(org, decoded))
+    for INPUT_FILE in ["Dorn", "sleeping_beauty", "README.md", "logo.jpg", "data_1mb.test", "data_2mb.test"]:
+        NUMBER_OF_CHUNKS = None
+        file_size = os.path.getsize(INPUT_FILE)
+        EPS, extra, K, s, p1 = best_epsilon_online(file_size, CHUNK_SIZE)
+        res, encoder = encode(INPUT_FILE)
+        try:
+            with open(INPUT_FILE, "rb") as f:
+                org = np.unpackbits(np.frombuffer(f.read(), dtype=np.uint8))
+                decoded = decode(None, res)
+                print(f"{INPUT_FILE}, {np.all(np.equal(org, decoded))}")
+        except:
+            print(f"{INPUT_FILE}, False")

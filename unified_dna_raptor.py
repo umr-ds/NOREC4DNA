@@ -11,12 +11,13 @@ from norec4dna.HeaderChunk import HeaderChunk
 from norec4dna.Packet import Packet
 from norec4dna.helper.quaternary2Bin import tranlate_quat_to_byte
 from norec4dna.rules.FastDNARules import FastDNARules
-#from norec4dna.RU10InactivationDecoder import RU10RFCInactivationDecoder
+
+# from norec4dna.RU10InactivationDecoder import RU10RFCInactivationDecoder
 
 
-INPUT_FILE = "data_1mb.test"
+# INPUT_FILE = "data_1mb.test"
 
-OVERHEAD = 0.02
+OVERHEAD = 0.07
 INSERT_HEADER = True
 DROP_UPPER_BOUND = 1.0  # decreasing this value will drop more packets but ensure all rules are followed
 NUMBER_OF_CHUNKS_IN_PACKET = False
@@ -35,7 +36,7 @@ NUMBER_OF_CHUNKS = None
 
 # if the header is too small for the data, consider renaming the file or decreasing
 # the size of the checksum (the last chunk len field can not be changed in this tool...):
-CHECKSUM_LEN_STR = "H" # file level checksum stored in the header chunk
+CHECKSUM_LEN_STR = "I"  # file level checksum stored in the header chunk
 SEED = 2
 
 ERROR_CORRECTION = "reedsolomon" # packet level error correction
@@ -51,11 +52,11 @@ READ_ALL = True # reads all sequences before decoding (useful in case of high re
                 # setting this to false will trigger a Gaussian elimination for each packet > n
 NULL_IS_TERMINATOR = False  # should only be set for c-string encoded text
 DECODER_NUM_CHUNK_LEN_FORMAT = ""  # should only be set if the number of chunks is stored in each packet
-SEED_LEN_FORMAT = "I" # use "H" for smaller files / less packets to generate or "I" for larger files
+SEED_LEN_FORMAT = "I"  # use "H" for smaller files / less packets to generate or "I" for larger files
 RAISE_ON_UNSOLVED = True  # if set to false, the decoder will return partial results if a full decode is not possible.
 
 
-def encode(string_file_name, numpy_boolean_array):
+def encode(string_file_name):
     global NUMBER_OF_CHUNKS
     # we operate on files, not raw bits, thus we only use the file name and load the data from disk,
     # if required we could change this...
@@ -107,7 +108,7 @@ def decode(string_file_name, list_of_dna_strings):
             input_str = input_str.replace(" ", "")
             res += input_str
             dna_str = res
-        #raw_packet_list.append((error_prob, seed, dna_str))
+        # raw_packet_list.append((error_prob, seed, dna_str))
         new_pack = decoder.parse_raw_packet(io.BytesIO(tranlate_quat_to_byte(dna_str)).read(),
                                             crc_len_format=CHECKSUM_LEN_STR,
                                             number_of_chunks_len_format=DECODER_NUM_CHUNK_LEN_FORMAT,
@@ -152,9 +153,13 @@ def decode(string_file_name, list_of_dna_strings):
 
 
 if __name__ == "__main__":
-    res, encoder = encode(INPUT_FILE, None)
-    with (open(INPUT_FILE, "rb") as f):
-        org = np.unpackbits(np.frombuffer(f.read(), dtype=np.uint8))
-        decoded = decode(None, res)
-        assert np.all(np.equal(org, decoded))
-        print(f"{INPUT_FILE}, True")
+    for INPUT_FILE in ["Dorn", "sleeping_beauty", "README.md", "logo.jpg", "data_1mb.test", "data_2mb.test"]:
+        NUMBER_OF_CHUNKS = None
+        res, encoder = encode(INPUT_FILE)
+        try:
+            with open(INPUT_FILE, "rb") as f:
+                org = np.unpackbits(np.frombuffer(f.read(), dtype=np.uint8))
+                decoded = decode(None, res)
+                print(f"{INPUT_FILE}, {np.all(np.equal(org, decoded))}")
+        except:
+            print(f"{INPUT_FILE}, False")

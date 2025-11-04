@@ -9,11 +9,12 @@ from norec4dna.helper.quaternary2Bin import tranlate_quat_to_byte
 from norec4dna.rules.DNARules_ErlichZielinski import DNARules_ErlichZielinski
 
 from norec4dna import Encoder, RobustSolitonDistribution, IdealSolitonDistribution, get_error_correction_encode, \
-    LTEncoder, LTDecoder, LTBPDecoder
+    LTEncoder, LTDecoder, LTBPDecoder, get_error_correction_decode
 
 from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import ErlichZielinskiRobustSolitonDistribution
-INPUT_FILE = "data_1mb.test"
-OVERHEAD = 0.2
+
+# INPUT_FILE = "data_2mb.test"
+OVERHEAD = 0.9
 INSERT_HEADER = True
 IMPLICIT_MODE = True  # should be left True
 NUMBER_OF_CHUNKS_IN_PACKET = False
@@ -23,16 +24,17 @@ CHUNK_SIZE = 75
 # the decoder needs to know the number of chunks: if CHUNK_SIZE was used, enter the number of chunks here
 # (you could store the NUMBER OF CHUNKS in each packet header but this would increase the overhead)
 # alternatively, one could infer the number of chunks from the number of encoded packets and the expected overhead
-# OR one could brtueforce the number of chunks (there are only a few possible values...)
+# OR one could bruteforce the number of chunks (there are only a few possible values...)
 NUMBER_OF_CHUNKS = None
 
 SEED = 2
 DIST = ErlichZielinskiRobustSolitonDistribution
 dist_func = functools.partial(DIST, seed=SEED)
 
-ERROR_CORRECTION = "nocode"
-REPAIR_SYMBOLS = 2
+ERROR_CORRECTION = "reedsolomon"  # packet level error correction
+REPAIR_SYMBOLS = 2  # number of symbols / bytes for each packet
 error_correction_func = get_error_correction_encode(ERROR_CORRECTION, REPAIR_SYMBOLS)
+error_correction_func_dec = get_error_correction_decode(ERROR_CORRECTION, REPAIR_SYMBOLS)
 
 # THESE RULES MUST BE ADAPTED TO THE ERROR CHANNEL! "FastDNARules()" should be used and modified accordingly!
 DNA_RULES = DNARules_ErlichZielinski()
@@ -79,7 +81,7 @@ def encode(string_file_name, numpy_boolean_array):
 
 def decode(string_file_name, list_of_dna_strings):
     # make sure that the dist is freshly initialized...
-    decoder = DECODER_CLASS(string_file_name, error_correction=error_correction_func, use_headerchunk=INSERT_HEADER,
+    decoder = DECODER_CLASS(string_file_name, error_correction=error_correction_func_dec, use_headerchunk=INSERT_HEADER,
                             static_number_of_chunks=NUMBER_OF_CHUNKS, implicit_mode=IMPLICIT_MODE,
                             dist=dist_func(NUMBER_OF_CHUNKS))
     decoder.read_all_before_decode = READ_ALL
@@ -127,8 +129,14 @@ def decode(string_file_name, list_of_dna_strings):
 
 
 if __name__ == "__main__":
-    res, encoder = encode(INPUT_FILE, None)
-    with open(INPUT_FILE, "rb") as f:
-        org = np.unpackbits(np.frombuffer(f.read(), dtype=np.uint8))
-        decoded = decode(None, res)
-        assert np.all(np.equal(org, decoded))
+    for INPUT_FILE in ["Dorn", "sleeping_beauty", "README.md", "logo.jpg", "data_1mb.test", "data_2mb.test"]:
+        NUMBER_OF_CHUNKS = None
+        res, encoder = encode(INPUT_FILE, None)
+        try:
+            with open(INPUT_FILE, "rb") as f:
+                org = np.unpackbits(np.frombuffer(f.read(), dtype=np.uint8))
+                decoded = decode(None, res)
+                print(f"{INPUT_FILE}, {np.all(np.equal(org, decoded))}")
+        except Exception as ex:
+            print(ex)
+            print(f"{INPUT_FILE}, False")
