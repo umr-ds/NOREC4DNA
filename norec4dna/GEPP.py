@@ -7,7 +7,7 @@ from norec4dna.helper import xor_numpy
 debug = False
 
 
-def GEPP(a: np.array, b: np.array):
+def GEPP(a: np.ndarray, b: np.ndarray):
     return GEPP_intern(a, b)  # np.frombuffer(b, dtype="uint8"))
 
 
@@ -24,20 +24,20 @@ class GEPP_intern:
     :return
     """
 
-    def __init__(self, A: np.array, b: np.array):
-        self.A: np.array = A  # input: A is an n x n np matrix
-        self.b: np.array = b  # np.fromstring(b, dtype='uint8')  # b is an n x 1 np array
-        self.chunk_to_used_packets: np.array = np.identity(max(self.A.shape[0], self.A.shape[1]),
+    def __init__(self, A: np.ndarray, b: np.ndarray):
+        self.A: np.ndarray = A  # input: A is an n x n np matrix
+        self.b: np.ndarray = b  # np.fromstring(b, dtype='uint8')  # b is an n x 1 np array
+        self.chunk_to_used_packets: np.ndarray = np.identity(max(self.A.shape[0], self.A.shape[1]),
                                                            dtype=bool)  # inverse part
         while len(self.chunk_to_used_packets) < len(self.A):
             self.chunk_to_used_packets = np.vstack((self.chunk_to_used_packets, np.full((1, len(self.A[1])), False)))
-        self.packet_mapping: np.array = np.array([x for x in range(len(self.A))], dtype=np.uint)
+        self.packet_mapping: np.ndarray = np.array([x for x in range(len(self.A))], dtype=np.uint)
         self.n: int = 0  # n is the length of A
         self.m: int = 0  # m is the width of A
         self.tmp_A: typing.List = []
         self.tmp_b: typing.List = []
         self._update_input()  # method that validates input
-        self.result_mapping: np.array = np.zeros((np.int64(self.m), np.int64(1)), np.int32)
+        self.result_mapping: np.ndarray = np.zeros((np.int64(self.m), np.int64(1)), np.int32)
 
     def clone(self):
         gepp_copy = GEPP(self.A, self.b)
@@ -73,10 +73,8 @@ class GEPP_intern:
             return self._elimination()
         except Exception as ex:
             raise ex
-            print(f"GEPP: {ex}")
-            return False
 
-    def addRow(self, row: typing.Union[typing.Set[int], np.array], data: np.array, ):
+    def addRow(self, row: typing.Union[typing.Set[int], np.ndarray], data: np.ndarray, ):
         if self.n == 0:
             # first insert
             self.A = np.vstack((self.A, row))
@@ -126,7 +124,7 @@ class GEPP_intern:
         # Elimination
         if self.chunk_to_used_packets is None:
             # TODO OR if len(self.chunk_to_used_packets) < len(self.A) fill with Identity rows
-            self.chunk_to_used_packets: np.array = np.identity(max(self.A.shape()[0], self.A.shape()[1]),
+            self.chunk_to_used_packets: np.ndarray = np.identity(max(self.A.shape()[0], self.A.shape()[1]),
                                                                dtype=np.bool)  # inverse part
             while len(self.chunk_to_used_packets) < self.A.shape()[1]:
                 self.chunk_to_used_packets = np.vstack(
@@ -180,7 +178,7 @@ class GEPP_intern:
             from cdnarules import elimination
             if self.chunk_to_used_packets is None:
                 # TODO OR if len(self.chunk_to_used_packets) < len(self.A) fill with Identity rows
-                self.chunk_to_used_packets: np.array = np.identity(max(self.A.shape()[0], self.A.shape()[1]),
+                self.chunk_to_used_packets: np.ndarray = np.identity(max(self.A.shape[0], self.A.shape[1]),
                                                                    dtype=bool)  # inverse part
             elimination(self.A, self.b, self.packet_mapping, self.chunk_to_used_packets)
             self.result_mapping = self.generateResultMapping()
@@ -220,7 +218,7 @@ class GEPP_intern:
         return len(solved_set)
 
     def get_common_packets(self, chunk_id_lst: typing.List[int], valid_chunks_lst: typing.List[int] = None,
-                           multi_error_packet_mode=False) -> np.array:
+                           multi_error_packet_mode=False) -> np.ndarray:
         """
         returns a list of packets that are used to reconstruct all chunks in chunk_id_lst
         :param chunk_id_lst: list of chunk ids that contain invalid data (corrupted)

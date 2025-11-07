@@ -25,7 +25,7 @@ class RU10Encoder(Encoder):
                  chunk_size=0, rules=None, error_correction=nocode, packet_len_format="I", crc_len_format="L",
                  number_of_chunks_len_format="L", id_len_format="L", save_number_of_chunks_in_packet=True,
                  mode_1_bmp=False, prepend="", append="", drop_upper_bound=1.0, keep_all_packets=False,
-                 checksum_len_str=None, xor_by_seed=False, mask_id=True, id_spacing=0):
+                 checksum_len_str=None, xor_by_seed=False, mask_id=True, id_spacing=0, last_chunk_len_format="H"):
         super().__init__(file, number_of_chunks, distribution, insert_header, pseudo_decoder,
                          chunk_size, mode_1_bmp)
         if checksum_len_str is None:
@@ -64,6 +64,7 @@ class RU10Encoder(Encoder):
         self.crc_len_format: str = crc_len_format
         self.number_of_chunks_len_format: str = number_of_chunks_len_format
         self.id_len_format: str = id_len_format
+        self.last_chunk_len_format: str = last_chunk_len_format
         self.save_number_of_chunks_in_packet: bool = save_number_of_chunks_in_packet
         # if we use None, we will mutate the RNG each call,
         # otherwise we will use the same RNG to generate different values
@@ -94,7 +95,7 @@ class RU10Encoder(Encoder):
             self.chunk_size = ceil(1.0 * file_size / (self.number_of_chunks - 1))
             self.chunks = self.create_chunks(self.chunk_size)
             # First Chunk is a Header
-            self.chunks.insert(0, self.encode_header_info(self.checksum, self.checksum_len_str))
+            self.chunks.insert(0, self.encode_header_info(self.checksum, self.checksum_len_str, self.last_chunk_len_format))
             self.number_of_chunks += 1  # since the update for number_of_chunks happend inside create_chunks.
         else:
             self.chunk_size = ceil(1.0 * file_size / self.number_of_chunks)
@@ -356,7 +357,7 @@ class RU10Encoder(Encoder):
                                 'savenumberofchunks': self.save_number_of_chunks_in_packet,
                                 'mode_1_bmp': self.mode_1_bmp, 'upper_bound': self.upper_bound,
                                 'number_of_chunks': self.number_of_chunks, 'config_str': self.getConfigStr(),
-                                'id_len_format': self.id_len_format,
+                                'id_len_format': self.id_len_format, 'last_chunk_len_str': self.last_chunk_len_format,
                                 'number_of_chunks_len_format': self.number_of_chunks_len_format,
                                 'packet_len_format': self.packet_len_format, 'crc_len_format': self.crc_len_format,
                                 'master_seed': self.__masterseed, 'distribution': self.dist.get_config_string(),
