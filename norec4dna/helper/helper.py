@@ -1,3 +1,4 @@
+import io
 import math
 import os
 import shutil
@@ -220,6 +221,8 @@ def calc_file_crc(filename, crc_len_str="I", chunksize=65536):
 
 
 def calc_crc(file_io, crc_len_str="I", chunksize=65536):
+    if type(file_io) in [str, bytes, bytearray]:
+        file_io = io.BytesIO(file_io)
     checksum = 0
     algo = crc_algo_from_str(crc_len_str)
     while chunk := file_io.read(chunksize):
