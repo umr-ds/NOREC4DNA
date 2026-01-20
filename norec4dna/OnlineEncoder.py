@@ -12,6 +12,8 @@ import glob
 import typing
 from math import ceil
 
+import numpy as np
+
 from norec4dna.distributions.Distribution import Distribution
 from norec4dna.helper import should_drop_packet, listXOR, calc_file_crc
 from norec4dna.rules.FastDNARules import FastDNARules
@@ -144,7 +146,7 @@ class OnlineEncoder(Encoder):
         # XOR all Chunks into the corresponding AUX-Block
         for aux_number in self.auxBlockNumbers.keys():
             self.auxBlocks[aux_number] = OnlineAuxPacket(
-                listXOR([self.chunks[i] for i in self.auxBlockNumbers[aux_number]]),
+                listXOR([np.zeros_like(self.chunks[0])] + [self.chunks[i] for i in self.auxBlockNumbers[aux_number]]),
                 self.auxBlockNumbers[aux_number], aux_number=aux_number, )
 
     def number_of_packets_encoded_already(self) -> int:

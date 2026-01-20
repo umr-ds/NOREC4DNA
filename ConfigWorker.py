@@ -2,9 +2,9 @@ import sys
 import configparser
 import typing
 
-from .demo_raptor_decode import demo_decode as demo_raptor_decode
-from .demo_online_decode import demo_decode as demo_online_decode
-from .demo_decode import demo_decode as demo_lt_decode
+from demo_raptor_decode import demo_decode as demo_raptor_decode
+from demo_online_decode import demo_decode as demo_online_decode
+from demo_decode import demo_decode as demo_lt_decode
 from norec4dna.Decoder import Decoder
 from norec4dna.ErrorCorrection import get_error_correction_decode
 from norec4dna.helper import find_ceil_power_of_four, fasta_cluster_and_remove_index, cluster_and_remove_index, \

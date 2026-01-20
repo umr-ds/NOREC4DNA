@@ -120,7 +120,7 @@ class FastDNARules:
                 partial(FastDNARules.homopolymers, probs=four_strict_homopolymers()),
                 # FastDNARules.overall_gc_content,
                 # To change the GC error function:
-                partial(FastDNARules.overall_gc_content, calc_func=ts_gc_error_calculation),
+                partial(FastDNARules.overall_gc_content, calc_func=fs_gc_error_calculation),
                 # FastDNARules.windowed_gc_content,
                 partial(FastDNARules.windowed_gc_content, calc_func=ts_gc_error_calculation),
                 #  FastDNARules.long_strands,
@@ -358,6 +358,67 @@ class FastDNARules:
         :param data:
         :return:
         """
+        undes_motifs = [
+            ("CTCGTAGACTGCGTACCA", 1.01),
+            ("GACGATGAGTCCTGAGTA", 1.01),
+            ("CTGTCTCTTATACACATCT", 1.01),
+            ("TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG", 1.01),
+            ("GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAG", 1.01),
+        ]
+
+        _undes_motifs = [
+            # Promoter recognition motif (Euk).
+            ("TATAAA", 1.01),
+            # Promoter recognition motifs (Prok).
+            ("TTGACA", 1.05),
+            ("TGTATAATG", 1.05),
+            # Polyadenylation signals (Euk).
+            ("AATAAA", 1.01),
+            ("TTGTGTGTTG", 1.01),
+            # Lox sites.
+            ("ATAACTTCGTATAGCATACATTATACGAAGTTAT", 1.01),
+            ("ATAACTTCGTATAGCATACATTATACGAACGGTA", 1.01),
+            ("TACCGTTCGTATAGCATACATTATACGAAGTTAT", 1.01),
+            ("TACCGTTCGTATAGCATACATTATACGAACGGTA", 1.01),
+            ("TACCGTTCGTATATGGTATTATATACGAAGTTAT", 1.01),
+            ("TACCGTTCGTATATTCTATCTTATACGAAGTTAT", 1.01),
+            ("TACCGTTCGTATAGGATACTTTATACGAAGTTAT", 1.01),
+            ("TACCGTTCGTATATACTATACTATACGAAGTTAT", 1.01),
+            ("TACCGTTCGTATACTATAGCCTATACGAAGTTAT", 1.01),
+            ("ATAACTTCGTATATGGTATTATATACGAACGGTA", 1.01),
+            ("ATAACTTCGTATAGTATACCTTATACGAAGTTAT", 1.01),
+            # Lox site spacers not covered by the Lox sites.
+            ("AGGTATGC", 1.01),
+            ("TTGTATGG", 1.01),
+            ("GGATAGTA", 1.01),
+            ("GTGTATTT", 1.01),
+            ("GGTTACGG", 1.01),
+            ("TTTTAGGT", 1.01),
+            ("GTACACAT", 1.01),
+            # Restriction enzyme recognition motifs.
+            # BpiI
+            ("GAAGAC", 1.01),
+            # inverse BpiI
+            ("CTTCTG", 1.01),
+            # BsaI
+            ("GGTCTC", 1.01),
+            # inverse BsaI
+            ("CCAGAG", 1.01),
+
+            ("CGTCTC", 1.01),
+            ("GCGATG", 1.01),
+            ("GCTCTTC", 1.01),
+            # Oligo Adapters.
+            ("CTCGTAGACTGCGTACCA", 1.01),
+            ("GACGATGAGTCCTGAGTA", 1.01),
+            # 5' extensions.
+            ("GGTTCCACGTAAGCTTCC", 1.01),
+            ("GCGATTACCCTGTACACC", 1.01),
+            ("GCCAGTACATCAATTGCC", 1.01),
+            # Twister Adapters:
+            ("GAAGTGCCATTCCGCCTGACCT", 1.0),  # Twister 5' Adapter
+            ("AGGCTAGGTGGAGGCTCAGTG", 1.0)  # Twister 3' Adapter
+        ]
         # undes_motifs = FastDNARules.add_reverse_complementary(undes_motifs)
         dropchance = 0.0
         for motif in undes_motifs:

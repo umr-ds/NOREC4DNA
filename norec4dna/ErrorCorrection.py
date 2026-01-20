@@ -1,3 +1,4 @@
+import io
 import struct
 import typing
 
@@ -20,7 +21,7 @@ def nocode(txt: typing.AnyStr) -> typing.AnyStr:
 
 
 def crc32(txt: typing.Union[bytes, str, bytearray], crc_len_format="B") -> bytes:
-    crc = calc_crc(txt, crc_len_format)
+    crc = calc_crc(io.BytesIO(txt), crc_len_format)
     packed = struct.pack("<" + str(len(txt)) + "s" + crc_len_format, txt, crc)
     return packed
 
@@ -29,7 +30,7 @@ def crc32_decode(txt: typing.Union[bytes, str, bytearray], crc_len_format="B") -
     crc_len = -struct.calcsize("<" + crc_len_format)
     crc = struct.unpack("<" + crc_len_format, txt[crc_len:])[0]
     payload = txt[:crc_len]
-    calced_crc = calc_crc(payload, crc_len_format)
+    calced_crc = calc_crc(io.BytesIO(payload), crc_len_format)
     assert crc == calced_crc, "CRC-Error - " + str(hex(crc)) + " != " + str(hex(calced_crc))
     return payload
 

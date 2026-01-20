@@ -38,7 +38,8 @@ class RU10Decoder(Decoder):
         if checksum_len_str is None:
             self.checksum_len_str = ""
         if not use_headerchunk and (checksum_len_str != "" and checksum_len_str is not None):
-            raise Exception("Header-checksums are only supported with headerchunks.")
+            print(
+                "[Warning] Header-checksums are only supported with headerchunks! Checksum from config file will be ignored!")
         self.checksum_len_str = checksum_len_str
         self.isPseudo: bool = False
         self.file: typing.Optional[str] = file
@@ -73,7 +74,8 @@ class RU10Decoder(Decoder):
         self.packets = []
 
     def decodeZip(self, packet_len_format: str = "I", crc_len_format: str = "I",
-                  number_of_chunks_len_format: str = "I", id_len_format: str = "I"):
+                  number_of_chunks_len_format: str = "I", id_len_format: str = "I", store_parsed_packets: bool = False,
+                  *args, **kwargs):
         if hasattr(self, "f"):
             self.f.close()
         decoded = False
@@ -124,7 +126,9 @@ class RU10Decoder(Decoder):
         return decoded
 
     def decodeFolder(self, packet_len_format: str = "I", crc_len_format: str = "I",
-                     number_of_chunks_len_format: str = "I", id_len_format: str = "I"):
+                     number_of_chunks_len_format: str = "I", id_len_format: str = "I",
+                     store_parsed_packets: bool = False,
+                     *args, **kwargs):
         """
         Decodes the information from a folder if self.file represents a folder and the packets were saved
         in multiple files and prints the number of decoded and corrupted packets.
@@ -187,7 +191,8 @@ class RU10Decoder(Decoder):
         return decoded
 
     def decodeFile(self, packet_len_format: str = "I", crc_len_format: str = "L",
-                   number_of_chunks_len_format: str = "I", id_len_format: str = "I", store_parsed_packets=False):
+                   number_of_chunks_len_format: str = "I", id_len_format: str = "I", store_parsed_packets=False,
+                   *args, **kwargs):
         """
         Decodes the information from a file if self.file represents a file and the packets were saved in a single file.
         :param packet_len_format: Format of the packet length

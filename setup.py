@@ -1,43 +1,35 @@
-# -*- coding: utf-8 -*-
-from setuptools import find_packages
-from distutils.core import setup, Extension
-import os
+from setuptools import setup, Extension
+import numpy, sys
 
-try:
-    long_description = open("README.md").read()
-except IOError:
-    long_description = ""
-lib_folder = os.path.dirname(os.path.realpath(__file__))
-requirement_path = lib_folder + '/requirements.txt'
-install_requires = []  # Here we'll get: ["gunicorn", "docutils>=0.3", "lxml==0.5a7"]
-if os.path.isfile(requirement_path):
-    with open(requirement_path) as f:
-        install_requires = f.read().splitlines()
+is_windows = sys.platform.startswith("win")
 
+extra_compile_args = []
+define_macros = [("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")]
+extra_link_args = []
 
-class get_numpy_include(object):
-    def __str__(self):
-        import numpy
-        return numpy.get_include()
+if is_windows:
+    extra_compile_args = ["/O2", "/arch:AVX2", "/fp:fast"]
+else:
+    extra_compile_args = [
+        "-D__BUILTIN_POPCOUNT"
+        "-O3",                    # Maximum optimization
+        "-march=native",          # Use all CPU features
+        "-mtune=native",          # Tune for current CPU
+        "-ffast-math",            # Fast floating point
+        "-funroll-loops",         # Unroll loops
+        "-mavx2",                 # Enable AVX2 if available
+        "-msse4.2",               # Enable SSE4.2
+        "-ftree-vectorize",       # Auto vectorization
+    ]
 
-
-setup(
-    name="norec4dna",
-    version="0.1.2",
-    description="NOREC4DNA - a Fountain Code based approach to DNA-Storage",
-    author="Michael Schwarz",
-    packages=find_packages(),
-    setup_requires=["numpy~=1.23.5"],
-    install_requires=install_requires,
-    zip_safe=False,
-    long_description=long_description,
-    classifiers=[
-        "Programming Language :: Python",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-    ],
-    ext_modules=[Extension('cdnarules', ['cdnarules.c'], include_dirs=[get_numpy_include()]), ],
-    include_dirs=[get_numpy_include()]
-)
+ext_modules = [
+    Extension(
+        "cdnarules",
+        sources=["cdnarules.c"],
+        extra_compile_args=extra_compile_args,
+        extra_link_args=extra_link_args,
+        include_dirs=[numpy.get_include()],
+        define_macros=define_macros,
+    )
+]
+setup(ext_modules=ext_modules)
