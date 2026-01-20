@@ -30,6 +30,32 @@ def interleave_spacing(input_str: str, spacing: int, spacing_length: int) -> str
     return interleaved_str
 
 
+def deinterleave_spacing(interleaved_str: str, spacing: int, spacing_length: int) -> str:
+    if spacing <= 0 or spacing_length <= 0:
+        return interleaved_str
+
+    left_chars = []
+    right_chars = []
+
+    i = 0
+    left_count = 0
+    right_count = 0
+
+    while i < len(interleaved_str):
+        # Alle `spacing` Zeichen von rechts wird ein Zeichen von links eingefügt
+        if right_count % spacing == 0 and left_count < spacing_length:
+            left_chars.append(interleaved_str[i])
+            left_count += 1
+            i += 1
+
+        if i < len(interleaved_str):
+            right_chars.append(interleaved_str[i])
+            right_count += 1
+            i += 1
+
+    return ''.join(left_chars) + ''.join(right_chars)
+
+
 class Packet:
     def __init__(self, data, used_packets: typing.Collection[int], total_number_of_chunks: int, read_only: bool = False,
                  seed: int = 0, implicit_mode: bool = True, error_correction: typing.Callable = nocode,

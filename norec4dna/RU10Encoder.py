@@ -268,6 +268,7 @@ class RU10Encoder(Encoder):
             for j in range(0, k + s):
                 if bitSet(np.uint32(m[j]), np.uint32(i)):
                     hcomposition.append(j)
+            self.encode_header_info(self.checksum, self.checksum_len_str, self.last_chunk_len_format)
             b = listXOR([self.chunks[x] for x in hcomposition])
             self.chunks.append(b)
             if self.debug:

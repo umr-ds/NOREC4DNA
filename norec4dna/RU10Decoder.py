@@ -250,7 +250,7 @@ class RU10Decoder(Decoder):
 
                 except Exception:
                     new_pack = "CORRUPT"
-                    #TODO: as the metadata trick might invalidate the checksum, we do not want to throw this packet away!
+                    # TODO: as the metadata trick might invalidate the checksum, we do not want to throw this packet away!
                     # after reverting the metadata changes, we may parse the DNA string by calling:
                     # self.input_new_packets(self.parse_raw_packet(BytesIO(translate_quat_to_byte(repaired_dna)...)
                     # (separate and check for exception)!
@@ -565,6 +565,14 @@ class RU10Decoder(Decoder):
         res = [compositions, hcompositions]
         return res
 
+    def populate_header_chunk(self, last_chunk_len_format="I"):
+        if self.use_headerchunk:
+            header_row = self.GEPP.result_mapping[0]
+            if header_row >= 0:
+                self.headerChunk = HeaderChunk(
+                    Packet(self.GEPP.b[header_row], {0}, self.number_of_chunks, read_only=True),
+                    last_chunk_len_format=last_chunk_len_format, checksum_len_format=self.checksum_len_str)
+
     def saveDecodedFile(self, last_chunk_len_format: str = "I", null_is_terminator: bool = False,
                         print_to_output: bool = True, return_file_name=False, partial_decoding: bool = True) -> \
             typing.Union[bytes, str]:
@@ -582,12 +590,7 @@ class RU10Decoder(Decoder):
         if partial_decoding:
             self.solve(partial=True)
         dirty = False
-        if self.use_headerchunk:
-            header_row = self.GEPP.result_mapping[0]
-            if header_row >= 0:
-                self.headerChunk = HeaderChunk(
-                    Packet(self.GEPP.b[header_row], {0}, self.number_of_chunks, read_only=True),
-                    last_chunk_len_format=last_chunk_len_format, checksum_len_format=self.checksum_len_str)
+        self.populate_header_chunk(last_chunk_len_format=last_chunk_len_format)
         file_name = "DEC_" + os.path.basename(self.file) if self.file is not None else "RU10.BIN"
         output_concat = b""
         if self.headerChunk is not None:

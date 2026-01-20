@@ -189,7 +189,21 @@ class GEPP_intern:
         def _elimination(self) -> bool:
             return self._py_elimination()
 
-    def generateResultMapping(self) -> np.array:
+    try:
+        def _elimination_with_first_row(self, first_row=-1) -> bool:
+            from cdnarules import elimination_with_first_row
+            if self.chunk_to_used_packets is None:
+                # TODO OR if len(self.chunk_to_used_packets) < len(self.A) fill with Identity rows
+                self.chunk_to_used_packets: np.ndarray = np.identity(max(self.A.shape[0], self.A.shape[1]),
+                                                                   dtype=bool)  # inverse part
+            elimination_with_first_row(self.A, self.b, self.packet_mapping, self.chunk_to_used_packets, first_row)
+            self.result_mapping = self.generateResultMapping()
+            return self.isSolved()
+    except:
+        pass
+
+
+    def generateResultMapping(self) -> np.ndarray:
         """
         returns which row maps to which raw-data-Chunk. 
         """
