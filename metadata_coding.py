@@ -230,7 +230,7 @@ def encoder_from_decoder(semiautomatic_solver: SemiAutomaticReconstructionToolki
     xor_by_seed = sctn_config.getboolean("xor_by_seed", True)
     mask_id = sctn_config.getboolean("mask_id", True)
     number_of_chunks = semiautomatic_solver.decoder.number_of_chunks
-    id_spacing = sctn_config.getboolean("id_spacing", True)
+    id_spacing = sctn_config.getboolean("id_spacing", 0)
     rules = rules
     crc_len_format = sctn_config.get("crc_len_format", "L")
     checksum_len_str = sctn_config.get("checksum_len_str", "I")

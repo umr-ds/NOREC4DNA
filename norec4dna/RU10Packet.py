@@ -64,6 +64,13 @@ class RU10Packet(Packet):
             self.packed = None
         # super().__init__(data, used_packets, total_number_of_chunks, read_only, error_correction=error_correction)
 
+    def get_packet_header_size(self) -> int:
+        size = 0
+        if self.save_number_of_chunks_in_packet:
+            size += struct.calcsize(self.number_of_chunks_len_format)
+        size += struct.calcsize(self.id_len_format)
+        return size
+
     def set_used_packets(self, u_packets):
         self.used_packets = u_packets
         tmp_lst = np.zeros(self.total_number_of_chunks, dtype=bool)
@@ -191,6 +198,30 @@ class RU10Packet(Packet):
     def __str__(self) -> str:
         return "< used_packets: " + str(self.used_packets) + " , Data: " + str(self.data) + " >"
 
+    # copy method: create a deep copy of the packet:
+    def copy(self) -> 'RU10Packet':
+        new_packet = RU10Packet(
+            data=self.data,
+            used_packets=self.used_packets.copy() if self.used_packets is not None else [],
+            total_number_of_chunks=self.total_number_of_chunks,
+            id=self.id,
+            dist=self.dist,
+            read_only=False,
+            error_correction=self.error_correction,
+            packet_len_format=self.packet_len_format,
+            crc_len_format=self.crc_len_format,
+            number_of_chunks_len_format=self.number_of_chunks_len_format,
+            id_len_format=self.id_len_format,
+            save_number_of_chunks_in_packet=self.save_number_of_chunks_in_packet,
+            method=self.method if hasattr(self, 'method') else None,
+            window=self.window if hasattr(self, 'window') else None,
+            prepend=self.prepend,
+            append=self.append,
+            xor_by_seed=self.xor_by_seed,
+            mask_id=self.mask_id,
+            id_spacing=self.id_spacing
+        )
+        return new_packet
 
 if __name__ == "__main__":
     print("This class must not be called by itself.")

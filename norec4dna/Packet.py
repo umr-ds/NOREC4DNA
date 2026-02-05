@@ -149,7 +149,11 @@ class Packet:
         else:
             return packed
 
-    def get_dna_struct(self, split_to_multiple_files: bool, spacing: int = 0, spacing_length: int = 0) -> str:
+    def get_dna_struct(self, split_to_multiple_files: bool, spacing: int = 0, spacing_length: int = 0, recalculate:bool = False) -> str:
+        if recalculate:
+            self.packed_used_packets = self.prepare_and_pack()
+            self.packed = self.calculate_packed_data()
+            self.dna_data = None
         if self.dna_data is None and self.error_correction.__name__ == 'dna_reed_solomon_encode':
             self.dna_data = self.prepend + quads2dna(self.get_struct(split_to_multiple_files)) + self.append
         elif self.dna_data is None:

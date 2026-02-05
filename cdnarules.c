@@ -67,30 +67,6 @@ INLINE void* fast_array_ptr1(PyArrayObject* arr, npy_intp i) {
     npy_intp stride0 = PyArray_STRIDE(arr, 0);
     return (void*)(data + i * stride0);
 }
-#define BYTE uint8_t
-
-// Aligned memory allocation
-static void* aligned_malloc(size_t size) {
-    void* ptr;
-    if (posix_memalign(&ptr, ALIGN_BYTES, size) != 0) {
-        return NULL;
-    }
-    return ptr;
-}
-
-// Fast array pointer access with stride calculation
-INLINE void* fast_array_ptr2(PyArrayObject* arr, npy_intp i, npy_intp j) {
-    char* data = (char*)PyArray_DATA(arr);
-    npy_intp stride0 = PyArray_STRIDE(arr, 0);
-    npy_intp stride1 = PyArray_STRIDE(arr, 1);
-    return (void*)(data + i * stride0 + j * stride1);
-}
-
-INLINE void* fast_array_ptr1(PyArrayObject* arr, npy_intp i) {
-    char* data = (char*)PyArray_DATA(arr);
-    npy_intp stride0 = PyArray_STRIDE(arr, 0);
-    return (void*)(data + i * stride0);
-}
 
 static PyObject* bitSet(PyObject* self, PyObject *args) {
     T v;
