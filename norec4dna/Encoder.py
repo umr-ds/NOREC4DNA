@@ -88,7 +88,7 @@ class Encoder(ABC):
         assert file_name_length + 4 + struct.calcsize("" + last_chunk_len_format + checksum_len_str) < self.chunk_size, \
             "Chunks too small for HeaderInfo"
         struct_string = ("<" + last_chunk_len_format + checksum_len_str + str(file_name_length) + "s" + str(
-            self.chunk_size - file_name_length - struct.calcsize("" + last_chunk_len_format + checksum_len_str)) + "x")
+            self.chunk_size - file_name_length - struct.calcsize("<" + last_chunk_len_format + checksum_len_str)) + "x")
         if checksum_len_str == "" or checksum is None:
             return np.frombuffer(struct.pack(struct_string, len(last_chunk), bytes(file_name_only, encoding="utf-8")),
                                  dtype=np.uint8)

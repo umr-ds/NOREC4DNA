@@ -21,7 +21,8 @@ from norec4dna.helper.quaternary2Bin import quat_file_to_bin, tranlate_quat_to_b
 class OnlineDecoder(Decoder):
     def __init__(self, file: typing.Optional[str] = None,
                  error_correction: typing.Callable[[typing.Any], typing.Any] = nocode, use_headerchunk: bool = True,
-                 static_number_of_chunks: typing.Optional[int] = None, read_all=True, checksum_len_str:str = None):
+                 static_number_of_chunks: typing.Optional[int] = None, read_all=True, checksum_len_str: str = None,
+                 config_map=None):
         super().__init__(file)
         if checksum_len_str is None:
             self.checksum_len_str = ""
@@ -57,6 +58,7 @@ class OnlineDecoder(Decoder):
         self.EOF: bool = False
         self.quality: int = 0
         self.epsilon: float = 0.0
+        self.config_map = config_map
 
     def decodeFolder(self, packet_len_format: str = "I", crc_len_format: str = "L",
                      number_of_chunks_len_format: str = "I", quality_len_format: str = "I",

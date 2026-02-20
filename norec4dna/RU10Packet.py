@@ -19,7 +19,7 @@ class RU10Packet(Packet):
                  read_only=False,
                  error_correction=nocode, packet_len_format="I", crc_len_format="L", number_of_chunks_len_format="L",
                  id_len_format="L", save_number_of_chunks_in_packet=True, method=None, window=None, prepend="",
-                 append="", xor_by_seed=False, mask_id=True, id_spacing=0):
+                 append="", xor_by_seed=False, mask_id=True, id_spacing=0, contains_meta_or_version=False):
         self.id: int = id
         self.bool_arrayused_packets: typing.Optional[np.ndarray] = None
         self.total_number_of_chunks: int = total_number_of_chunks
@@ -62,6 +62,7 @@ class RU10Packet(Packet):
         else:
             self.packed_used_packets = None
             self.packed = None
+        self.contains_meta_or_version = contains_meta_or_version
         # super().__init__(data, used_packets, total_number_of_chunks, read_only, error_correction=error_correction)
 
     def get_packet_header_size(self) -> int:

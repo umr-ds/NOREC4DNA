@@ -35,6 +35,7 @@ class RU10Encoder(Encoder):
             self.checksum = calc_file_crc(self.file, self.checksum_len_str)
         else:
             self.checksum = None
+        self.intemediate_blocks_generated = False
         self.success_packets = 0
         self.out_file = None
         self.esi: int = 0
@@ -244,6 +245,8 @@ class RU10Encoder(Encoder):
         Generates intermediate blocks used to generate the complete auxblocks afterwards.
         :return: Self.chunks containing the intermediate blocks
         """
+        if self.intemediate_blocks_generated:
+            return self.chunks
         _, s, h = intermediate_symbols(self.number_of_chunks, self.dist)
 
         k = self.number_of_chunks
@@ -268,11 +271,12 @@ class RU10Encoder(Encoder):
             for j in range(0, k + s):
                 if bitSet(np.uint32(m[j]), np.uint32(i)):
                     hcomposition.append(j)
-            self.encode_header_info(self.checksum, self.checksum_len_str, self.last_chunk_len_format)
+            # self.encode_header_info(self.checksum, self.checksum_len_str, self.last_chunk_len_format)
             b = listXOR([self.chunks[x] for x in hcomposition])
             self.chunks.append(b)
             if self.debug:
                 print(str(len(self.chunks) - 1) + " : " + str(hcomposition))
+        self.intemediate_blocks_generated = True
         return self.chunks
 
     def encode_file(self, split_to_multiple_files: bool = False):

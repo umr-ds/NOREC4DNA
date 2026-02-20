@@ -32,7 +32,7 @@ DEBUG = False
 class RU10Decoder(Decoder):
     def __init__(self, file: typing.Optional[str] = None, error_correction=nocode, use_headerchunk: bool = True,
                  static_number_of_chunks: typing.Optional[int] = None, use_method: bool = False,
-                 checksum_len_str: str = None, xor_by_seed=False, mask_id=True, id_spacing=0):
+                 checksum_len_str: str = None, xor_by_seed=False, mask_id=True, id_spacing=0, config_map=None):
         self.debug = False
         super().__init__()
         if checksum_len_str is None:
@@ -72,6 +72,27 @@ class RU10Decoder(Decoder):
         self.static_number_of_chunks: typing.Optional[int] = static_number_of_chunks
         self.id_spacing = id_spacing
         self.packets = []
+        self.config_map = config_map
+
+    @staticmethod
+    def from_config_map(config_map: dict):
+        """
+        missing (set elsewhere :
+        id_len_format = decode_conf.get("id_len_format")
+        number_of_chunks_len_format = decode_conf.get("number_of_chunks_len_format", "I")
+        crc_len_format = decode_conf.get("crc_len_format", "L")
+        """
+        return RU10Decoder(file=config_map.name,
+                           error_correction=get_error_correction_decode(config_map.get("error_correction", "nocode"),
+                                                                        config_map.get("repair_symbols", 0)),
+                           use_headerchunk=config_map.getboolean("insert_header", True),
+                           static_number_of_chunks=config_map.getint("number_of_chunks", None),
+                           use_method=config_map.getboolean("method", False),  # default to False as it is rarely used.
+                           checksum_len_str=config_map.get("checksum_len_str", ""),
+                           xor_by_seed=config_map.getboolean("xor_by_seed", False),
+                           mask_id=config_map.getboolean("mask_id", True),
+                           id_spacing=config_map.getint("id_spacing", 0),
+                           config_map=config_map)
 
     def decodeZip(self, packet_len_format: str = "I", crc_len_format: str = "I",
                   number_of_chunks_len_format: str = "I", id_len_format: str = "I", store_parsed_packets: bool = False,
@@ -190,6 +211,21 @@ class RU10Decoder(Decoder):
             return -1
         return decoded
 
+    def revert_seed_spacing(self, dna_str: str, id_len_format: str) -> str:
+        struct_len = struct.calcsize(id_len_format) * 4
+        if self.id_spacing > 0 and struct_len > 0:
+            res = ""
+            input_str = list(dna_str)
+            i = 0
+            while len(res) < struct_len:
+                res += input_str[i]
+                input_str[i] = " "
+                i += self.id_spacing + 1
+            input_str = "".join(input_str)
+            input_str = input_str.replace(" ", "")
+            res += input_str
+            return res
+
     def decodeFile(self, packet_len_format: str = "I", crc_len_format: str = "L",
                    number_of_chunks_len_format: str = "I", id_len_format: str = "I", store_parsed_packets=False,
                    *args, **kwargs):
@@ -232,26 +268,15 @@ class RU10Decoder(Decoder):
                     break
                 dna_str = line.replace("\n", "")
                 # un-space the dna string:
-                struct_len = struct.calcsize(id_len_format) * 4
-                if self.id_spacing > 0 and struct_len > 0:
-                    res = ""
-                    input_str = list(dna_str)
-                    i = 0
-                    while len(res) < struct_len:
-                        res += input_str[i]
-                        input_str[i] = " "
-                        i += self.id_spacing + 1
-                    input_str = "".join(input_str)
-                    input_str = input_str.replace(" ", "")
-                    res += input_str
-                    dna_str = res
+                reverted_dna_str = self.revert_seed_spacing(dna_str, id_len_format)
+
                 raw_packet_list.append((error_prob, seed, dna_str))
                 try:
-                    new_pack = self.parse_raw_packet(BytesIO(tranlate_quat_to_byte(dna_str)).read(),
+                    new_pack = self.parse_raw_packet(BytesIO(tranlate_quat_to_byte(reverted_dna_str)).read(),
                                                      crc_len_format=crc_len_format,
                                                      number_of_chunks_len_format=number_of_chunks_len_format,
                                                      packet_len_format=packet_len_format,
-                                                     id_len_format=id_len_format)
+                                                     id_len_format=id_len_format, dna_str=dna_str)
 
                 except Exception:
                     new_pack = "CORRUPT"
@@ -469,14 +494,15 @@ class RU10Decoder(Decoder):
                                           id_len_format=id_len_format)
         return res
 
-    def parse_raw_packet(self, packet, crc_len_format: str = "L", number_of_chunks_len_format: str = "L",
-                         packet_len_format: str = "I", id_len_format: str = "L") -> typing.Union[RU10Packet, str]:
+    def parse_raw_packet(self, packet_input, crc_len_format: str = "L", number_of_chunks_len_format: str = "L",
+                         packet_len_format: str = "I", id_len_format: str = "L",
+                         dna_str: typing.Optional[str] = None) -> typing.Union[RU10Packet, str]:
         """
         Creates a RU10 packet from a raw given packet. Also checks if the packet is corrupted. If any method was used to
         create packets from specific chunks, set self.use_method = True. This will treat the last byte of the raw packet
         data as the byte that contains the information about the used method ("even", "odd", "window_30 + window" or
         "window_40 + window". See RU10Encoder.create_new_packet_from_chunks for further information.
-        :param packet: A raw packet
+        :param packet_input: A raw packet
         :param packet_len_format: Format of the packet length
         :param crc_len_format:  Format of the crc length
         :param number_of_chunks_len_format: Format of the number of chunks length
@@ -486,7 +512,7 @@ class RU10Decoder(Decoder):
         struct_str = "<" + number_of_chunks_len_format + id_len_format
         struct_len = struct.calcsize(struct_str)
         try:
-            packet = self.error_correction(packet)
+            packet = self.error_correction(packet_input)
         except:
             self.corrupt += 1
             return "CORRUPT"
@@ -540,6 +566,9 @@ class RU10Decoder(Decoder):
                          packet_len_format=packet_len_format, crc_len_format=crc_len_format,
                          number_of_chunks_len_format=number_of_chunks_len_format, id_len_format=id_len_format,
                          save_number_of_chunks_in_packet=self.static_number_of_chunks is None)
+        res.dna_data = dna_str
+        res.packed_used_packets = packet # without error correction
+        res.packed_struct = packet_input # with error correction
         return res
 
     def generateIntermediateBlocksFormat(self, number_of_chunks: int) -> typing.List[typing.List[typing.List[int]]]:
@@ -570,13 +599,18 @@ class RU10Decoder(Decoder):
         res = [compositions, hcompositions]
         return res
 
-    def populate_header_chunk(self, last_chunk_len_format="I"):
+    def populate_header_chunk(self, last_chunk_len_str=None):
+        if last_chunk_len_str is None:
+            if self.config_map is None:
+                last_chunk_len_str = "I"
+            else:
+                last_chunk_len_str = self.config_map.get("last_chunk_len_str", "I")
         if self.use_headerchunk:
             header_row = self.GEPP.result_mapping[0]
             if header_row >= 0:
                 self.headerChunk = HeaderChunk(
                     Packet(self.GEPP.b[header_row], {0}, self.number_of_chunks, read_only=True),
-                    last_chunk_len_format=last_chunk_len_format, checksum_len_format=self.checksum_len_str)
+                    last_chunk_len_format=last_chunk_len_str, checksum_len_format=self.checksum_len_str)
 
     def saveDecodedFile(self, last_chunk_len_format: str = "I", null_is_terminator: bool = False,
                         print_to_output: bool = True, return_file_name=False, partial_decoding: bool = True) -> \
@@ -595,7 +629,7 @@ class RU10Decoder(Decoder):
         if partial_decoding:
             self.solve(partial=True)
         dirty = False
-        self.populate_header_chunk(last_chunk_len_format=last_chunk_len_format)
+        self.populate_header_chunk(last_chunk_len_str=last_chunk_len_format)
         file_name = "DEC_" + os.path.basename(self.file) if self.file is not None else "RU10.BIN"
         output_concat = b""
         if self.headerChunk is not None:

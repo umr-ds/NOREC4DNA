@@ -36,7 +36,7 @@ from norec4dna.GEPP import GEPP
 from norec4dna.helper import xor_numpy
 
 import NOREC4DNA.norec4dna.helper as helper
-from NOREC4DNA.ConfigWorker import ConfigReadAndExecute
+from ConfigWorker import ConfigReadAndExecute
 from norec4dna.HeaderChunk import HeaderChunk
 from norec4dna.Packet import Packet
 from norec4dna.RU10Decoder import RU10Decoder
@@ -390,9 +390,7 @@ class SemiAutomaticReconstructionToolkit:
 
 
 if __name__ == "__main__":
-    x = ConfigReadAndExecute("NOREC4DNA/logo.jpg_Fri_Jan__7_13_18_39_2022.ini").execute(return_decoder=True,
-                                                                                        store_parsed_packets=True,
-                                                                                        skip_solve=True)[0]
+    x = ConfigReadAndExecute("NOREC4DNA/logo.jpg_Fri_Jan__7_13_18_39_2022.ini").execute(return_decoder=True)[0]
     semi_automatic_solver = SemiAutomaticReconstructionToolkit(x)
     print(semi_automatic_solver.view_file_with_chunkborders(False, False, "I"), flush=True)
 

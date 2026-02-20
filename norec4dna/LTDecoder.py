@@ -21,7 +21,8 @@ from norec4dna.helper.quaternary2Bin import quat_file_to_bin, tranlate_quat_to_b
 class LTDecoder(Decoder):
     def __init__(self, file: typing.Optional[str] = None, error_correction: typing.Callable = nocode,
                  use_headerchunk: bool = True, static_number_of_chunks: typing.Optional[int] = None,
-                 implicit_mode: bool = True, dist: typing.Optional[Distribution] = None, checksum_len_str: str = None):
+                 implicit_mode: bool = True, dist: typing.Optional[Distribution] = None, checksum_len_str: str = None,
+                 config_map=None):
         super().__init__(file)
         if checksum_len_str is None:
             self.checksum_len_str = ""
@@ -52,6 +53,7 @@ class LTDecoder(Decoder):
         self.implicit_mode: bool = implicit_mode
         self.dist: typing.Optional[Distribution] = dist
         self.EOF: bool = False
+        self.config_map = config_map
 
     def decodeFolder(self, packet_len_format: str = "I", crc_len_format: str = "L",
                      number_of_chunks_len_format: str = "I", degree_len_format: str = "I", seed_len_format: str = "I",
@@ -239,7 +241,7 @@ class LTDecoder(Decoder):
                     if 0 != x or not self.use_headerchunk:
                         if self.number_of_chunks - 1 == x and self.use_headerchunk:
                             output: typing.Union[bytes, np.array] = self.GEPP.b[x][0][
-                                                                    0: self.headerChunk.get_last_chunk_length()]
+                                0: self.headerChunk.get_last_chunk_length()]
                             output_concat += output.tobytes()
                             f.write(output)
                         else:
@@ -299,7 +301,7 @@ class LTDecoder(Decoder):
         struct_len: int = struct.calcsize(struct_str)
         len_data: typing.Union[int, typing.Tuple[int, int], typing.Tuple[int, int, int]] = struct.unpack(struct_str,
                                                                                                          packet[
-                                                                                                         0:struct_len])
+                                                                                                             0:struct_len])
         degree: typing.Optional[int] = None
         if self.static_number_of_chunks is None:
             if self.implicit_mode:

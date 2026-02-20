@@ -205,7 +205,10 @@ class Packet:
 
     def __str__(self) -> str:
         return (
-                "< used_packets: "
+                "< "
+                + "Id"
+                + str(self.id)
+                + "used_packets: "
                 + str(self.used_packets)
                 + " , Data: "
                 + str(self.data)

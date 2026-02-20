@@ -2,9 +2,9 @@ import sys
 import configparser
 import typing
 
-from demo_raptor_decode import demo_decode as demo_raptor_decode
-from demo_online_decode import demo_decode as demo_online_decode
-from demo_decode import demo_decode as demo_lt_decode
+from NOREC4DNA.demo_raptor_decode import demo_decode as demo_raptor_decode
+from NOREC4DNA.demo_online_decode import demo_decode as demo_online_decode
+from NOREC4DNA.demo_decode import demo_decode as demo_lt_decode
 from norec4dna.Decoder import Decoder
 from norec4dna.ErrorCorrection import get_error_correction_decode
 from norec4dna.helper import find_ceil_power_of_four, fasta_cluster_and_remove_index, cluster_and_remove_index, \
@@ -24,7 +24,8 @@ class ConfigReadAndExecute:
             print("Empty or missing config file. Does the config file exist?")
         for section in self.config.sections():
             print("Decoding {}".format(section))
-            decoder = self.__decode(section, self.config[section], return_decoder, skip_solve=skip_solve, store_parsed_packets=store_parsed_packets)
+            decoder = self.__decode(section, self.config[section], return_decoder, skip_solve=skip_solve,
+                                    store_parsed_packets=store_parsed_packets)
             if return_decoder:
                 decoders.append(decoder)
         return decoders
@@ -35,7 +36,7 @@ class ConfigReadAndExecute:
                  "number_of_chunks_len_format", "packet_len_format", "crc_len_format", "algorithm", "number_of_chunks",
                  "read_all", "epsilon", "quality", "rules", "quality_len_format", "epsilon_len_format", "config_str",
                  "savenumberofchunks", "dropped_packets", "created_packets", "upper_bound", "asdna", "master_seed",
-                 "mode_1_bmp", "chunk_size", "distribution", "checksum_len_str","xor_by_seed", "id_spacing", "mask_id"]
+                 "mode_1_bmp", "chunk_size", "distribution", "checksum_len_str", "xor_by_seed", "id_spacing", "mask_id", "last_chunk_len_str"]
         for cfg in config:
             if cfg not in known:
                 print(f"[Warning] Config-entry '{cfg}' not known!")
@@ -104,7 +105,8 @@ class ConfigReadAndExecute:
                                 use_header_chunk=use_header_chunk, read_all=read_all_packets,
                                 distribution_cfg_str=distribution_cfg_str, return_decoder=return_decoder,
                                 checksum_len_str=checksum_len_str, skip_solve=skip_solve, xor_by_seed=xor_by_seed,
-                                id_spacing=id_spacing, mask_id=mask_id, store_parsed_packets=store_parsed_packets))
+                                id_spacing=id_spacing, mask_id=mask_id, store_parsed_packets=store_parsed_packets,
+                                config_map=decode_conf))
             except Exception as ex:
                 raise ex
         if len(folders) > 1:

@@ -100,7 +100,7 @@ def init_args() -> argparse.Namespace:
         metavar="ini",
         type=str,
         help="config file (ini)",
-        default="/home/michael/Code/DR4DNA/eval/sleeping_beauty_no_error.ini",
+        default="/home/michael/Code/DR4DNA/eval/sleeping_beauty_Mon_Feb_16_13_45_57_2026.ini",
     )
     parser.add_argument(
         "--new_file",
@@ -418,8 +418,9 @@ def generate_new_packets(semiautomatic_solver: SemiAutomaticReconstructionToolki
         if 0 not in pn_set and last_chunk_idx not in pn_set:
             continue
 
-        # Now perform the expensive decoder call
+        # Now perform the expensive decoder call (we are only interested in the raw used chunks, not the content!)
         packet = RU10Packet(b"", packet_numbers, encoder.number_of_chunks, seed, encoder.dist, read_only=True)
+        #packet = encoder.create_new_packet(False, seed)
         used_chunks = semiautomatic_solver.decoder.removeAndXorAuxPackets(packet)
 
         # Verify header or last chunk remains after aux removal
@@ -454,7 +455,7 @@ def generate_new_packets(semiautomatic_solver: SemiAutomaticReconstructionToolki
 
     logger.info(f"Scan complete! Total candidates found: {sum(len(v) for v in packet_to_seed_mapping.values())}")
 
-    # Return the mapping for downstream processing (you can implement packet selection next)
+    # Return the mapping for downstream processing
     chunk_to_potential_seed_mapping = select_numbers(packet_to_seed_mapping,
                                                      n=10)  # mapping between packet numbers and results!
     generated_packets: typing.Dict[int, typing.List[RU10Packet]] = {}
@@ -470,7 +471,8 @@ def generate_new_packets(semiautomatic_solver: SemiAutomaticReconstructionToolki
             generated_packets[chunk_id].append(packet)
         generated_packets[chunk_id] = sorted(generated_packets[chunk_id], key=lambda x: x.error_prob)
 
-    semiautomatic_solver.decoder.populate_header_chunk()
+    semiautomatic_solver.decoder.populate_header_chunk(
+        last_chunk_len_str=semiautomatic_solver.decoder.config_map.get("last_chunk_len_str", "I"))
 
     changed_chunk_to_new_packets: typing.Dict[int, typing.List[RU10Packet]] = {}
     changed_chunk_to_packet_pair_list: typing.Dict[int, typing.List[typing.Tuple[
@@ -658,7 +660,7 @@ def generate_new_packets(semiautomatic_solver: SemiAutomaticReconstructionToolki
 
 
 def decode_versions(semiautomatic_solver: SemiAutomaticReconstructionToolkit, dna_version_string_prefix="") -> \
-typing.Dict[int, str]:
+        typing.Dict[int, str]:
     """
     Decode all versions of an encoded file from the packets known to the semiautomatic_solver.
     Returns a mapping {file_version: filename} for all versions found.
@@ -714,6 +716,7 @@ if __name__ == "__main__":
     logger.info(f"Found candidate seeds per chunk: {dict((k, v) for k, v in packet_candidates.items())}")
 
     packets_added = 0
+    added_packets = []
     for changed_chunk_packet_group, packets in packet_candidates.items():
         added_packets_for_chunk = 0
         for packet in packets:
@@ -722,6 +725,7 @@ if __name__ == "__main__":
             if added_packets_for_chunk >= packet_add_limit:
                 break
             encoder.encodedPackets.add(packet)
+            added_packets.append(packet)
             added_packets_for_chunk += 1
             packets_added += 1
         logger.info(f"Added {added_packets_for_chunk} packets for changed chunk {changed_chunk_packet_group}.")
@@ -732,5 +736,12 @@ if __name__ == "__main__":
     encoder.file = outfile
     encoder.save_packets_fasta(None, "", False)
     encoder.save_config_file(add_dot_fasta=True)
+    # save added_packets in a debug file:
+    debug_outfile = f"{semiautomatic_solver.decoder.file.split('.fasta')[
+        0]}_v{new_file_version}_added_packets.fasta"
+    with open(debug_outfile, "w") as f:
+        for packet in added_packets:
+            f.write(f">{packet.id}\n")
+            f.write(f"{packet.dna_data}\n")
     encoder.file = file_bkp
     logger.warning(semiautomatic_solver.decoder.packets)

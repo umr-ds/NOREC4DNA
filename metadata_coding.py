@@ -230,31 +230,33 @@ def encoder_from_decoder(semiautomatic_solver: SemiAutomaticReconstructionToolki
     xor_by_seed = sctn_config.getboolean("xor_by_seed", True)
     mask_id = sctn_config.getboolean("mask_id", True)
     number_of_chunks = semiautomatic_solver.decoder.number_of_chunks
-    id_spacing = sctn_config.getboolean("id_spacing", 0)
-    rules = rules
+    id_spacing = sctn_config.getint("id_spacing", 0)
     crc_len_format = sctn_config.get("crc_len_format", "L")
     checksum_len_str = sctn_config.get("checksum_len_str", "I")
+    last_chunk_len_str = sctn_config.get("last_chunk_len_str", "I")
     semiautomatic_solver.decoder.solve()
-    semiautomatic_solver.decoder.populate_header_chunk()
+    semiautomatic_solver.decoder.populate_header_chunk(last_chunk_len_str=last_chunk_len_str)
     dist = semiautomatic_solver.decoder.distribution
     ru10_encoder = RU10Encoder(semiautomatic_solver.decoder.headerChunk.file_name.decode(), number_of_chunks,
                                dist, semiautomatic_solver.decoder.use_headerchunk,
                                None, 0, rules,
                                semiautomatic_solver.decoder.error_correction, "I", crc_len_format,
                                number_of_chunks_len_format, id_len_format,
-                               save_number_of_chunks_in_packet, False, "", "", 1.0, True, checksum_len_str, xor_by_seed, mask_id,
-                               id_spacing)
-    ru10_encoder.chunk_size = chunk_size # avoid overwriting the number of chunks by postponing the chunk_size setup
+                               save_number_of_chunks_in_packet, False, "", "",
+                               1.0, True, "", xor_by_seed,
+                               mask_id, id_spacing, last_chunk_len_str)
+    ru10_encoder.chunk_size = chunk_size  # avoid overwriting the number of chunks by postponing the chunk_size setup
+    ru10_encoder.checksum_len_str = checksum_len_str
     ru10_encoder.checksum = semiautomatic_solver.decoder.headerChunk.checksum
     # remove the header and any decoded rows after the last chunk. Padding will be auto-applied as we use GEPP.b
     ru10_encoder.chunks = [x for x in semiautomatic_solver.decoder.GEPP.b[
         0:number_of_chunks]]  # TODO: check for off-by-one due to header
-    ru10_encoder.generate_intermediate_blocks() # missing command from the prepare block
+    ru10_encoder.generate_intermediate_blocks()  # missing command from the prepare block
     # (we MUST not call prepare() as it would add an additional header!)
     for packet in semiautomatic_solver.decoder.packets:
         packet.packed_used_packets = packet.prepare_and_pack()
         packet.packed = packet.calculate_packed_data()
-    ru10_encoder.encodedPackets = set(semiautomatic_solver.decoder.packets)
+    ru10_encoder.encodedPackets = set(semiautomatic_solver.decoder.packets.copy())
 
     # ru10_encoder.chunks.insert(0,header)
     # ru10_encoder.generate_intermediate_blocks()
