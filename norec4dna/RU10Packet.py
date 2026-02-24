@@ -203,7 +203,7 @@ class RU10Packet(Packet):
     def copy(self) -> 'RU10Packet':
         new_packet = RU10Packet(
             data=self.data,
-            used_packets=self.used_packets.copy() if self.used_packets is not None else [],
+            used_packets=list(self.used_packets.copy()) if self.used_packets is not None else [],
             total_number_of_chunks=self.total_number_of_chunks,
             id=self.id,
             dist=self.dist,

@@ -613,7 +613,7 @@ class RU10Decoder(Decoder):
                     last_chunk_len_format=last_chunk_len_str, checksum_len_format=self.checksum_len_str)
 
     def saveDecodedFile(self, last_chunk_len_format: str = "I", null_is_terminator: bool = False,
-                        print_to_output: bool = True, return_file_name=False, partial_decoding: bool = True) -> \
+                        print_to_output: bool = True, return_file_name=False, partial_decoding: bool = True, ignore_crc=False) -> \
             typing.Union[bytes, str]:
         """
         Saves the file - if decoded. The filename is either taken from the headerchunk or generated based on the input
@@ -671,9 +671,10 @@ class RU10Decoder(Decoder):
         if self.checksum_len_str is not None and self.checksum_len_str != "":
             decoded_crc = calc_file_crc(file_name, self.checksum_len_str)
             if self.headerChunk.checksum != decoded_crc:
-                print("Decoded CRC:", decoded_crc)
-                print("Header CRC:", self.headerChunk.checksum)
-                raise ValueError("Checksum of decoded file does not match checksum in header chunk!", file_name)
+                print("[WARN] Decoded CRC:", decoded_crc)
+                print("[WARN] Header CRC:", self.headerChunk.checksum)
+                if not ignore_crc:
+                    raise ValueError("Checksum of decoded file does not match checksum in header chunk!", file_name)
         if dirty:
             print("Some parts could not be restored, file WILL contain sections with \\x00 !")
         if print_to_output:
