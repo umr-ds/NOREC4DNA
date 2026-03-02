@@ -16,7 +16,7 @@ def xor_numpy(p1, p2):
     if (isinstance(p2, numpy.ndarray) and isinstance(p1, numpy.ndarray)) and (
             (p1.dtype == numpy.uint8 and p2.dtype == numpy.uint8)
             or (p1.dtype == numpy.int64 and p2.dtype == numpy.int64)
-            or (p1.dtype == numpy.bool and p2.dtype == numpy.bool)
+            or (p1.dtype == bool and p2.dtype == bool)
     ):
         n_p1 = p1
         n_p2 = p2

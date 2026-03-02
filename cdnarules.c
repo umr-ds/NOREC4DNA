@@ -257,13 +257,13 @@ static PyObject* elimination(PyObject *self, PyObject *args) {
     if (UNLIKELY(!isSolvable(A))) {
         Py_RETURN_FALSE;
     }
-
     npy_intp dims_a_0 = PyArray_DIM(A, 0); // rows
     npy_intp dims_a_1 = PyArray_DIM(A, 1); // columns
     npy_intp dims_b_1 = PyArray_DIM(b, 1);
     npy_intp dims_chunk_to_used_packets_1 = PyArray_DIM(chunk_to_used_packets, 1);
 
-    bool *dirty_rows = (bool*)aligned_malloc(dims_a_0 * sizeof(bool));
+    npy_intp max_dim = (dims_a_0 > dims_a_1) ? dims_a_0 : dims_a_1;
+    bool *dirty_rows = (bool*)aligned_malloc(max_dim * sizeof(bool));
     if (UNLIKELY(!dirty_rows)) {
         return PyErr_NoMemory();
     }
@@ -280,7 +280,8 @@ static PyObject* elimination(PyObject *self, PyObject *args) {
     uint8_t num_dirty_rows = 0;
 
     // Forward elimination
-    for (npy_intp i = 0; i < dims_a_1; i++) {
+    npy_intp max_elim = (dims_a_1 < dims_a_0) ? dims_a_1 : dims_a_0;
+    for (npy_intp i = 0; i < max_elim; i++) {
         // Find pivot
         npy_intp pivot = -1;
         for (npy_intp j = i; j < dims_a_0; j++) {
@@ -365,7 +366,9 @@ static PyObject* elimination(PyObject *self, PyObject *args) {
     }
 
     // Backward elimination
-    for (npy_intp col = dims_a_1 - 1; col >= 0; col--) {
+    npy_intp max_col = (dims_a_1 < dims_a_0) ? dims_a_1 : dims_a_0;
+    
+    for (npy_intp col = max_col - 1; col >= 0; col--) {
         if (dirty_rows[col]) continue;
 
         for (npy_intp row = col - 1; row >= 0; row--) {
@@ -684,7 +687,8 @@ static PyObject* elimination_with_first_row(PyObject *self, PyObject *args) {
     npy_intp dims_b_1 = PyArray_DIM(b, 1);
     npy_intp dims_chunk_to_used_packets_1 = PyArray_DIM(chunk_to_used_packets, 1);
 
-    bool *dirty_rows = (bool*)aligned_malloc(dims_a_0 * sizeof(bool));
+    npy_intp max_dim = (dims_a_0 > dims_a_1) ? dims_a_0 : dims_a_1;
+    bool *dirty_rows = (bool*)aligned_malloc(max_dim * sizeof(bool));
     if (UNLIKELY(!dirty_rows)) {
         return PyErr_NoMemory();
     }
@@ -816,7 +820,7 @@ static PyObject* elimination_with_first_row(PyObject *self, PyObject *args) {
         }
     }
 
-    free(dirty_rows);
+    aligned_free(dirty_rows);
     return PyBool_FromLong(!dirty);
 }
 

@@ -31,7 +31,7 @@ class GEPP_intern:
                                                            dtype=bool)  # inverse part
         while len(self.chunk_to_used_packets) < len(self.A):
             self.chunk_to_used_packets = np.vstack((self.chunk_to_used_packets, np.full((1, len(self.A[1])), False)))
-        self.packet_mapping: np.ndarray = np.array([x for x in range(len(self.A))], dtype=np.uint)
+        self.packet_mapping: np.ndarray = np.array(list(range(len(self.A))), dtype=np.uint)
         self.n: int = 0  # n is the length of A
         self.m: int = 0  # m is the width of A
         self.tmp_A: typing.List = []
@@ -75,14 +75,12 @@ class GEPP_intern:
             raise ex
 
     def addRow(self, row: typing.Union[typing.Set[int], np.ndarray], data: np.ndarray, ):
-        if self.n == 0:
-            # first insert
-            self.A = np.vstack((self.A, row))
-            self.b = np.vstack((self.b, data))
-            self.packet_mapping = np.vstack((self.packet_mapping, [len(self.A)]))
-            self._update_input()
-        self.tmp_A.append(row)
-        self.tmp_b.append(data)
+        # Always add to A and b immediately
+        self.A = np.vstack((self.A, row))
+        self.b = np.vstack((self.b, data))
+        # Add placeholder to packet_mapping - will be fixed up later if needed
+        if len(self.packet_mapping) < len(self.A):
+            self.packet_mapping = np.append(self.packet_mapping, len(self.A))
         self._update_input()
 
     def insert_tmp(self):

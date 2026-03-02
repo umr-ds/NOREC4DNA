@@ -92,8 +92,6 @@ if __name__ == "__main__":
         parser.add_argument("--repair_symbols", metavar="repair_symbols", type=int, required=False, default=2,
                             help="number of repair_symbols for ReedSolomon (default=2)")
         parser.add_argument("--as_mode_1_bmp", required=False, action="store_true")
-        # parser.add_argument("--merge_splits", metavar="merge_splits", required=False, type=int, default=1,
-        #                    help="merge from multiple parts")
         parser.add_argument("--number_of_splits", metavar="number_of_splits", required=False, type=int, default=0,
                             help="(optional) number of parts the file has bin split into")
         parser.add_argument("--split_index_position", metavar="split_index_position", required=False, type=str,
@@ -159,4 +157,3 @@ if __name__ == "__main__":
             merge_parts(decoded_files, remove_tmp_on_success=True)
     except Exception as e:
         raise e
-    # input("Press Enter to continue ...")

@@ -139,7 +139,7 @@ class RU10Decoder(Decoder):
         if self.GEPP is None:
             print("No Packet was correctly decoded. Check your configuration.")
             return -1
-        if self.GEPP.isPotentionallySolvable() and not self.read_all_before_decode:
+        if self.GEPP is not None and self.GEPP.isPotentionallySolvable() and not self.read_all_before_decode:
             decoded = self.GEPP.solve()
         if not decoded and self.EOF:
             print("Unable to retrieve File from Chunks. Too many errors?")
@@ -204,7 +204,7 @@ class RU10Decoder(Decoder):
         if self.GEPP is None:
             print("No Packet was correctly decoded. Check your configuration.")
             return -1
-        if self.GEPP.isPotentionallySolvable() and not self.read_all_before_decode:
+        if self.GEPP is not None and self.GEPP.isPotentionallySolvable() and not self.read_all_before_decode:
             decoded = self.GEPP.solve()
         if not decoded and self.EOF:
             print("Unable to retrieve File from Chunks. Too many errors?")
@@ -306,7 +306,7 @@ class RU10Decoder(Decoder):
                 #
         print("Decoded Packets: " + str(self.correct))
         print("Corrupt Packets : " + str(self.corrupt))
-        if self.GEPP.isPotentionallySolvable() and not self.read_all_before_decode:
+        if self.GEPP is not None and self.GEPP.isPotentionallySolvable() and not self.read_all_before_decode:
             decoded = self.GEPP.solve()
         if not decoded and self.EOF and not self.read_all_before_decode:
             print("Unable to retrieve file from chunks. Too many errors??")
@@ -567,8 +567,8 @@ class RU10Decoder(Decoder):
                          number_of_chunks_len_format=number_of_chunks_len_format, id_len_format=id_len_format,
                          save_number_of_chunks_in_packet=self.static_number_of_chunks is None)
         res.dna_data = dna_str
-        res.packed_used_packets = packet # without error correction
-        res.packed_struct = packet_input # with error correction
+        res.packed_used_packets = packet  # without error correction
+        res.packed_struct = packet_input  # with error correction
         return res
 
     def generateIntermediateBlocksFormat(self, number_of_chunks: int) -> typing.List[typing.List[typing.List[int]]]:
@@ -613,7 +613,8 @@ class RU10Decoder(Decoder):
                     last_chunk_len_format=last_chunk_len_str, checksum_len_format=self.checksum_len_str)
 
     def saveDecodedFile(self, last_chunk_len_format: str = "I", null_is_terminator: bool = False,
-                        print_to_output: bool = True, return_file_name=False, partial_decoding: bool = True, ignore_crc=False) -> \
+                        print_to_output: bool = True, return_file_name=False, partial_decoding: bool = True,
+                        ignore_crc=False) -> \
             typing.Union[bytes, str]:
         """
         Saves the file - if decoded. The filename is either taken from the headerchunk or generated based on the input
