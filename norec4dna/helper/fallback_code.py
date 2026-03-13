@@ -108,3 +108,18 @@ def longestSequenceOfChar_python(text: typing.AnyStr, char_x="*") -> typing.Tupl
 def strContainsSub_python(text: typing.AnyStr, sequence: typing.AnyStr) -> bool:
     res = sequence in text
     return res
+
+
+def xor_numpy_internal(n_p1: numpy.ndarray, n_p2: numpy.ndarray) -> numpy.ndarray:
+    """
+    Internal XOR function for numpy arrays.
+    Fallback implementation when cdnarules is not available.
+    
+    Args:
+        n_p1: First numpy array
+        n_p2: Second numpy array
+        
+    Returns:
+        XOR result of the two arrays
+    """
+    return numpy.bitwise_xor(n_p1, n_p2)

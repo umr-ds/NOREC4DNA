@@ -3,6 +3,7 @@ import struct
 import math
 from zipfile import ZipFile
 from abc import ABC
+from pathlib import Path
 
 import numpy as np
 from math import ceil
@@ -96,11 +97,12 @@ class Encoder(ABC):
             struct.pack(struct_string, len(last_chunk), checksum, bytes(file_name_only, encoding="utf-8")),
             dtype=np.uint8)
 
-    def fill_last_chunk(self):
+    def fill_last_chunk(self, force_fill_zero:bool = False):
         last = self.chunks[-1]
         assert (len(last) <= self.chunk_size), "Error, last Chunk ist bigger than ChunkSize"
         if len(last) < self.chunk_size:
-            if self.insert_header:
+            if self.insert_header and not force_fill_zero:
+                # only add random bytes if xor_by_seed is False (otherwise packet will be scrambled by xor)
                 filler = b"\x00" + os.urandom(self.chunk_size - len(last) - 1)
             else:
                 filler = (self.chunk_size - len(last)) * b"\x00"
@@ -169,7 +171,7 @@ class Encoder(ABC):
         if not out_file.endswith(".fasta"):
             out_file = out_file + ".fasta"
         i = 0
-        abs_dir = os.path.split(os.path.abspath("../" + out_file))[0]
+        abs_dir = Path(out_file).absolute().parent
         if not os.path.exists(abs_dir):
             os.makedirs(abs_dir)
 

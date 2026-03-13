@@ -225,6 +225,7 @@ class RU10Decoder(Decoder):
             input_str = input_str.replace(" ", "")
             res += input_str
             return res
+        return dna_str
 
     def decodeFile(self, packet_len_format: str = "I", crc_len_format: str = "L",
                    number_of_chunks_len_format: str = "I", id_len_format: str = "I", store_parsed_packets=False,
@@ -383,6 +384,142 @@ class RU10Decoder(Decoder):
         res = logical_xor(aux_mapping)
         del tmp, aux_mapping
         return res
+
+
+    def removeAndXorAuxPackets_from_indices(
+            self,
+            packet_indices: typing.Union[typing.Set[int], typing.List[int], np.ndarray]
+    ) -> np.ndarray:
+        """
+        Removes auxpackets (LDPC and Half) from a list/set of packet indices to get the chunk composition.
+
+        This is the equivalent of removeAndXorAuxPackets but operates on packet indices directly
+        without requiring a RU10Packet object.
+
+        Packet index interpretation:
+        - Indices 0 to number_of_chunks-1: systematic packets (each contains exactly one chunk)
+        - Indices number_of_chunks to number_of_chunks+s-1: LDPC packets (indexed in ldpcANDhalf as 0 to s-1)
+        - Indices number_of_chunks+s to number_of_chunks+s+h-1: Half packets (indexed in ldpcANDhalf as s to s+h-1)
+
+        Args:
+            self: Decoder instance with ldpcANDhalf, distribution, and number_of_chunks initialized
+            packet_indices: Set/list/array of packet indices to process
+
+        Returns:
+            Boolean numpy array where index i=True means chunk i is in the result after aux removal
+        """
+        from norec4dna.helper.RU10Helper import from_true_false_list
+        from norec4dna.helper.helper import logical_xor
+        import numpy as np
+
+        # Convert input to set of indices
+        if isinstance(packet_indices, np.ndarray):
+            if packet_indices.dtype == bool:
+                # Boolean array - extract True indices
+                packet_indices = from_true_false_list(packet_indices)
+            # else: integer array - use as-is
+        packet_set = set(packet_indices)
+
+        if not packet_set:
+            return np.zeros(self.number_of_chunks, dtype=bool)
+
+        # Separate packet types
+        systematic_indices = set()
+        ldpc_indices = set()
+        half_indices = set()
+
+        for idx in packet_set:
+            if 0 <= idx < self.number_of_chunks:
+                # Systematic packet - directly represents a chunk
+                systematic_indices.add(idx)
+            elif self.number_of_chunks <= idx < self.number_of_chunks + self.s:
+                # LDPC packet
+                ldpc_indices.add(idx - self.number_of_chunks)
+            elif self.number_of_chunks + self.s <= idx < self.number_of_chunks + self.s + self.h:
+                # Half packet
+                half_indices.add(idx - self.number_of_chunks - self.s)
+
+        # Build result starting with systematic packets (each represents one chunk)
+        result = np.zeros(self.number_of_chunks, dtype=bool)
+        for chunk_idx in systematic_indices:
+            result[chunk_idx] = True
+
+        # Process Half packets first (they contain data + LDPC)
+        # Track newly discovered LDPC indices from half packet contents
+        new_ldpc_from_half = set()
+        
+        if half_indices:
+            half_list = []
+            half_arr_size = 0
+
+            for half_idx in half_indices:
+                ldpc_half_idx = self.s + half_idx  # Index in ldpcANDhalf
+                if ldpc_half_idx in self.ldpcANDhalf:
+                    half_arr = self.ldpcANDhalf[ldpc_half_idx].get_bool_array_used_and_ldpc_packets()
+                    half_arr_size = max(half_arr_size, len(half_arr))
+                    half_list.append(half_arr)
+
+            if half_list:
+                # Pad all arrays to the same size
+                padded_half_list = []
+                for arr in half_list:
+                    if len(arr) < half_arr_size:
+                        arr_padded = np.zeros(half_arr_size, dtype=bool)
+                        arr_padded[:len(arr)] = arr
+                        padded_half_list.append(arr_padded)
+                    else:
+                        padded_half_list.append(arr)
+
+                # XOR all half packets together
+                half_result = logical_xor(padded_half_list)
+
+                # Add systematic AND original LDPC packets to the XOR (to match removeAndXorAuxPackets behavior)
+                systematic_and_ldpc_arr = np.zeros(half_arr_size, dtype=bool)
+                for chunk_idx in systematic_indices:
+                    if chunk_idx < half_arr_size:
+                        systematic_and_ldpc_arr[chunk_idx] = True
+                # Also mark original LDPC indices
+                for ldpc_idx in ldpc_indices:
+                    if self.number_of_chunks + ldpc_idx < half_arr_size:
+                        systematic_and_ldpc_arr[self.number_of_chunks + ldpc_idx] = True
+
+                half_list_with_sys = [half_result, systematic_and_ldpc_arr]
+                combined = logical_xor(half_list_with_sys)
+
+                # Extract data chunks and LDPC indices from combined result
+                data_and_ldpc = from_true_false_list(combined)
+                result = np.zeros(self.number_of_chunks, dtype=bool)
+                for idx in data_and_ldpc:
+                    if 0 <= idx < self.number_of_chunks:
+                        result[idx] = True
+                    elif self.number_of_chunks <= idx < self.number_of_chunks + self.s:
+                        # LDPC index from half packet content - track for processing
+                        new_ldpc_from_half.add(idx - self.number_of_chunks)
+
+        # Process LDPC packets:
+        # - If half packets existed: only process NEW LDPC discovered from half contents (original LDPC already XORed)
+        # - If no half packets: process all original LDPC
+        ldpc_to_process = new_ldpc_from_half if half_indices else ldpc_indices
+        if ldpc_to_process:
+            aux_list = []
+            for ldpc_idx in ldpc_to_process:
+                if ldpc_idx in self.ldpcANDhalf:
+                    aux_arr = self.ldpcANDhalf[ldpc_idx].get_bool_array_used_packets()
+                    # Ensure correct size
+                    if len(aux_arr) < self.number_of_chunks:
+                        aux_arr_padded = np.zeros(self.number_of_chunks, dtype=bool)
+                        aux_arr_padded[:len(aux_arr)] = aux_arr
+                        aux_list.append(aux_arr_padded)
+                    else:
+                        aux_list.append(aux_arr)
+            
+            if aux_list:
+                # XOR all LDPC packets together with current result
+                aux_result = logical_xor(aux_list)
+                combined_list = [aux_result, result]
+                result = logical_xor(combined_list)
+
+        return result
 
     def createAuxBlocks(self):
         """

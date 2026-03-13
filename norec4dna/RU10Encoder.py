@@ -101,7 +101,7 @@ class RU10Encoder(Encoder):
         else:
             self.chunk_size = ceil(1.0 * file_size / self.number_of_chunks)
             self.chunks = self.create_chunks(self.chunk_size)
-        self.fill_last_chunk()
+        self.fill_last_chunk(force_fill_zero=self.xor_by_seed)
         # create Intermediate Blocks and save them as self.chunks
         self.generate_intermediate_blocks()
 
@@ -354,7 +354,7 @@ class RU10Encoder(Encoder):
         if default_map is None:
             default_map = {}
         if section_name is None:
-            section_name = self.out_file + (".fasta" if add_dot_fasta else "")
+            section_name = str(self.out_file) + (".fasta" if add_dot_fasta else "")
         config = configparser.ConfigParser()
         config[section_name] = {'algorithm': "RU10",
                                 'error_correction': self.error_correction.__code__,
