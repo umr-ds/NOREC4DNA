@@ -18,7 +18,7 @@ from norec4dna.distributions.Distribution import Distribution
 from norec4dna.helper import should_drop_packet, listXOR, calc_file_crc
 from norec4dna.rules.FastDNARules import FastDNARules
 from norec4dna.Decoder import Decoder
-from norec4dna.ErrorCorrection import get_error_correction_encode, nocode
+from norec4dna.ErrorCorrection import get_error_correction_encode, nocode, get_error_correction_name
 from norec4dna.distributions.OnlineDistribution import OnlineDistribution
 from norec4dna.OnlinePacket import OnlinePacket
 from norec4dna.OnlineAuxPacket import OnlineAuxPacket
@@ -266,7 +266,7 @@ class OnlineEncoder(Encoder):
         if section_name is None:
             section_name = self.out_file
         config = configparser.ConfigParser()
-        config[section_name] = {'algorithm': 'Online', 'error_correction': self.error_correction.__code__,
+        config[section_name] = {'algorithm': 'Online', 'error_correction': get_error_correction_name(self.error_correction),
                                 'insert_header': self.insert_header,
                                 'savenumberofchunks': self.save_number_of_chunks_in_packet,
                                 'upper_bound': self.upper_bound, 'number_of_chunks': self.number_of_chunks,
@@ -293,7 +293,7 @@ class OnlineEncoder(Encoder):
               " NUMBER_OF_CHUNKS_LEN_FORMAT: " + self.number_of_chunks_len_format + \
               " ID_LEN_FORMAT: " + self.check_block_number_len_format + " PACKET_LEN_FORMAT: " + self.packet_len_format + \
               " QUALITY_LEN_FORMAT: " + self.quality_len_format + " EPSILON_LEN_FORMAT: " + self.quality_len_format + \
-              " ERROR_CORRECTION: " + self.error_correction.__code__.co_name + \
+              " ERROR_CORRECTION: " + get_error_correction_name(self.error_correction) + \
               " CRC_LEN_FORMAT(Optional): " + self.crc_len_format + " FILE: " + self.file + " OUT_FILE: " + out_file + \
               " Distribution: " + self.distribution.get_config_string()
         return res

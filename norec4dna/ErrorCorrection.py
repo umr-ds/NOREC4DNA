@@ -141,3 +141,52 @@ def get_error_correction_encode(e_correction: str, repair_symbols: int):
         raise NotImplementedError(
             "Selected Error Correction not supported, choose: 'nocode', 'crc', 'reedsolomon' or 'dna_reedsolomon'")
     return error_correction
+
+
+def get_error_correction_name(error_correction_func: typing.Callable) -> str:
+    """
+    Get the error correction name string from an error correction function.
+    
+    Args:
+        error_correction_func: The error correction function (e.g., nocode, crc32, reed_solomon_encode)
+        
+    Returns:
+        The error correction name string ('nocode', 'crc', 'reedsolomon', or 'dna_reedsolomon')
+        
+    Example:
+        >>> get_error_correction_name(nocode)
+        'nocode'
+        >>> get_error_correction_name(crc32)
+        'crc'
+    """
+    # Try to get the function name
+    if hasattr(error_correction_func, '__code__'):
+        func_name = error_correction_func.__code__.co_name
+        if func_name == 'nocode':
+            return 'nocode'
+        elif func_name == 'crc32':
+            return 'crc'
+        elif func_name == 'reed_solomon_encode':
+            return 'reedsolomon'
+        elif func_name == 'dna_reed_solomon_encode':
+            return 'dna_reedsolomon'
+    
+    # For lambda wrappers, check if it references the original function
+    # Lambda functions have __code__.co_name = '<lambda>'
+    if hasattr(error_correction_func, '__code__') and error_correction_func.__code__.co_name == '<lambda>':
+        # Try to identify by checking the function's closure or code constants
+        if hasattr(error_correction_func, '__closure__') and error_correction_func.__closure__:
+            for cell in error_correction_func.__closure__:
+                try:
+                    cell_func = cell.cell_contents
+                    if hasattr(cell_func, '__code__'):
+                        cell_name = cell_func.__code__.co_name
+                        if cell_name == 'reed_solomon_encode':
+                            return 'reedsolomon'
+                        elif cell_name == 'dna_reed_solomon_encode':
+                            return 'dna_reedsolomon'
+                except (ValueError, AttributeError):
+                    pass
+    
+    # Default fallback
+    return 'nocode'

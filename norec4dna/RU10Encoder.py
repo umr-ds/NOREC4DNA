@@ -15,7 +15,7 @@ from norec4dna.distributions.Distribution import Distribution
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.helper import should_drop_packet, listXOR, calc_crc, buildGraySequence, bitSet, calc_file_crc
 from norec4dna.rules.FastDNARules import FastDNARules
-from norec4dna.ErrorCorrection import get_error_correction_encode, nocode
+from norec4dna.ErrorCorrection import get_error_correction_encode, nocode, get_error_correction_name
 from norec4dna.Encoder import Encoder
 from norec4dna.RU10Packet import RU10Packet
 
@@ -357,7 +357,7 @@ class RU10Encoder(Encoder):
             section_name = str(self.out_file) + (".fasta" if add_dot_fasta else "")
         config = configparser.ConfigParser()
         config[section_name] = {'algorithm': "RU10",
-                                'error_correction': self.error_correction.__code__,
+                                'error_correction': get_error_correction_name(self.error_correction),
                                 'insert_header': self.insert_header,
                                 'savenumberofchunks': self.save_number_of_chunks_in_packet,
                                 'mode_1_bmp': self.mode_1_bmp, 'upper_bound': self.upper_bound,
