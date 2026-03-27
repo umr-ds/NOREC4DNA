@@ -85,6 +85,7 @@ if __name__ == "__main__":
         filename = args.filename
         e_correction_str = args.error_correction
         norepair_symbols = args.repair_symbols
+        _header_crc_str = args.header_crc_str
         error_correction = get_error_correction_decode(e_correction_str, norepair_symbols)
         print("Zu dekodierende Datei / Ordner: " + str(filename))
         demo = demo_decode()

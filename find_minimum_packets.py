@@ -20,8 +20,8 @@ from norec4dna.LTEncoder import LTEncoder
 from norec4dna.Packet import ParallelPacket
 from norec4dna.RU10Encoder import RU10Encoder
 from norec4dna.OnlineEncoder import OnlineEncoder
-from norec4dna.rules.FastDNARules import FastDNARules
-from norec4dna.helper.RepeatedTimer import RepeatedTimer
+from .rules.FastDNARules import FastDNARules
+from .helper.RepeatedTimer import RepeatedTimer
 from helpful_scripts.automatedfindminimum import AutomatedFindMinimum
 from norec4dna.distributions.OnlineDistribution import OnlineDistribution
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution

@@ -5,4 +5,3 @@ __all__ = [
     "DNARules_ErlichZielinski",
     "RuleParser"
 ]
-from . import *

@@ -4,7 +4,7 @@ import argparse
 
 from norec4dna.Encoder import Encoder
 from norec4dna.RU10Encoder import RU10Encoder
-from norec4dna.rules.FastDNARules import FastDNARules
+from .rules.FastDNARules import FastDNARules
 from norec4dna.ErrorCorrection import nocode, get_error_correction_encode
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.helper import split_file, number_to_base_str, find_ceil_power_of_four, merge_folder_content

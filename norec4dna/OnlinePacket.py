@@ -80,7 +80,9 @@ class OnlinePacket(Packet):
     def get_data(self) -> bytes:
         return self.data
 
-    def set_used_packets(self, used_packets: typing.Set[int]):
+    def set_used_packets(self, used_packets: typing.Union[typing.List[int],typing.Set[int]]):
+        if isinstance(used_packets, typing.List):
+            used_packets = set(used_packets)
         self.used_packets = used_packets
         self.internal_hash = hash(frozenset(i for i in self.used_packets))
         self.update_degree()
@@ -95,7 +97,7 @@ class OnlinePacket(Packet):
         rng.seed(seed)
         res: typing.Set[int] = set()
         for _ in range(0, degree):
-            tmp = rng.choice(range(0, self.total_number_of_chunks + self.getNumberOfAuxBlocks()))  # +1 for HeaderChunk
+            tmp:int = rng.choice(range(0, self.total_number_of_chunks + self.getNumberOfAuxBlocks()))  # +1 for HeaderChunk
             while tmp in res:
                 tmp = rng.choice(
                     range(0, self.total_number_of_chunks + self.getNumberOfAuxBlocks()))  # +1 for HeaderChunk
@@ -106,9 +108,11 @@ class OnlinePacket(Packet):
         return ceil(0.55 * self.quality * self.epsilon * self.total_number_of_chunks)
 
     def get_bool_array_used_packets(self) -> typing.List[bool]:
+        assert self.used_packets is not None, "used_packets must be set first!"
         return [x in self.used_packets for x in range(self.total_number_of_chunks)]
 
     def getBoolArrayAuxPackets(self) -> typing.List[bool]:
+        assert self.used_packets is not None, "used_packets must be set first!"
         return [x in self.used_packets
                 for x in range(self.total_number_of_chunks, self.total_number_of_chunks + self.getNumberOfAuxBlocks(), )
                 ]
@@ -118,4 +122,5 @@ class OnlinePacket(Packet):
             self.data) + " , Error Correction: " + str(self.error_correction) + " >")
 
     def __hash__(self) -> int:
+        assert self.used_packets is not None, "used_packets must be set first!"
         return hash(frozenset(hash(i) for i in self.used_packets))

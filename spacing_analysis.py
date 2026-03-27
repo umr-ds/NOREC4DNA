@@ -6,11 +6,11 @@ from multiprocessing import freeze_support
 
 import numpy as np
 
-from norec4dna import RU10Encoder, RaptorDistribution, nocode, Encoder, reed_solomon_encode
+from . import RU10Encoder, RaptorDistribution, nocode, Encoder, reed_solomon_encode
 from norec4dna.Packet import ParallelPacket
 from norec4dna.helper import should_drop_packet, bin2Quaternary
-from norec4dna.rules.FastDNARules import FastDNARules
-from norec4dna.rules.RuleParser import longestSequenceOfChar
+from .rules.FastDNARules import FastDNARules
+from .rules.RuleParser import longestSequenceOfChar
 
 
 def run(seq_seed=None, file='logo.jpg', repair_symbols=2, insert_header=False,

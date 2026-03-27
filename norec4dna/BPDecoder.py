@@ -1,27 +1,31 @@
 import os
-import typing
 from collections import deque
-
-from norec4dna.helper.RU10Helper import from_true_false_list
+from typing import Any, Callable, Deque, Dict, List, Optional, Set, Tuple, Union
 
 from norec4dna import Decoder, HeaderChunk
-from norec4dna.ErrorCorrection import nocode
-from norec4dna.OnlinePacket import OnlinePacket
-from norec4dna.RU10IntermediatePacket import RU10IntermediatePacket
-from norec4dna.OnlineAuxPacket import OnlineAuxPacket
-from norec4dna.Packet import Packet
-from norec4dna.RU10Packet import RU10Packet
 from norec4dna.distributions import Distribution
+from norec4dna.ErrorCorrection import nocode
+from norec4dna.helper.RU10Helper import from_true_false_list
+from norec4dna.OnlineAuxPacket import OnlineAuxPacket
+from norec4dna.OnlinePacket import OnlinePacket
+from norec4dna.Packet import Packet
+from norec4dna.RU10IntermediatePacket import RU10IntermediatePacket
+from norec4dna.RU10Packet import RU10Packet
 
 
 class BPDecoder(Decoder):
-    def __init__(self, file: typing.Optional[str] = None, error_correction=nocode, use_headerchunk: bool = True,
-                 static_number_of_chunks: typing.Optional[int] = None, use_method: bool = False):
+    def __init__(
+        self,
+        file: Optional[str] = None,
+        error_correction: Callable[[bytes], bytes] = nocode,  # type: ignore[assignment]
+        use_headerchunk: bool = True,
+        static_number_of_chunks: Optional[int] = None,
+        use_method: bool = False,
+    ):
         super().__init__()
         self.debug = False
         self.isPseudo: bool = False
-        self.file: typing.Optional[str] = file
-        self.degreeToPacket: dict = {}
+        self.file: Optional[str] = file
         self.use_method: bool = use_method
         if file is not None:
             self.isFolder = os.path.isdir(file)
@@ -30,31 +34,31 @@ class BPDecoder(Decoder):
         self.correct: int = 0
         self.corrupt: int = 0
         self.number_of_chunks: int = 1000000
-        self.headerChunk: typing.Optional[HeaderChunk] = None
-        self.decodedPackets: typing.Set[Packet] = set()
-        self.queue: deque = deque()
+        self.headerChunk: Optional[HeaderChunk] = None
+        self.decodedPackets: Set[Packet] = set()
+        self.queue: Deque[Packet] = deque()
         self.pseudoCount: int = 0
-        self.repairBlockNumbers: dict = dict()
+        self.repairBlockNumbers: Dict[int, Set[int]] = {}
         self.s: int = -1
         self.h: int = -1
         self.numberOfDecodedAuxBlocks: int = 0
-        self.dist: typing.Optional[Distribution] = None
+        self.dist: Optional[Distribution] = None
         self.EOF: bool = False
-        self.counter: dict = dict()
+        self.counter: Dict[int, int] = {}
         self.count: bool = False
-        self.error_correction: typing.Callable = error_correction
+        self.error_correction: Callable[[bytes], bytes] = error_correction
         self.use_headerchunk: bool = use_headerchunk
-        self.static_number_of_chunks: typing.Optional[int] = static_number_of_chunks
-        self.auxBlocks: typing.Union[
-            typing.Dict[int, RU10IntermediatePacket], typing.Dict[int, OnlineAuxPacket]] = dict()
-        self.degreeToPacket: typing.Dict[int, typing.Set[Packet]] = {}
-        self.ldpcANDhalf: typing.Dict[int, RU10IntermediatePacket] = dict()
+        self.static_number_of_chunks: Optional[int] = static_number_of_chunks
+        self.auxBlocks: Dict[int, Union[RU10IntermediatePacket, OnlineAuxPacket]] = {}
+        self.degreeToPacket: Dict[int, Set[Packet]] = {}
+        self.ldpcANDhalf: Dict[int, RU10IntermediatePacket] = {}
 
-    def addPacket(self, packet: typing.Union[Packet, RU10Packet, OnlinePacket]) -> None:
+    def addPacket(self, packet: Union[Packet, RU10Packet, OnlinePacket]) -> None:
         removed = self.removeAndXorAuxPackets(packet)
         packet.set_used_packets(set(from_true_false_list(removed)))
         if (not packet.get_degree() in self.degreeToPacket) or (
-                not isinstance(self.degreeToPacket[packet.get_degree()], set)):
+            not isinstance(self.degreeToPacket[packet.get_degree()], set)
+        ):
             self.degreeToPacket[packet.get_degree()] = set()
         if self.static_number_of_chunks is None:
             self.number_of_chunks = packet.get_total_number_of_chunks()
@@ -62,33 +66,38 @@ class BPDecoder(Decoder):
         # Correct
 
     def updatePackets(self, packet: Packet) -> bool:
-        if (packet.get_degree() == 1 and next(iter(packet.get_used_packets())) < self.number_of_chunks and (
-                next(iter(packet.get_used_packets())) != 0 or not self.use_headerchunk)):
+        if (
+            packet.get_degree() == 1
+            and next(iter(packet.get_used_packets())) < self.number_of_chunks
+            and (next(iter(packet.get_used_packets())) != 0 or not self.use_headerchunk)
+        ):
             # Directly add Packets that are degree == 1 (except for HeaderPacket)
             self.decodedPackets.add(packet)
             return self.is_decoded()
         self.queue.append(packet)
-        self.solve()
+        return self.solve()
 
-    def solve(self):
+    def solve(self) -> bool:
         finished = False
         while len(self.queue) > 0 and not finished:
             finished = self.reduceAll(self.queue.popleft())
         return finished
 
-    def removeAndXorAuxPackets(self, packet: typing.Union[Packet, RU10Packet, OnlinePacket]) -> typing.List[bool]:
-        pass
+    def removeAndXorAuxPackets(self, packet: Union[Packet, RU10Packet, OnlinePacket]) -> List[bool]:
+        pass  # type: ignore[return-value]
 
-    def compareAndReduce(self, packet: Packet, other: Packet) -> typing.Union[bool, int]:
+    def compareAndReduce(self, packet: Packet, other: Packet) -> Union[bool, int]:
         if self.file is None:
             packet.remove_packets(other.get_used_packets())
         else:
             packet.xor_and_remove_packet(other)
         degree = packet.get_degree()
-        if (degree not in self.degreeToPacket) or (not isinstance(self.degreeToPacket[degree], set)):
+        if (degree not in self.degreeToPacket) or (
+            not isinstance(self.degreeToPacket[degree], set)
+        ):
             self.degreeToPacket[degree] = set()
         if degree == 1:
-            [x] = (packet.get_used_packets())  # Unpacking -> Fastest way to extract Element from Set
+            [x] = packet.get_used_packets()  # Unpacking -> Fastest way to extract Element from Set
             if x > self.number_of_chunks:  # we got a new AUX-Packet
                 raise RuntimeError("this should not have happened!")
             else:
@@ -103,7 +112,7 @@ class BPDecoder(Decoder):
     def reduceAll(self, packet: Packet) -> bool:
         # lookup all packets for this to solve with ( when this packet has a subset of used Packets)
         fin: bool = False
-        lookup: typing.List[int] = [i for i in self.degreeToPacket.keys() if packet.get_degree() < i]
+        lookup: List[int] = [i for i in self.degreeToPacket.keys() if packet.get_degree() < i]
         for i in lookup:
             if not isinstance(self.degreeToPacket[i], set):
                 self.degreeToPacket[i] = set()
@@ -116,7 +125,7 @@ class BPDecoder(Decoder):
                     if isinstance(degree, bool) and degree is True:
                         return degree
         degree: int = packet.get_degree()
-        lookup: typing.List[int] = [i for i in self.degreeToPacket.keys() if packet.get_degree() > i]
+        lookup = [i for i in self.degreeToPacket.keys() if packet.get_degree() > i]
         for i in lookup:
             if not isinstance(self.degreeToPacket[i], set):
                 self.degreeToPacket[i] = set()
@@ -129,7 +138,7 @@ class BPDecoder(Decoder):
                         degree = self.compareAndReduce(packet, p)
                         if isinstance(degree, bool) and degree is True:
                             return degree
-                    except:
+                    except Exception:
                         continue
                     # If we already reduced a Packet with the same used_packets, there is no need to do it again
         return fin or self.is_decoded()

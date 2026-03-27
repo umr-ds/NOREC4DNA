@@ -1,10 +1,14 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
 import argparse
-import os, struct, numpy
-import typing
+import os, struct
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+import numpy as np
+import numpy
 from io import BytesIO
 from math import ceil
+
+from numpy.typing import NDArray
 
 from norec4dna.distributions.Distribution import Distribution
 from norec4dna.ErrorCorrection import get_error_correction_decode, nocode, crc32
@@ -13,56 +17,58 @@ from norec4dna.OnlinePacket import OnlinePacket
 from norec4dna.OnlineAuxPacket import OnlineAuxPacket
 from norec4dna.distributions.OnlineDistribution import OnlineDistribution
 from norec4dna.HeaderChunk import HeaderChunk
-from norec4dna.GEPP import GEPP
+from norec4dna.GEPP import GEPP, GEPP_intern
 from norec4dna.helper import logical_xor, calc_crc, xor_mask, calc_file_crc
 from norec4dna.helper.quaternary2Bin import quat_file_to_bin, tranlate_quat_to_byte
 
 
 class OnlineDecoder(Decoder):
-    def __init__(self, file: typing.Optional[str] = None,
-                 error_correction: typing.Callable[[typing.Any], typing.Any] = nocode, use_headerchunk: bool = True,
-                 static_number_of_chunks: typing.Optional[int] = None, read_all=True, checksum_len_str: str = None,
-                 config_map=None):
+    def __init__(self, file: Optional[str] = None,
+                 error_correction: Callable[[bytes], bytes] = nocode, use_headerchunk: bool = True,
+                 static_number_of_chunks: Optional[int] = None, read_all: bool = True, checksum_len_str: Optional[str] = None,
+                 config_map: Optional[Any] = None):
         super().__init__(file)
-        if checksum_len_str is None:
-            self.checksum_len_str = ""
-        if not use_headerchunk and (checksum_len_str != "" and checksum_len_str is not None):
+        self.checksum_len_str: str = checksum_len_str if checksum_len_str is not None else ""
+        if not use_headerchunk and (self.checksum_len_str != "" and self.checksum_len_str is not None):
             raise Exception("Header-checksums are only supported with headerchunks.")
-        self.checksum_len_str = checksum_len_str
         self.debug: bool = False
         self.isPseudo: bool = False
-        self.file: str = file
-        self.decodedPackets: typing.Set[OnlinePacket] = set()
-        self.degreeToPacket: typing.Dict[int, typing.Set[OnlinePacket]] = {}
+        self.file: Optional[str] = file
+        self.decodedPackets: Set[OnlinePacket] = set()
+        self.degreeToPacket: Dict[int, Set[OnlinePacket]] = {}
+        self.f: Optional[Any] = None
+        self.isFolder: bool = False
         if file is not None:
-            self.isFolder: bool = os.path.isdir(file)
+            self.isFolder = os.path.isdir(file)
             if not self.isFolder:
-                self.f = open(self.file, "rb")
+                self.f = open(file, "rb")
         self.correct: int = 0
         self.corrupt: int = 0
-        self.rng: numpy.random = numpy.random
+        self.rng: Any = np.random
+        self.number_of_chunks: int = 1000000
         if static_number_of_chunks is not None:
             self.number_of_chunks = static_number_of_chunks
-        self.headerChunk: typing.Optional[HeaderChunk] = None
-        self.auxBlockNumbers: typing.Dict[int, typing.Set[int]] = dict()
-        self.auxBlocks: typing.Dict[int, OnlineAuxPacket] = dict()
-        self.GEPP: typing.Optional[GEPP] = None
-        self.dist: typing.Optional[typing.Union[OnlineDistribution, Distribution]] = None
+        self.headerChunk: Optional[HeaderChunk] = None
+        self.auxBlockNumbers: Dict[int, Set[int]] = dict()
+        self.auxBlocks: Dict[int, OnlineAuxPacket] = dict()
+        self.GEPP: Optional[GEPP_intern] = None
+        self.dist: Optional[OnlineDistribution] = None
         self.read_all_before_decode: bool = read_all
         self.numberOfDecodedAuxBlocks: int = 0
         self.do_count: bool = True
-        self.counter: typing.Dict[int, int] = dict()
-        self.error_correction: typing.Callable[[typing.Any], typing.Any] = error_correction
+        self.counter: Dict[int, int] = dict()
+        self.error_correction: Callable[[bytes], bytes] = error_correction
         self.use_headerchunk: bool = use_headerchunk
-        self.static_number_of_chunks: int = static_number_of_chunks
+        self.static_number_of_chunks: Optional[int] = static_number_of_chunks
         self.EOF: bool = False
         self.quality: int = 0
         self.epsilon: float = 0.0
-        self.config_map = config_map
+        self.config_map: Optional[Any] = config_map
 
     def decodeFolder(self, packet_len_format: str = "I", crc_len_format: str = "L",
                      number_of_chunks_len_format: str = "I", quality_len_format: str = "I",
                      epsilon_len_format: str = "f", check_block_number_len_format: str = "I"):
+        assert self.file is not None, "file must be set before calling decodeFolder!"
         decoded: bool = False
         self.EOF: bool = False
         if self.static_number_of_chunks is not None:
@@ -98,6 +104,7 @@ class OnlineDecoder(Decoder):
     def decodeFile(self, packet_len_format: str = "I", crc_len_format: str = "L",
                    number_of_chunks_len_format: str = "I", quality_len_format: str = "I", epsilon_len_format: str = "f",
                    check_block_number_len_format: str = "I"):
+        assert self.file is not None, "file must be set before calling decodeFile!"
         if self.static_number_of_chunks is not None:
             self.number_of_chunks = self.static_number_of_chunks
             number_of_chunks_len_format = ""  # if we got static number_of_chunks we do not need it in struct string
@@ -128,7 +135,8 @@ class OnlineDecoder(Decoder):
                                                  epsilon_len_format=epsilon_len_format,
                                                  quality_len_format=quality_len_format,
                                                  check_block_number_len_format=check_block_number_len_format)
-                decoded = self.input_new_packet(new_pack)
+                if new_pack is not None:
+                    decoded = self.input_new_packet(new_pack)
                 if self.progress_bar is not None:
                     self.progress_bar.update(self.correct, Corrupt=self.corrupt)
             else:
@@ -152,6 +160,9 @@ class OnlineDecoder(Decoder):
             print("Unable to retrieve file from chunks. Too many errors?")
             return -1
 
+    def decodeZip(self, *args: Any, **kwargs: Any) -> Optional[Any]:
+        raise NotImplementedError("Not implemented for OnlineDecoder!")
+
     def createAuxBlocks(self) -> None:
         assert self.number_of_chunks is not None, "createAuxBlocks can only be called AFTER first Packet"
         self.rng.seed(self.number_of_chunks)
@@ -172,41 +183,61 @@ class OnlineDecoder(Decoder):
             self.auxBlocks[aux_number] = OnlineAuxPacket(b"", self.auxBlockNumbers[aux_number], aux_number=aux_number,
                                                          total_number_of_chunks=self.number_of_chunks)  # , numberOfAuxPackets=self.getNumberOfAuxBlocks()) # We will add the Data once we have it.
 
-    def getAuxPacketListFromPacket(self, packet: OnlinePacket) -> typing.List[typing.List[bool]]:
-        res: typing.List[typing.List[bool]] = []
-        aux_used_packets = packet.getBoolArrayAuxPackets()
-        i = 0
-        for aux in aux_used_packets:
-            if aux:
-                res.append(self.auxBlocks[i].get_bool_array_used_packets())
-            i += 1
-        return res
+    def getAuxPacketListFromPacket(self, packet: OnlinePacket) -> NDArray[np.bool_]:
+        """Return a 2D boolean array (rows = aux-blocks included by packet).
 
-    def removeAndXorAuxPackets(self, packet: OnlinePacket) -> typing.List[typing.List[bool]]:
+        Each row is the boolean mask returned by
+        `self.auxBlocks[i].get_bool_array_used_packets()` for the aux blocks
+        that are marked as used in the given packet. If no aux blocks are
+        referenced by the packet an empty array with shape (0, number_of_chunks)
+        is returned.
+        """
+        aux_used_packets = packet.getBoolArrayAuxPackets()
+        rows = []
+        # collect rows for aux blocks that are used
+        for i, aux in enumerate(aux_used_packets):
+            if aux:
+                arr = self.auxBlocks[i].get_bool_array_used_packets()
+                rows.append(np.asarray(arr, dtype=bool))
+
+        if not rows:
+            # no aux rows -> return empty 2D array with appropriate width
+            return np.zeros((0, self.number_of_chunks), dtype=np.bool_)
+
+        # stack into a 2D numpy array where each row corresponds to one aux block
+        return np.vstack(rows).astype(np.bool_)
+
+    def removeAndXorAuxPackets(self, packet: OnlinePacket) -> NDArray[np.bool_]:
         aux_mapping = self.getAuxPacketListFromPacket(packet)
-        aux_mapping.append(packet.get_bool_array_used_packets())
-        return logical_xor(aux_mapping)
+        packet_row = np.asarray(packet.get_bool_array_used_packets(), dtype=bool)
+        # combine aux rows with the packet's own row as the last row
+        if aux_mapping.size == 0:
+            combined = packet_row[np.newaxis, :]
+        else:
+            combined = np.vstack((aux_mapping, packet_row))
+
+        return logical_xor(combined)
 
     def input_new_packet(self, packet: OnlinePacket) -> bool:
-        if self.isPseudo and self.auxBlocks == dict():
+        if self.isPseudo and self.auxBlocks == {}:
             self.number_of_chunks = packet.get_total_number_of_chunks()
             self.quality = packet.getQuality()
             self.epsilon = round(packet.getEpsilon(), 6)
-            self.dist: Distribution = OnlineDistribution(self.epsilon)
+            self.dist = OnlineDistribution(self.epsilon)
             self.createAuxBlocks()
-        removed: typing.List[typing.List[bool]] = self.removeAndXorAuxPackets(packet)
+        removed: NDArray[np.bool_] = self.removeAndXorAuxPackets(packet)
         if self.do_count:
             for i in range(len(removed)):
                 if i in self.counter.keys():
-                    if removed[i]:
+                    if bool(removed[i]):
                         self.counter[i] += 1
                 else:
                     self.counter[i] = 1
         if self.GEPP is None:
-            self.GEPP: GEPP = GEPP(numpy.array([removed], dtype=bool),
-                                   numpy.frombuffer(packet.get_data(), dtype="uint8"), )
+            self.GEPP = GEPP(removed[np.newaxis, :],
+                                   np.frombuffer(packet.get_data(), dtype="uint8"), )
         else:
-            self.GEPP.addRow(self.removeAndXorAuxPackets(packet), numpy.frombuffer(packet.get_data(), dtype="uint8"), )
+            self.GEPP.addRow(self.removeAndXorAuxPackets(packet), np.frombuffer(packet.get_data(), dtype="uint8"), )
         if self.isPseudo and not self.read_all_before_decode and (
                 self.GEPP.isPotentionallySolvable() and self.GEPP.n % 25 == 0):
             if self.debug:
@@ -214,8 +245,10 @@ class OnlineDecoder(Decoder):
             return self.GEPP.solve(partial=False)
         return False
 
-    def solve(self) -> bool:
-        return self.GEPP.solve()
+
+    def solve(self, partial:bool=False) -> bool:
+        assert self.GEPP is not None, "GEPP must not be None!"
+        return self.GEPP.solve(partial)
 
     def getSolvedCount(self) -> int:
         return self.GEPP.getSolvedCount()
@@ -226,8 +259,7 @@ class OnlineDecoder(Decoder):
     def getNextValidPacket(self, from_multiple_files: bool = False, packet_len_format: str = "I",
                            crc_len_format: str = "L", number_of_chunks_len_format: str = "I",
                            quality_len_format: str = "I", epsilon_len_format: str = "f",
-                           check_block_number_len_format: str = "I") -> typing.Optional[
-        typing.Union[str, OnlinePacket]]:
+                           check_block_number_len_format: str = "I") -> Optional[OnlinePacket]:
         if not from_multiple_files:
             packet_len = self.f.read(struct.calcsize("<" + packet_len_format))
             packet_len = struct.unpack("<" + packet_len_format, packet_len)[0]
@@ -243,7 +275,7 @@ class OnlineDecoder(Decoder):
                                     number_of_chunks_len_format=number_of_chunks_len_format,
                                     quality_len_format=quality_len_format, epsilon_len_format=epsilon_len_format,
                                     check_block_number_len_format=check_block_number_len_format)
-        if res == "CORRUPT":
+        if res is None:
             res = self.getNextValidPacket(from_multiple_files, packet_len_format=packet_len_format,
                                           crc_len_format=crc_len_format,
                                           number_of_chunks_len_format=number_of_chunks_len_format,
@@ -251,35 +283,34 @@ class OnlineDecoder(Decoder):
                                           check_block_number_len_format=check_block_number_len_format)
         return res
 
-    def parse_raw_packet(self, packet: bytes, crc_len_format="L", number_of_chunks_len_format="I",
-                         quality_len_format="I", epsilon_len_format="f", check_block_number_len_format="I") -> \
-            typing.Optional[typing.Union[str, OnlinePacket]]:
+    def parse_raw_packet(self, packet: bytes, crc_len_format: str = "L", number_of_chunks_len_format: str = "I",
+                         quality_len_format: str = "I", epsilon_len_format: str = "f", check_block_number_len_format: str = "I") -> Optional[OnlinePacket]:
         crc_len = -struct.calcsize("<" + crc_len_format)
         if self.error_correction.__code__.co_name == crc32.__code__.co_name:
             payload = packet[:crc_len]
-            crc: int = struct.unpack("<" + crc_len_format, packet[crc_len:])[0]
-            calced_crc: int = calc_crc(payload)
+            crc = struct.unpack("<" + crc_len_format, packet[crc_len:])[0]
+            calced_crc = calc_crc(payload)
             if crc != calced_crc:  # If the Packet is corrupt, try next one
                 print("[-] CRC-Error - " + str(hex(crc)) + " != " + str(hex(calced_crc)))
                 self.corrupt += 1
-                return "CORRUPT"
+                return None
         else:
             crc_len = None
             try:
                 packet = self.error_correction(packet)
             except:
-                return "CORRUPT"  # if RS or other error correction cannot reconstruct this packet
-        struct_str: str = "<" + number_of_chunks_len_format + quality_len_format + epsilon_len_format + check_block_number_len_format
-        struct_len: int = struct.calcsize(struct_str)
-        data: bytes = packet[struct_len:crc_len]
-        len_data: typing.Union[typing.Tuple[int, int, float, int], typing.Tuple[int, float, int]] = struct.unpack(
-            struct_str, packet[0:struct_len])
+                return None  # if RS or other error correction cannot reconstruct this packet
+        struct_str = "<" + number_of_chunks_len_format + quality_len_format + epsilon_len_format + check_block_number_len_format
+        struct_len = struct.calcsize(struct_str)
+        data = packet[struct_len:crc_len]
+        len_data = struct.unpack(struct_str, packet[0:struct_len])
         if self.static_number_of_chunks is None:
-            number_of_chunks, quality, self.epsilon, check_block_number = len_data
+            number_of_chunks, quality, epsilon_val, check_block_number = len_data
             self.number_of_chunks = xor_mask(number_of_chunks, number_of_chunks_len_format)
+            self.epsilon = round(epsilon_val, 6)
         else:
-            quality, self.epsilon, check_block_number = len_data
-            self.epsilon = round(self.epsilon, 6)
+            quality, epsilon_val, check_block_number = len_data
+            self.epsilon = round(epsilon_val, 6)
         self.quality = xor_mask(quality, quality_len_format)
         if self.dist is None:
             self.dist = OnlineDistribution(self.epsilon)
@@ -303,9 +334,21 @@ class OnlineDecoder(Decoder):
                 self.headerChunk = HeaderChunk(decoded, last_chunk_len_format=last_chunk_len_format,
                                                checksum_len_format=self.checksum_len_str)
 
-    def saveDecodedFile(self, last_chunk_len_format: str = "I", null_is_terminator: bool = False,
-                        print_to_output: bool = False) -> None:
-        assert self.is_decoded(), "Can not save File: Unable to reconstruct."
+    #def saveDecodedFile(self, last_chunk_len_format: str = "I", null_is_terminator: bool = False,
+    #                    print_to_output: bool = False, return_file_name:bool = False) -> None:
+    def saveDecodedFile(
+            self,
+            last_chunk_len_format: str = "I",
+            null_is_terminator: bool = False,
+            print_to_output: bool = True,
+            return_file_name: bool = False,
+            partial_decoding: bool = True
+    ) -> Union[bytes, str]:
+        assert self.is_decoded() or partial_decoding, (
+            "Can not save File: Unable to reconstruct."
+        )
+        if partial_decoding:
+            self.solve(partial=True)
         if self.use_headerchunk:
             self.headerChunk = HeaderChunk(
                 OnlinePacket(self.GEPP.b[0], self.number_of_chunks, self.quality, self.epsilon, 0, {0}, self.dist,
@@ -349,13 +392,16 @@ class OnlineDecoder(Decoder):
         if print_to_output:
             print("Result:")
             print(output_concat.decode("utf-8"))
+        if return_file_name:
+            return file_name
+        return output_concat
 
     def getNumberOfAuxBlocks(self) -> int:
         return ceil(0.55 * self.quality * self.epsilon * self.number_of_chunks)
 
 
-def main(file: str, number_of_chunks: int, error_correction: typing.Callable[[typing.Any], typing.Any] = nocode,
-         insertheader=False, _header_crc_str: str = None):
+def main(file: str, number_of_chunks: int, error_correction: Callable[[bytes], bytes] = nocode,
+         insertheader: bool = False, _header_crc_str: Optional[str] = None):
     decoder = OnlineDecoder(file, error_correction=error_correction, use_headerchunk=insertheader,
                             static_number_of_chunks=number_of_chunks, checksum_len_str=_header_crc_str)
     decoder.decode(quality_len_format="B", check_block_number_len_format="H",

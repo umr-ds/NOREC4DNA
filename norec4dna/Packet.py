@@ -1,10 +1,12 @@
 import struct
 import typing
+from typing import Any, Callable, List, Optional, Set, Union
 
 import numpy as np
 from norec4dna.ErrorCorrection import nocode
 from norec4dna.helper import xor_mask, xor_numpy
-from norec4dna.helper.bin2Quaternary import string2QUATS, quads2dna
+from norec4dna.helper.bin2Quaternary import quads2dna, string2QUATS
+from numpy.typing import NDArray
 
 
 def interleave_spacing(input_str: str, spacing: int, spacing_length: int) -> str:
@@ -13,7 +15,7 @@ def interleave_spacing(input_str: str, spacing: int, spacing_length: int) -> str
 
     left, right = input_str[:spacing_length], input_str[spacing_length:]
 
-    interleaved_str = ''
+    interleaved_str = ""
     i = 0
     j = 0
 
@@ -34,8 +36,8 @@ def deinterleave_spacing(interleaved_str: str, spacing: int, spacing_length: int
     if spacing <= 0 or spacing_length <= 0:
         return interleaved_str
 
-    left_chars = []
-    right_chars = []
+    left_chars: List[str] = []
+    right_chars: List[str] = []
 
     i = 0
     left_count = 0
@@ -53,24 +55,37 @@ def deinterleave_spacing(interleaved_str: str, spacing: int, spacing_length: int
             right_count += 1
             i += 1
 
-    return ''.join(left_chars) + ''.join(right_chars)
+    return "".join(left_chars) + "".join(right_chars)
 
 
 class Packet:
-    def __init__(self, data, used_packets: typing.Collection[int], total_number_of_chunks: int, read_only: bool = False,
-                 seed: int = 0, implicit_mode: bool = True, error_correction: typing.Callable = nocode,
-                 packet_len_format: str = "I", crc_len_format: str = "L", number_of_chunks_len_format: str = "I",
-                 used_packets_len_format: str = "I", id_len_format: str = "I",
-                 save_number_of_chunks_in_packet: bool = True, prepend="", append=""):
-        self.data: bytes = data
-        self.error_correction: typing.Callable = error_correction
+    def __init__(
+        self,
+        data: Union[bytes, NDArray[np.uint8]],
+        used_packets: Set[int],
+        total_number_of_chunks: int,
+        read_only: bool = False,
+        seed: int = 0,
+        implicit_mode: bool = True,
+        error_correction: Callable[[bytes], bytes] = nocode,  # type: ignore[assignment]
+        packet_len_format: str = "I",
+        crc_len_format: str = "L",
+        number_of_chunks_len_format: str = "I",
+        used_packets_len_format: str = "I",
+        id_len_format: str = "I",
+        save_number_of_chunks_in_packet: bool = True,
+        prepend: str = "",
+        append: str = "",
+    ):
+        self.data: Union[bytes, NDArray[np.uint8]] = data
+        self.error_correction: Callable[[bytes], bytes] = error_correction
         self.total_number_of_chunks: int = total_number_of_chunks
-        self.used_packets: typing.Optional[typing.Collection[int]] = None
+        self.used_packets: Set[int] = set()
         self.set_used_packets(used_packets)
-        self.internal_hash = None
+        self.internal_hash: Optional[int] = None
         self.degree: int = 0  # just a stub
         self.update_degree()
-        self.dna_data: typing.Optional[str] = None
+        self.dna_data: Optional[str] = None
         self.id: int = seed
         self.packet_len_format: str = packet_len_format
         self.crc_len_format: str = crc_len_format
@@ -78,22 +93,24 @@ class Packet:
         self.used_packets_len_format: str = used_packets_len_format
         self.id_len_format: str = id_len_format
         self.save_number_of_chunks_in_packet: bool = save_number_of_chunks_in_packet
-        self.error_prob: typing.Optional[int] = None
+        self.error_prob: Optional[int] = None
         self.implicit_mode: bool = implicit_mode
         self.did_change: bool = False
-        self.packed_data: typing.Optional[bytes] = None
+        self.packed_data: Optional[bytes] = None
+        self.packed_used_packets: bytes
+        self.packed: bytes
         if not read_only:
-            self.packed_used_packets: bytes = self.prepare_and_pack()
-            self.packed: bytes = self.calculate_packed_data()
+            self.packed_used_packets = self.prepare_and_pack()
+            self.packed = self.calculate_packed_data()
         self.prepend = prepend
         self.append = append
 
     @classmethod
-    def from_packet(cls, packet, pseudo=False):
+    def from_packet(cls, packet: "Packet", pseudo: bool = False) -> "Packet":
         if not pseudo:
             data = packet.get_data()
         else:
-            data = ""
+            data = b""
         used_packets = packet.get_used_packets()
         number_of_packets = packet.get_total_number_of_chunks()
         res = cls(data, used_packets, number_of_packets)
@@ -101,42 +118,52 @@ class Packet:
         res.dna_data = None
         return res
 
-    def get_org_class(self):
+    def get_org_class(self) -> str:
         return self.__module__.split(".")[1]
 
-    def set_used_packets(self, used_packets: typing.Iterable[int]):
+    def set_used_packets(self, used_packets: Set[int]) -> None:
         self.used_packets = used_packets
         self.internal_hash = None
 
-    def prepare_and_pack(self):
+    def prepare_and_pack(self) -> bytes:
         # Format = Highest possible Packetnumber for this file, number of used Packets for this
         # File and the Indizies of the used Packets
-        struct_str = "<" + (self.number_of_chunks_len_format if self.save_number_of_chunks_in_packet else "") + (
-            self.used_packets_len_format if not self.implicit_mode else "") + self.id_len_format
+        struct_str = (
+            "<"
+            + (self.number_of_chunks_len_format if self.save_number_of_chunks_in_packet else "")
+            + (self.used_packets_len_format if not self.implicit_mode else "")
+            + self.id_len_format
+        )
         if self.save_number_of_chunks_in_packet:
             if self.implicit_mode:
-                return struct.pack(struct_str, xor_mask(self.total_number_of_chunks, self.number_of_chunks_len_format),
-                                   xor_mask(self.id, self.id_len_format))
+                return struct.pack(
+                    struct_str,
+                    xor_mask(self.total_number_of_chunks, self.number_of_chunks_len_format),
+                    xor_mask(self.id, self.id_len_format),
+                )
             else:
-                return struct.pack(struct_str, xor_mask(self.total_number_of_chunks, self.number_of_chunks_len_format),
-                                   xor_mask(len(self.used_packets), self.used_packets_len_format),
-                                   xor_mask(self.id, self.id_len_format))
+                return struct.pack(
+                    struct_str,
+                    xor_mask(self.total_number_of_chunks, self.number_of_chunks_len_format),
+                    xor_mask(len(self.used_packets), self.used_packets_len_format),
+                    xor_mask(self.id, self.id_len_format),
+                )
         else:
             if self.implicit_mode:
                 return struct.pack(struct_str, xor_mask(self.id, self.id_len_format))
             else:
-                return struct.pack(struct_str, xor_mask(len(self.used_packets), self.used_packets_len_format),
-                                   xor_mask(self.id, self.id_len_format))
+                return struct.pack(
+                    struct_str,
+                    xor_mask(len(self.used_packets), self.used_packets_len_format),
+                    xor_mask(self.id, self.id_len_format),
+                )
 
-    def calculate_packed_data(self):
+    def calculate_packed_data(self) -> bytes:
         # Laenge des Packets + UsedPackets + Data + crc
         self.packed_data = struct.pack("<" + str(len(self.data)) + "s", bytes(self.data))
+        assert self.packed_data is not None
         payload = struct.pack(
-            "<"
-            + str(len(self.packed_used_packets))
-            + "s"
-            + str(len(self.packed_data))
-            + "s",
+            "<" + str(len(self.packed_used_packets)) + "s" + str(len(self.packed_data)) + "s",
             self.packed_used_packets,
             self.packed_data,
         )
@@ -145,159 +172,213 @@ class Packet:
     def get_struct(self, split_to_multiple_files: bool) -> bytes:
         packed = self.packed
         if not split_to_multiple_files:
-            return struct.pack("<" + self.packet_len_format + str(len(packed)) + "s", len(packed), packed)
+            return struct.pack(
+                "<" + self.packet_len_format + str(len(packed)) + "s", len(packed), packed
+            )
         else:
             return packed
 
-    def get_dna_struct(self, split_to_multiple_files: bool, spacing: int = 0, spacing_length: int = 0, recalculate:bool = False) -> str:
+    def get_dna_struct(
+        self,
+        split_to_multiple_files: bool,
+        spacing: int = 0,
+        spacing_length: int = 0,
+        recalculate: bool = False,
+    ) -> str:
         if recalculate:
             self.packed_used_packets = self.prepare_and_pack()
             self.packed = self.calculate_packed_data()
             self.dna_data = None
-        if self.dna_data is None and self.error_correction.__name__ == 'dna_reed_solomon_encode':
-            self.dna_data = self.prepend + quads2dna(self.get_struct(split_to_multiple_files)) + self.append
+        if self.dna_data is None and self.error_correction.__name__ == "dna_reed_solomon_encode":
+            self.dna_data = (
+                self.prepend + quads2dna(self.get_struct(split_to_multiple_files)) + self.append
+            )
         elif self.dna_data is None:
-            self.dna_data = self.prepend + interleave_spacing(
-                "".join(string2QUATS(self.get_struct(split_to_multiple_files))), spacing, spacing_length) + self.append
+            self.dna_data = (
+                self.prepend
+                + interleave_spacing(
+                    "".join(string2QUATS(self.get_struct(split_to_multiple_files))),
+                    spacing,
+                    spacing_length,
+                )
+                + self.append
+            )
+        assert self.dna_data is not None, "Should never happen"
         self.internal_hash = None  # enforce recalculation of hash
         return self.dna_data
 
-    def get_data(self) -> bytes:
+    def get_data(self) -> Union[bytes, NDArray[np.uint8]]:
         return self.data
 
-    def set_data(self, data: bytes):
+    def set_data(self, data: Union[bytes, NDArray[np.uint8]]) -> None:
         self.data = data
 
-    def get_used_packets(self):
+    def get_used_packets(self) -> Set[int]:
         return self.used_packets
 
-    def get_bool_array_used_packets(self) -> typing.List[bool]:
-        return [x in self.used_packets for x in range(self.total_number_of_chunks)]
+    def get_bool_array_used_packets(self) -> NDArray[np.bool_]:
+        return np.array([x in self.used_packets for x in range(self.total_number_of_chunks)], dtype=bool)
 
-    def set_bool_array_used_packet(self, b_array: typing.List[bool]):
+    def set_bool_array_used_packet(self, b_array: List[bool]) -> None:
         assert len(b_array) == self.total_number_of_chunks, "Problem"
-        self.set_used_packets(set([k for k in range(self.total_number_of_chunks) if b_array[k]]))
+        self.set_used_packets({k for k in range(self.total_number_of_chunks) if b_array[k]})
 
     def get_total_number_of_chunks(self) -> int:
         return self.total_number_of_chunks
 
-    def get_error_correction(self) -> typing.Callable:
+    def get_error_correction(self) -> Callable[[bytes], bytes]:
         return self.error_correction
 
-    def update_degree(self):
+    def update_degree(self) -> None:
         self.degree = len(self.used_packets)
 
     def get_degree(self) -> int:
         return self.degree
 
-    def remove_packets(self, packet_set: typing.Set):
+    def remove_packets(self, packet_set: Set[int]) -> None:
         self.set_used_packets(self.used_packets.difference(packet_set))
         self.update_degree()
         self.did_change = True  # CRC is no longer valid
 
-    def xor_and_remove_packet(self, packet):
+    def xor_and_remove_packet(self, packet: "Packet") -> None:
         self.remove_packets(packet.get_used_packets())
         self.data = xor_numpy(self.data, packet.get_data())
         self.did_change = True  # CRC is no longer valid
 
-    def set_error_prob(self, error_prob: typing.Optional[int] = None):
+    def set_error_prob(self, error_prob: Optional[int] = None) -> None:
         self.error_prob = error_prob
 
     def __str__(self) -> str:
         return (
-                "< "
-                + "Id"
-                + str(self.id)
-                + "used_packets: "
-                + str(self.used_packets)
-                + " , Data: "
-                + str(self.data)
-                + " , Error Correction: "
-                + str(self.error_correction)
-                + " >"
+            "< "
+            + "Id"
+            + str(self.id)
+            + "used_packets: "
+            + str(self.used_packets)
+            + " , Data: "
+            + str(self.data)
+            + " , Error Correction: "
+            + str(self.error_correction)
+            + " >"
         )
 
     def __repr__(self) -> str:
         return self.__str__()
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: Any) -> bool:
         # if self.error_prob is not None and other.error_prob is not None:
         #    return self.error_prob == other.error_prob
         # else:
-        return isinstance(other, self.__class__) and hash(self) == hash(other) and np.all(
-            np.equal(self.data, other.data))
+        return (
+            isinstance(other, self.__class__)
+            and hash(self) == hash(other)
+            and bool(np.all(np.equal(self.data, other.data)))
+        )
 
-    def __lt__(self, other) -> bool:
+    def __lt__(self, other: "Packet") -> bool:
         if self.error_prob is not None and other.error_prob is not None:
             return self.error_prob < other.error_prob
         else:
             return min(self.get_used_packets()) < min(other.get_used_packets())
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         if self.internal_hash is None:
             self.internal_hash = hash(
-                str(self.total_number_of_chunks) + str(self.id) + str(
-                    ("" if self.error_prob is None else self.error_prob)) + self.__module__ + (
-                    str(self.data) if self.dna_data is None else self.dna_data))
+                str(self.total_number_of_chunks)
+                + str(self.id)
+                + str("" if self.error_prob is None else self.error_prob)
+                + self.__module__
+                + (str(self.data) if self.dna_data is None else self.dna_data)
+            )
+        assert self.internal_hash is not None
         return self.internal_hash
 
 
 class ParallelPacket:
-    def __init__(self, used_packets: typing.Set[int], total_number_of_chunks: int, p_id: int, data: bytes,
-                 dna_data: str, packed, error_prob: int, packet_len_format: str, crc_len_format: str,
-                 number_of_chunks_len_format: str, id_len_format: str, save_number_of_chunks_in_packet: bool,
-                 org_class: str = "", prepend="", append="", org_hash=None):
-        self.used_packets: typing.Set[int] = used_packets
+    def __init__(
+        self,
+        used_packets: Set[int],
+        total_number_of_chunks: int,
+        p_id: int,
+        data: Union[bytes, NDArray[np.uint8]],
+        dna_data: typing.Optional[str],
+        packed: bytes,
+        error_prob: typing.Optional[int],
+        packet_len_format: str,
+        crc_len_format: str,
+        number_of_chunks_len_format: str,
+        id_len_format: str,
+        save_number_of_chunks_in_packet: bool,
+        org_class: str = "",
+        prepend: str = "",
+        append: str = "",
+        org_hash: Optional[int] = None,
+    ):
+        self.used_packets: Set[int] = used_packets
         self.total_number_of_chunks: int = total_number_of_chunks
         self.id: int = p_id
-        self.data: bytes = data
-        self.dna_data: str = dna_data
+        self.datadata: Union[bytes, NDArray[np.uint8]] = data
+        self.dna_data: typing.Optional[str] = dna_data
         self.packed: bytes = packed
-        self.error_prob: int = error_prob
+        self.error_prob: typing.Optional[int] = error_prob
         self.packet_len_format: str = packet_len_format
         self.crc_len_format: str = crc_len_format
         self.number_of_chunks_len_format: str = number_of_chunks_len_format
         self.id_len_format: str = id_len_format
         self.safe_number_of_chunks_in_packet: bool = save_number_of_chunks_in_packet
         self.org_class: str = org_class.split(".")[1]
-        self.bool_arrayused_packets: typing.List[bool] = [
+        self.bool_arrayused_packets: List[bool] = [
             x in self.used_packets for x in range(0, self.total_number_of_chunks)
         ]
-        self.prepend = prepend
-        self.append = append
-        self.calculated_hash = org_hash
+        self.prepend: str = prepend
+        self.append: str = append
+        self.calculated_hash: Optional[int] = org_hash
 
     @classmethod
-    def from_packet(cls, packet):
-        return ParallelPacket(packet.used_packets, packet.total_number_of_chunks, packet.id, packet.data,
-                              packet.dna_data,
-                              packet.packed, packet.error_prob, packet.packet_len_format, packet.crc_len_format,
-                              packet.number_of_chunks_len_format, packet.id_len_format,
-                              packet.save_number_of_chunks_in_packet, org_class=packet.__module__,
-                              prepend=packet.prepend, append=packet.append, org_hash=hash(packet))
+    def from_packet(cls, packet: Packet) -> "ParallelPacket":
+        return ParallelPacket(
+            packet.used_packets,
+            packet.total_number_of_chunks,
+            packet.id,
+            packet.data,
+            packet.dna_data,
+            packet.packed,
+            packet.error_prob,
+            packet.packet_len_format,
+            packet.crc_len_format,
+            packet.number_of_chunks_len_format,
+            packet.id_len_format,
+            packet.save_number_of_chunks_in_packet,
+            org_class=packet.__module__,
+            prepend=packet.prepend,
+            append=packet.append,
+            org_hash=hash(packet),
+        )
 
     def get_org_class(self) -> str:
         return self.org_class
 
-    def __hash__(self):
+    def __hash__(self) -> typing.Optional[int]:
+
         if self.calculated_hash is None:
             self.calculated_hash = hash(
-                str(self.total_number_of_chunks) + str(self.id) + str(self.error_prob) + self.org_class + self.dna_data)
+                f"{self.total_number_of_chunks}{self.id}{self.error_prob}{self.org_class}{self.dna_data}"
+            )
         return self.calculated_hash
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: Any) -> bool:
         # if self.error_prob is not None and other.error_prob is not None:
         #    return self.error_prob == other.error_prob
         # else:
         return hash(self) == hash(other)
 
-    def __lt__(self, other) -> bool:
+    def __lt__(self, other: "ParallelPacket") -> bool:
         if self.error_prob is not None and other.error_prob is not None:
             return self.error_prob < other.error_prob
         else:
             return min(self.get_used_packets()) < min(other.get_used_packets())
 
-    def __gt__(self, other) -> bool:
+    def __gt__(self, other: "ParallelPacket") -> bool:
         if self.error_prob is not None and other.error_prob is not None:
             return self.error_prob > other.error_prob
         else:
@@ -308,12 +389,14 @@ class ParallelPacket:
             raise RuntimeError("DNA-Data should not be None!")
         return self.dna_data
 
-    def get_used_packets(self) -> typing.Set[int]:
+    def get_used_packets(self) -> Set[int]:
         return self.used_packets
 
     def get_struct(self, split_to_multiple_files: bool) -> bytes:
         packed = self.packed
         if not split_to_multiple_files:
-            return struct.pack("<" + self.packet_len_format + str(len(packed)) + "s", len(packed), packed)
+            return struct.pack(
+                "<" + self.packet_len_format + str(len(packed)) + "s", len(packed), packed
+            )
         else:
             return packed

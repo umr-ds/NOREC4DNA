@@ -1,31 +1,33 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
 import typing
-
+import numpy as np
+from numpy.typing import NDArray
 from norec4dna.ErrorCorrection import nocode
 from norec4dna.Packet import Packet
 from norec4dna.helper import xor_numpy
 
 
 class DecodePacket(Packet):
-    def __init__(self, data, used_packets, error_correction=nocode, number_of_chunks: int = -1):
+    def __init__(self, data: typing.Union[bytes, NDArray[np.uint8]], used_packets: typing.Set[int], error_correction: typing.Callable[[bytes], bytes] = nocode,
+                 number_of_chunks: int = -1):
         self.set_used_packets(used_packets)
-        self.data = data
-        self.error_correction = error_correction
-        self.did_change = False
-        self.internal_hash = None
+        self.data: typing.Union[bytes, NDArray[np.uint8]]= data
+        self.error_correction: typing.Callable[[bytes], bytes]  = error_correction
+        self.did_change: bool = False
+        self.internal_hash: typing.Optional[int] = None
         self.update_degree()
-        self.total_number_of_chunks = number_of_chunks
-        self.error_prob = None
-        self.id = None
-        self.dna_data = None
+        self.total_number_of_chunks: int = number_of_chunks
+        self.error_prob: typing.Optional[float] = None
+        self.id: typing.Optional[int] = None
+        self.dna_data: typing.Optional[str] = None
 
     @classmethod
-    def from_packet(cls, packet: Packet, pseudo: bool = False):
+    def from_packet(cls, packet: Packet, pseudo: bool = False) -> "DecodePacket":
         if not pseudo:
             data = packet.get_data()
         else:
-            data = ""
+            data = b""
         used_packets = packet.get_used_packets()
         error_correction = packet.get_error_correction()
         res = cls(data, used_packets, number_of_chunks=packet.total_number_of_chunks,
@@ -33,19 +35,19 @@ class DecodePacket(Packet):
         res.total_number_of_chunks = packet.get_total_number_of_chunks()
         return res
 
-    def get_used_packets(self):
+    def get_used_packets(self) -> typing.Set[int]:
         return self.used_packets
 
-    def get_data(self):
+    def get_data(self) -> typing.Union[bytes, NDArray[np.uint8]]:
         return self.data
 
-    def remove_packets(self, packet_set: typing.Collection):
+    def remove_packets(self, packet_set: typing.Set[int]):
         assert self.used_packets is not None
         self.set_used_packets(self.used_packets.difference(packet_set))
         self.update_degree()
         self.did_change = True  # CRC is no longer valid
 
-    def xor_and_remove_packet(self, packet):
+    def xor_and_remove_packet(self, packet: Packet):
         self.remove_packets(packet.get_used_packets())
         self.data = xor_numpy(self.data, packet.get_data())
         self.did_change = True  # CRC is no longer valid

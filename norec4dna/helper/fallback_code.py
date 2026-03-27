@@ -3,6 +3,8 @@ import warnings
 import numpy
 import typing
 
+from numpy.typing import NDArray
+
 
 def bitSet(x: int, b: int) -> bool:
     return ((x >> b) & 1) == 1
@@ -17,14 +19,14 @@ def bitsSet(x: numpy.uint64) -> int:  # x is of type uint64 !
         )
         x = (x + (x >> numpy.uint64(4))) & numpy.uint64(0x0F0F0F0F0F0F0F0F)
         res = numpy.int64((x * numpy.uint64(0x0101010101010101)) >> numpy.uint64(56))
-        return res
+        return int(res)
 
 
-def grayCode(x: int):
-    return numpy.bitwise_xor((numpy.uint64(x) >> numpy.uint64(1)), numpy.uint64(x))
+def grayCode(x: int) -> numpy.uint64:
+    return numpy.uint64(numpy.bitwise_xor((numpy.uint64(x) >> numpy.uint64(1)), numpy.uint64(x)))
 
 
-def buildGraySequence(length: int, b: int):
+def buildGraySequence(length: int, b: int) -> NDArray:
     s = numpy.empty(length, dtype=int)
     i = 0
     x = 0  # numpy.uint64(0)
@@ -39,7 +41,7 @@ def buildGraySequence(length: int, b: int):
     return s
 
 
-def xor_intern(n_p1, n_p2):
+def xor_intern(n_p1: NDArray, n_p2: NDArray) -> NDArray:
     return numpy.bitwise_xor(n_p1, n_p2)
 
 
@@ -66,7 +68,7 @@ def small_r_region(data: str, repeat_length: int = 9) -> float:
     return 1.0 if 1.0 * count * repeat_length / len(data) > 0.44 else count * repeat_length / len(data) * 0.5
 
 
-def microsatellite_python(text: typing.AnyStr, lengthToLookFor: int) -> typing.Tuple[int, str]:
+def microsatellite_python(text: typing.AnyStr, lengthToLookFor: int) -> typing.Tuple[int, typing.AnyStr]:
     i = 0
     n = len(text)
     res = 1
@@ -87,7 +89,7 @@ def microsatellite_python(text: typing.AnyStr, lengthToLookFor: int) -> typing.T
     return max_lenght, res_chars
 
 
-def longestSequenceOfChar_python(text: typing.AnyStr, char_x="*") -> typing.Tuple[str, int]:
+def longestSequenceOfChar_python(text: str, char_x:str ="*") -> typing.Tuple[str, int]:
     n = len(text)
     c = 0
     res = char_x
@@ -110,7 +112,7 @@ def strContainsSub_python(text: typing.AnyStr, sequence: typing.AnyStr) -> bool:
     return res
 
 
-def xor_numpy_internal(n_p1: numpy.ndarray, n_p2: numpy.ndarray) -> numpy.ndarray:
+def xor_numpy_internal(n_p1: NDArray, n_p2: NDArray) -> NDArray:
     """
     Internal XOR function for numpy arrays.
     Fallback implementation when cdnarules is not available.

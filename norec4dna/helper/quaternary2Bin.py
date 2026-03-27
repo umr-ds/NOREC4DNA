@@ -38,13 +38,13 @@ def quad_file_to_bytes(filename: str) -> BytesIO:
         return BytesIO(dna2quads(seq))
 
 
-def quats_to_bytes(quats: typing.AnyStr) -> bytes:
+def quats_to_bytes(quats: str) -> bytes:
     return ((get_quarter_byte(quats[0]) << 6) + (get_quarter_byte(quats[1]) << 4) + (get_quarter_byte(quats[2]) << 2) + (
         get_quarter_byte(quats[3]))).to_bytes(1, "big")
 
 
 
-def tranlate_quat_to_byte(in_txt):
+def tranlate_quat_to_byte(in_txt:str):
     out = b''
     for i in range(0, len(in_txt), 4):
         out += quats_to_bytes(in_txt[i:i + 4])
@@ -64,8 +64,8 @@ def get_quarter_byte(quat: str) -> int:
         raise ValueError("ERROR, this should never happen. Does your inputfile contain characters other than A,C,G,T?")
 
 
-def dna2quads(dna: typing.AnyStr) -> bytes:
-    translation = {'A': 0, 'C': 1, 'G': 2, 'T': 3}
+def dna2quads(dna: str) -> bytes:
+    translation:typing.Dict[str,int] = {'A': 0, 'C': 1, 'G': 2, 'T': 3}
     return bytes([translation[x] for x in dna])
 
 

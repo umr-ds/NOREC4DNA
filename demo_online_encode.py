@@ -2,7 +2,7 @@
 import argparse
 
 from norec4dna.OnlineEncoder import OnlineEncoder
-from norec4dna.rules.FastDNARules import FastDNARules
+from .rules.FastDNARules import FastDNARules
 from norec4dna.ErrorCorrection import nocode, get_error_correction_encode
 from norec4dna.distributions.OnlineDistribution import OnlineDistribution
 

@@ -11,7 +11,7 @@ class RobustSolitonDistribution(Distribution):
     def __init__(self, S=10, K=8, delta=1.0, seed=0):
         # delta = failure probability # K = Grenze (position des hoehepunkts) , S = Anzahl der Bloecke
         super().__init__()
-        self.rng: numpy.random = numpy.random
+        self.rng: numpy.random = numpy.random # type: ignore
         self.rng.seed(seed)
         self.S: int = S
         self.K: int = K

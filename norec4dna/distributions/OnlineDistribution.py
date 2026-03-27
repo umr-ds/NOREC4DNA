@@ -10,7 +10,7 @@ class OnlineDistribution(Distribution):
     # -> total_number_of_chunks = 1000 -> 3% overhead for recovery error rate of 1e-8
     def __init__(self, eps: float = 0.1, seed: int = 0):
         super().__init__()
-        self.rng: numpy.random = numpy.random
+        self.rng: numpy.random = numpy.random # type: ignore
         self.rng.seed(seed)
         self.eps: float = eps
         self.S: typing.Optional[int] = None

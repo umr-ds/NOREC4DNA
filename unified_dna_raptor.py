@@ -5,12 +5,12 @@ import struct
 import numpy as np
 
 from invivo_window_decoder import INPUT_FILE
-from norec4dna import Encoder, IdealSolitonDistribution, get_error_correction_encode, \
+from . import Encoder, IdealSolitonDistribution, get_error_correction_encode, \
     RaptorDistribution, RU10Encoder, RU10Decoder, get_error_correction_decode
 from norec4dna.HeaderChunk import HeaderChunk
 from norec4dna.Packet import Packet
-from norec4dna.helper.quaternary2Bin import tranlate_quat_to_byte
-from norec4dna.rules.FastDNARules import FastDNARules
+from .helper.quaternary2Bin import tranlate_quat_to_byte
+from .rules.FastDNARules import FastDNARules
 
 # from norec4dna.RU10InactivationDecoder import RU10RFCInactivationDecoder
 

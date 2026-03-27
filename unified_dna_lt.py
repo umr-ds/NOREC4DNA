@@ -5,10 +5,10 @@ import numpy as np
 
 from norec4dna.HeaderChunk import HeaderChunk
 from norec4dna.Packet import Packet
-from norec4dna.helper.quaternary2Bin import tranlate_quat_to_byte
-from norec4dna.rules.DNARules_ErlichZielinski import DNARules_ErlichZielinski
+from .helper.quaternary2Bin import tranlate_quat_to_byte
+from .rules.DNARules_ErlichZielinski import DNARules_ErlichZielinski
 
-from norec4dna import Encoder, RobustSolitonDistribution, IdealSolitonDistribution, get_error_correction_encode, \
+from . import Encoder, RobustSolitonDistribution, IdealSolitonDistribution, get_error_correction_encode, \
     LTEncoder, LTDecoder, LTBPDecoder, get_error_correction_decode
 
 from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import ErlichZielinskiRobustSolitonDistribution

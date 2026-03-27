@@ -2,9 +2,9 @@ import sys
 import configparser
 import typing
 
-from NOREC4DNA.demo_raptor_decode import demo_decode as demo_raptor_decode
-from NOREC4DNA.demo_online_decode import demo_decode as demo_online_decode
-from NOREC4DNA.demo_decode import demo_decode as demo_lt_decode
+from demo_raptor_decode import demo_decode as demo_raptor_decode
+from demo_online_decode import demo_decode as demo_online_decode
+from demo_decode import demo_decode as demo_lt_decode
 from norec4dna.Decoder import Decoder
 from norec4dna.ErrorCorrection import get_error_correction_decode
 from norec4dna.helper import find_ceil_power_of_four, fasta_cluster_and_remove_index, cluster_and_remove_index, \
@@ -17,8 +17,7 @@ class ConfigReadAndExecute:
         self.config.read(filename)
         self.coder = None
 
-    def execute(self, return_decoder: bool = False, skip_solve=False, store_parsed_packets=False) -> typing.Optional[
-        typing.List[typing.Union[str, Decoder]]]:
+    def execute(self, return_decoder: bool = False, skip_solve=False, store_parsed_packets=False) -> typing.List[typing.Union[str, Decoder]]:
         decoders = []
         if len(self.config.sections()) == 0:
             print("Empty or missing config file. Does the config file exist?")

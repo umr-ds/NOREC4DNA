@@ -1,8 +1,9 @@
+from abc import ABC
 import numpy as np
 import typing
 
 
-class Distribution(object):
+class Distribution(ABC):
     def __init__(self):
         self.rng = np.random
         self.pre_comp_dist: typing.List[float] = []
@@ -18,7 +19,7 @@ class Distribution(object):
     def get_distribution(self) -> typing.List[float]:
         return self.pre_comp_dist
 
-    def get_size(self) -> int:
+    def get_size(self) -> typing.Optional[int]:
         return self.S
 
     def set_seed(self, seed: int):

@@ -1,5 +1,8 @@
 #!/usr/bin/python
 import argparse
+import typing
+from configparser import SectionProxy
+
 import numpy as np
 import os
 
@@ -18,12 +21,12 @@ READ_ALL_BEFORE_DECODER = True
 
 class demo_decode:
     @staticmethod
-    def decode(file, error_correction=nocode, null_is_terminator=False, mode_1_bmp=False,
-               number_of_chunks=STATIC_NUM_CHUNKS, use_header_chunk=False, id_len_format=ID_LEN_FORMAT,
-               number_of_chunks_len_format=NUMBER_OF_CHUNKS_LEN_FORMAT, packet_len_format=PACKET_LEN_FORMAT,
-               crc_len_format=CRC_LEN_FORMAT, read_all=READ_ALL_BEFORE_DECODER, distribution_cfg_str="",
-               return_decoder=False, checksum_len_str=None, skip_solve=False, failed_repeats=1000, xor_by_seed=False,
-               id_spacing=0, mask_id=True, store_parsed_packets=False, config_map=None):
+    def decode(file:str, error_correction:typing.Callable[[bytes], bytes]=nocode, null_is_terminator:bool=False, mode_1_bmp:bool=False,
+               number_of_chunks:typing.Optional[int]=STATIC_NUM_CHUNKS, use_header_chunk:bool=False, id_len_format:str=ID_LEN_FORMAT,
+               number_of_chunks_len_format:str=NUMBER_OF_CHUNKS_LEN_FORMAT, packet_len_format:str=PACKET_LEN_FORMAT,
+               crc_len_format:str=CRC_LEN_FORMAT, read_all:bool=READ_ALL_BEFORE_DECODER, distribution_cfg_str:str="",
+               return_decoder:bool=False, checksum_len_str:typing.Optional[str]=None, skip_solve:bool=False, failed_repeats:int=1000, xor_by_seed:bool=False,
+               id_spacing:int=0, mask_id:bool=True, store_parsed_packets:bool=False, config_map:typing.Optional[SectionProxy]=None):
         print("Pure Gauss-Mode")
         x = RU10Decoder(file, use_headerchunk=use_header_chunk, error_correction=error_correction,
                         static_number_of_chunks=number_of_chunks, checksum_len_str=checksum_len_str,
@@ -32,7 +35,7 @@ class demo_decode:
         x.decode(id_len_format=id_len_format,
                  number_of_chunks_len_format=number_of_chunks_len_format, packet_len_format=packet_len_format,
                  crc_len_format=crc_len_format, store_parsed_packets=store_parsed_packets)
-
+        assert x.GEPP is not None, "GEPP must not be None at this point"
         x.GEPP.insert_tmp()
         tmp_A = np.copy(x.GEPP.A)
         tmp_B = np.copy(x.GEPP.b)
@@ -49,7 +52,7 @@ class demo_decode:
             except:  # FileNotFoundError: #ValueError
                 if x.headerChunk is not None:
                     try:
-                        file_name = x.headerChunk.get_file_name().decode("utf-8")
+                        file_name:str = x.headerChunk.get_file_name().decode("utf-8")
                         file_name = file_name.split("\x00")[0]
                         os.remove(file_name)
                     except:

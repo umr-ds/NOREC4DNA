@@ -1,4 +1,5 @@
 import math
+from numpy.typing import NDArray
 from scipy.special import comb
 import typing
 import numpy as np
@@ -509,11 +510,11 @@ class RaptorDistribution(Distribution):
 
     def __init__(self, number_of_chunks: int):
         super().__init__()
-        self.rng: np.random = np.random
+        self.rng = np.random # type: ignore[type-arg]
         self.rng.seed(number_of_chunks)
         self.S: int = number_of_chunks
-        self.f: np.ndarray = np.array([0, 10241, 491582, 712794, 831695, 948446, 1032189, 1048576], dtype=np.int32)
-        self.d: np.ndarray = np.array([0, 1, 2, 3, 4, 10, 11, 40], dtype=np.int8)
+        self.f: NDArray[np.int32] = np.array([0, 10241, 491582, 712794, 831695, 948446, 1032189, 1048576], dtype=np.int32)
+        self.d: NDArray[np.int8] = np.array([0, 1, 2, 3, 4, 10, 11, 40], dtype=np.int8)
 
     @lru_cache(8192)
     def smallestPrimeGreaterOrEqual(self, x: int) -> int:

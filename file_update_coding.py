@@ -1,26 +1,26 @@
 r"""
 DEPRECATED: File Update Coding for NOREC4DNA Multi-Version Support.
 
-This module is DEPRECATED. Please use NOREC4DNA.MultiVersionCoder instead.
+This module is DEPRECATED. Please use MultiVersionCoder instead.
 
 This module provides backward compatibility by re-exporting all functions
 from MultiVersionCoder.py. All new code should import from MultiVersionCoder.
 
 Migration Guide:
     OLD: from NOREC4DNA.file_update_coding import find_affected_chunks
-    NEW: from NOREC4DNA.MultiVersionCoder import find_affected_chunks
+    NEW: from MultiVersionCoder import find_affected_chunks
 
     OLD: from NOREC4DNA.file_update_coding import get_current_file_version
-    NEW: from NOREC4DNA.MultiVersionCoder import get_current_file_version
+    NEW: from MultiVersionCoder import get_current_file_version
 
     OLD: from NOREC4DNA.file_update_coding import generate_new_packets
-    NEW: from NOREC4DNA.MultiVersionCoder import generate_new_packets
+    NEW: from MultiVersionCoder import generate_new_packets
 
     OLD: from NOREC4DNA.file_update_coding import MultiVersionCoder
-    NEW: from NOREC4DNA.MultiVersionCoder import MultiVersionCoder
+    NEW: from MultiVersionCoder import MultiVersionCoder
 
 Example Usage (NEW):
-    >>> from NOREC4DNA.MultiVersionCoder import MultiVersionCoder
+    >>> from MultiVersionCoder import MultiVersionCoder
     >>> coder = MultiVersionCoder("existing_pool.ini")
     >>> max_version = coder.get_max_version_in_pool()
     >>> version, packets = coder.encode_new_version(new_file_data)
@@ -44,11 +44,11 @@ warnings.warn(
 logger = logging.getLogger(__name__)
 logger.warning(
     "NOREC4DNA.file_update_coding is deprecated. "
-    "Please use NOREC4DNA.MultiVersionCoder instead."
+    "Please use MultiVersionCoder instead."
 )
 
 # Re-export all functions and classes from MultiVersionCoder
-from NOREC4DNA.MultiVersionCoder import (
+from MultiVersionCoder import (
     MultiVersionCoder,
     find_affected_chunks,
     generate_dna_version_string,

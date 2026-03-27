@@ -1,9 +1,9 @@
 #!/usr/bin/python
 import argparse
-from norec4dna import Encoder
+from . import Encoder
 from norec4dna.LTEncoder import LTEncoder as LTEncoder
 from norec4dna.ErrorCorrection import nocode, get_error_correction_encode
-from norec4dna.rules.DNARules_ErlichZielinski import DNARules_ErlichZielinski
+from .rules.DNARules_ErlichZielinski import DNARules_ErlichZielinski
 from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import ErlichZielinskiRobustSolitonDistribution
 from norec4dna.distributions.IdealSolitonDistribution import IdealSolitonDistribution
 from norec4dna.distributions.RobustSolitonDistribution import RobustSolitonDistribution

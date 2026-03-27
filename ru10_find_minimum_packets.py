@@ -10,7 +10,7 @@ from functools import partial
 from norec4dna.Encoder import Encoder
 from norec4dna.Packet import ParallelPacket
 from norec4dna.RU10Encoder import RU10Encoder
-from norec4dna.rules.FastDNARules import FastDNARules
+from .rules.FastDNARules import FastDNARules
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.ErrorCorrection import nocode, crc32, reed_solomon_encode, dna_reed_solomon_encode
 from norec4dna.helper import should_drop_packet, split_file, number_to_base_str, find_ceil_power_of_four, \

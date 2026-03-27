@@ -11,58 +11,60 @@ import typing
 
 import progressbar
 from PIL import Image
+from numpy.typing import NDArray
 
+from norec4dna import Decoder
 from norec4dna.ErrorCorrection import nocode
 
 
 class Encoder(ABC):
-    def __init__(self, file: str, number_of_chunks: int, distribution, insert_header: bool = True,
-                 pseudo_decoder=None, chunk_size: int = 0, mode_1_bmp: bool = False):
+    def __init__(self, file: str, number_of_chunks: int, distribution: typing.Any, insert_header: bool = True,
+                 pseudo_decoder: typing.Optional[Decoder] = None, chunk_size: int = 0, mode_1_bmp: bool = False):
         self.crc_len_format: str = "I"
         self.id_len_format: str = "I"
         self.number_of_chunks_len_format: str = "I"
         self.number_of_chunks: int = number_of_chunks
         self.chunk_size: int = chunk_size
-        self.pseudo_decoder = pseudo_decoder
+        self.pseudo_decoder: typing.Optional[typing.Any] = pseudo_decoder
         self.insert_header: bool = insert_header
-        self.dist = distribution
+        self.dist: typing.Any = distribution
         self.file: str = file
         self.mode_1_bmp: bool = mode_1_bmp
         self.setOfEncodedPackets: typing.Set[int] = set()
-        self.encodedPackets: typing.Set = set()
+        self.encodedPackets: typing.Set[typing.Any] = set()
         self.overhead_limit: typing.Optional[float] = None
-        self.chunks = []
-        self.error_correction: typing.Callable = nocode
-        self.progress_bar = None
+        self.chunks: typing.List[np.ndarray] = []
+        self.error_correction: typing.Callable[[bytes], bytes] = nocode
+        self.progress_bar: typing.Optional[progressbar.ProgressBar] = None
         self.ruleDrop: int = 0
-        self.out_file = None
+        self.out_file: typing.Optional[str] = None
 
     @staticmethod
-    def create_progress_bar(max_value):
-        widgets = [progressbar.Percentage(), progressbar.Bar(), ' Encoded: ', progressbar.Counter(), ', ',
+    def create_progress_bar(max_value: int) -> progressbar.ProgressBar:
+        widgets: typing.List[typing.Any] = [progressbar.Percentage(), progressbar.Bar(), ' Encoded: ', progressbar.Counter(), ', ',
                    progressbar.Variable('Dropped'), ', ', progressbar.AdaptiveETA(), ' ', progressbar.Timer()]
         return progressbar.ProgressBar(max_value=max_value, widgets=widgets, max_error=False,
                                        redirect_stdout=True).start()
 
-    def encode_to_packets(self):
+    def encode_to_packets(self) -> None:
         pass  # implemented in subclasses
 
-    def set_overhead_limit(self, n: float):
+    def set_overhead_limit(self, n: float) -> None:
         self.overhead_limit = n
 
-    def encode_file(self, split_to_multiple_files: bool = False):
+    def encode_file(self, split_to_multiple_files: bool = False) -> None:
         pass  # implemented in subclasses
 
-    def create_new_packet(self):
+    def create_new_packet(self) -> typing.Optional[typing.Any]:
         pass  # implemented in subclasses
 
-    def set_no_chunks_from_chunk_size(self):
+    def set_no_chunks_from_chunk_size(self) -> None:
         file_size = self.get_file_size(self.file)
         self.number_of_chunks = ceil(1.0 * file_size / self.chunk_size) + (1 if self.insert_header else 0)
 
         print("number_of_chunks from chunk_size:" + str(self.number_of_chunks))
 
-    def update_progress_bar(self):
+    def update_progress_bar(self) -> None:
         if self.progress_bar is not None:
             self.progress_bar.update(len(self.get_encoded_packets()), Dropped=self.ruleDrop)
 
@@ -71,13 +73,13 @@ class Encoder(ABC):
         file_size = Encoder.get_file_size(file)
         return ceil(1.0 * file_size / chunk_size) + (1 if insert_header else 0)
 
-    def create_and_add_new_packet(self):
+    def create_and_add_new_packet(self) -> typing.Any:
         packet = self.create_new_packet()
         self.encodedPackets.add(packet)
         return packet
 
-    def encode_header_info(self, checksum: bytes = None, checksum_len_str: str = None,
-                           last_chunk_len_format="I") -> bytes:
+    def encode_header_info(self, checksum: typing.Optional[bytes] = None, checksum_len_str: typing.Optional[str] = None,
+                           last_chunk_len_format: str = "I") -> np.ndarray:
         # Size of last Chunk
         # Filename
         # PAD-Bytes
@@ -97,7 +99,7 @@ class Encoder(ABC):
             struct.pack(struct_string, len(last_chunk), checksum, bytes(file_name_only, encoding="utf-8")),
             dtype=np.uint8)
 
-    def fill_last_chunk(self, force_fill_zero:bool = False):
+    def fill_last_chunk(self, force_fill_zero: bool = False) -> None:
         last = self.chunks[-1]
         assert (len(last) <= self.chunk_size), "Error, last Chunk ist bigger than ChunkSize"
         if len(last) < self.chunk_size:
@@ -112,10 +114,10 @@ class Encoder(ABC):
     def number_of_packets_encoded_already(self) -> int:
         return len(self.encodedPackets)
 
-    def save_packets(self, split_to_multiple_files, out_file=None):
+    def save_packets(self, split_to_multiple_files: bool, out_file: typing.Optional[str] = None) -> None:
         pass  # implemented in subclasses
 
-    def create_chunks(self, chunk_size) -> typing.List:
+    def create_chunks(self, chunk_size: int) -> typing.List[NDArray[np.uint8]]:
         if hasattr(self, '') and self.mode_1_bmp:
             data = self.image_to_mode_1_bmp()
         else:
@@ -129,10 +131,10 @@ class Encoder(ABC):
         self.progress_bar = self.create_progress_bar(self.number_of_chunks)
         return res
 
-    def image_to_mode_1_bmp(self):
+    def image_to_mode_1_bmp(self) -> bytes:
         return self.create_bit_arr(Image.open(self.file))
 
-    def create_bit_arr(self, img):
+    def create_bit_arr(self, img: Image.Image) -> bytes:
         arr = np.frombuffer(img.tobytes(), dtype=np.uint8)
         remain = len(arr) % 8
         if remain != 0:
@@ -140,8 +142,8 @@ class Encoder(ABC):
         else:
             return self.translate_to_bytes(arr, img)
 
-    def save_packets_zip(self, save_as_dna=False, out_file: typing.Optional[str] = None, file_ending="",
-                         seed_is_filename=True):
+    def save_packets_zip(self, save_as_dna: bool = False, out_file: typing.Optional[str] = None, file_ending: str = "",
+                         seed_is_filename: bool = True) -> None:
         if out_file is None:
             out_file = self.file + file_ending
             self.out_file = os.path.relpath(out_file)
@@ -164,7 +166,7 @@ class Encoder(ABC):
                 i += 1
         print(f"Saved result at: %s" % out_file)
 
-    def save_packets_fasta(self, out_file: typing.Optional[str] = None, file_ending="", seed_is_filename=True):
+    def save_packets_fasta(self, out_file: typing.Optional[str] = None, file_ending: str = "", seed_is_filename: bool = True) -> None:
         if out_file is None:
             out_file = self.file + file_ending
             self.out_file = os.path.relpath(out_file)
@@ -185,7 +187,7 @@ class Encoder(ABC):
         print(f"Saved result at: %s" % out_file)
 
     @staticmethod
-    def translate_to_bytes(bit_arr, img):
+    def translate_to_bytes(bit_arr: np.ndarray, img: Image.Image) -> bytes:
         width, height = img.size
         img_byt = bytes([i for i in np.packbits([bit_arr[i:i + 8] for i in range(0, len(bit_arr), 8)])])
         return struct.pack('>HH', width, height) + img_byt
@@ -204,8 +206,8 @@ class Encoder(ABC):
             return math.pow(2, 8 * number_bytes)
 
     @staticmethod
-    def get_file_size(file):
+    def get_file_size(file: str) -> int:
         return os.stat(file).st_size
 
-    def get_encoded_packets(self):
+    def get_encoded_packets(self) -> typing.Set[typing.Any]:
         return self.encodedPackets

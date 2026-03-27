@@ -1,4 +1,5 @@
 import struct
+from numpy.typing import NDArray
 import numpy
 import typing
 
@@ -7,7 +8,7 @@ from norec4dna.Packet import Packet
 
 
 class HeaderChunk:
-    def __init__(self, packet: Packet, last_chunk_len_format: str = "I", checksum_len_format: str = None):
+    def __init__(self, packet: Packet, last_chunk_len_format: str = "I", checksum_len_format: typing.Optional[str] = None):
         assert packet.get_used_packets().issubset({0}), "only first packet can be HeaderPacket"
         if isinstance(packet.data, numpy.ndarray):
             self.data: bytes = packet.data.tobytes()
@@ -15,8 +16,8 @@ class HeaderChunk:
             self.data: bytes = packet.data
         self.last_chunk_len_format: str = last_chunk_len_format
         self.checksum_len_format: str = checksum_len_format
-        self.checksum = None
-        self.additional_payload = None
+        self.checksum: typing.Optional[int] = None
+        self.additional_payload: typing.Optional[bytes] = None
         self.last_chunk_length, self.file_name = self.decode_header_info()
 
     def get_last_chunk_length(self) -> int:
@@ -42,7 +43,7 @@ class HeaderChunk:
             end_of_file_name = len(data)
         if self.checksum_len_format is not None and self.checksum_len_format != "":
             checksum_struct_len: int = struct.calcsize("<" + self.checksum_len_format)
-            self.checksum: int = struct.unpack("<" + self.checksum_len_format,
+            self.checksum = struct.unpack("<" + self.checksum_len_format,
                                                data[last_chunk_struct_len:last_chunk_struct_len + checksum_struct_len])[
                 0]
         file_name: typing.Union[str, bytes] = \
@@ -73,8 +74,8 @@ class HeaderChunk:
                                     self.last_chunk_length, checksum, filename)
 
     @staticmethod
-    def from_raw_array(raw_array: numpy.ndarray, last_chunk_len_format: str = "I",
-                       checksum_len_format: str = None) -> 'HeaderChunk':
+    def from_raw_array(raw_array: NDArray[np.uint8], last_chunk_len_format: str = "I",
+                       checksum_len_format: typing.Optional[str] = None) -> 'HeaderChunk':
         packet = Packet(raw_array, {0},
                         total_number_of_chunks=0)  # we use 0 for # chunks as the content as we just need a stub to initialize the HeaderChunk
         return HeaderChunk(packet, last_chunk_len_format, checksum_len_format)

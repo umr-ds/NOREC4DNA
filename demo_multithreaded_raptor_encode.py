@@ -8,7 +8,7 @@ import multiprocessing
 from norec4dna.Encoder import Encoder
 from norec4dna.Packet import ParallelPacket
 from norec4dna.RU10Encoder import RU10Encoder
-from norec4dna.rules.FastDNARules import FastDNARules
+from .rules.FastDNARules import FastDNARules
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.ErrorCorrection import nocode, get_error_correction_encode
 

@@ -1,11 +1,12 @@
 import argparse
 import os
 import struct
-import typing
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 import numpy as np
 from io import BytesIO
 from math import floor, ceil
 from PIL import Image
+from numpy.typing import NDArray
 
 from norec4dna.helper.RU10Helper import from_true_false_list, intermediate_symbols, choose_packet_numbers
 from norec4dna.BPDecoder import BPDecoder
@@ -16,27 +17,42 @@ from norec4dna.RU10Packet import RU10Packet
 from norec4dna.helper import logical_xor, xor_mask, buildGraySequence, bitSet
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.helper.quaternary2Bin import quat_file_to_bin, quad_file_to_bytes, tranlate_quat_to_byte
+from norec4dna.distributions.Distribution import Distribution
 
 
 class RU10BPDecoder(BPDecoder):
-    def __init__(self, file: typing.Optional[str] = None, error_correction=nocode, use_headerchunk: bool = True,
-                 static_number_of_chunks: typing.Optional[int] = None, use_method: bool = False):
+    def __init__(
+        self,
+        file: Optional[str] = None,
+        error_correction: Callable[..., Any] = nocode,
+        use_headerchunk: bool = True,
+        static_number_of_chunks: Optional[int] = None,
+        use_method: bool = False,
+    ):
         super().__init__()
-        self.file: typing.Optional[str] = file
+        self.file: Optional[str] = file
         self.use_method: bool = use_method
+        self.f: Optional[Any] = None
+        self.isFolder: bool = False
         if file is not None:
             self.isFolder = os.path.isdir(file)
             if not self.isFolder:
-                self.f = open(self.file, "rb")
+                self.f = open(file, "rb")
         self.number_of_chunks: int = 1000000
         self.s: int = -1
         self.h: int = -1
-        self.error_correction: typing.Callable = error_correction
+        self.error_correction: Callable[..., Any] = error_correction
         self.use_headerchunk: bool = use_headerchunk
-        self.static_number_of_chunks: typing.Optional[int] = static_number_of_chunks
+        self.static_number_of_chunks: Optional[int] = static_number_of_chunks
+        self.dist: Optional[Distribution] = None
 
-    def decodeFolder(self, packet_len_format: str = "I", crc_len_format: str = "I",
-                     number_of_chunks_len_format: str = "I", id_len_format: str = "I"):
+    def decodeFolder(
+        self,
+        packet_len_format: str = "I",
+        crc_len_format: str = "I",
+        number_of_chunks_len_format: str = "I",
+        id_len_format: str = "I",
+    ) -> Optional[int]:
         """
         Decodes the information from a folder if self.file represents a folder and the packets were saved
         in multiple files and prints the number of decoded and corrupted packets.
@@ -46,31 +62,35 @@ class RU10BPDecoder(BPDecoder):
         :param id_len_format: Format of the ID length
         :return: -1 if the decoding wasn't successful
         """
+        if self.file is None:
+            print("Error: No file specified")
+            return -1
         decoded = False
         self.EOF = False
         if self.static_number_of_chunks is not None:
             self.number_of_chunks = self.static_number_of_chunks
             number_of_chunks_len_format = ""  # if we got static number_of_chunks we do not need it in struct string
-        for file in os.listdir(self.file):
-            if file.endswith(".RU10") or file.endswith("DNA"):
+        for filename in os.listdir(self.file):
+            if filename.endswith(".RU10") or filename.endswith("DNA"):
                 self.EOF = False
-                if file.endswith("DNA"):
+                filepath = self.file + "/" + filename
+                if filename.endswith("DNA"):
                     if self.error_correction.__name__ == 'dna_reed_solomon_decode':
                         try:
-                            self.f = quad_file_to_bytes(self.file + "/" + file)
+                            self.f = quad_file_to_bytes(filepath)
                         except TypeError:
                             print("skipping CORRUPT file - contains illegal character(s)")
                             self.corrupt += 1
                             continue
                     else:
                         try:
-                            self.f = quat_file_to_bin(self.file + "/" + file)
+                            self.f = quat_file_to_bin(filepath)
                         except TypeError:
                             print("skipping CORRUPT file - contains illegal character(s)")
                             self.corrupt += 1
                             continue
                 else:
-                    self.f = open(self.file + "/" + file, "rb")
+                    self.f = open(filepath, "rb")
                 new_pack = self.getNextValidPacket(True, packet_len_format=packet_len_format,
                                                    crc_len_format=crc_len_format,
                                                    number_of_chunks_len_format=number_of_chunks_len_format,
@@ -90,8 +110,13 @@ class RU10BPDecoder(BPDecoder):
             print("Unable to retrieve File from Chunks. Too many errors?")
             return -1
 
-    def decodeFile(self, packet_len_format: str = "I", crc_len_format: str = "L",
-                   number_of_chunks_len_format: str = "I", id_len_format: str = "I"):
+    def decodeFile(
+        self,
+        packet_len_format: str = "I",
+        crc_len_format: str = "L",
+        number_of_chunks_len_format: str = "I",
+        id_len_format: str = "I",
+    ) -> Optional[int]:
         """
         Decodes the information from a file if self.file represents a file and the packets were saved in a single file.
         :param packet_len_format: Format of the packet length
@@ -100,11 +125,15 @@ class RU10BPDecoder(BPDecoder):
         :param id_len_format: Format of the ID length
         :return: -1 if the decoding wasn't successful
         """
+        if self.file is None:
+            print("Error: No file specified")
+            return -1
         decoded = False
         self.EOF = False
         if self.file.lower().endswith("dna"):
             try:
-                self.f.close()
+                if self.f is not None:
+                    self.f.close()
                 self.f = quat_file_to_bin(self.file)
             except TypeError:
                 print("skipping CORRUPT file - contains illegal character(s)")
@@ -113,7 +142,8 @@ class RU10BPDecoder(BPDecoder):
             self.number_of_chunks = self.static_number_of_chunks
             number_of_chunks_len_format = ""  # if we got static number_of_chunks we do not need it in struct string
         if self.file.lower().endswith("fasta"):
-            self.f.close()
+            if self.f is not None:
+                self.f.close()
             self.f = open(self.file, "r")
             raw_packet_list = []
             while not (decoded or self.EOF):
@@ -136,7 +166,8 @@ class RU10BPDecoder(BPDecoder):
                                                  number_of_chunks_len_format=number_of_chunks_len_format,
                                                  packet_len_format=packet_len_format,
                                                  id_len_format=id_len_format)
-                decoded = self.input_new_packet(new_pack)
+                if new_pack is not None:
+                    decoded = self.input_new_packet(new_pack)
         else:
             while not (decoded or self.EOF):
                 new_pack = self.getNextValidPacket(False, packet_len_format=packet_len_format,
@@ -161,7 +192,7 @@ class RU10BPDecoder(BPDecoder):
     def getNumberOfRepairBlocks(self):
         return self.getNumberOfHalfBlocks() + self.getNumberOfLDPCBlocks()
 
-    def removeAndXorAuxPackets(self, packet: RU10Packet) -> typing.List[bool]:
+    def removeAndXorAuxPackets(self, packet: RU10Packet) -> List[bool]:
         """
         Removes auxpackets (LDCP and Half) from a given packet to get the packets data.
         :param packet: Packet to remove auxpackets from
@@ -224,7 +255,7 @@ class RU10BPDecoder(BPDecoder):
         i = 0
         for group in self.generateIntermediateBlocksFormat(self.number_of_chunks):
             for elem in group:
-                self.repairBlockNumbers[i] = elem
+                self.repairBlockNumbers[i] = set(elem)
                 i += 1
         # XOR all Chunks into the corresponding AUX-Block
         for aux_number in self.repairBlockNumbers.keys():
@@ -253,13 +284,13 @@ class RU10BPDecoder(BPDecoder):
 
         return res
 
-    def getHalfPacketListFromPacket(self, packet: RU10Packet) -> typing.List[typing.List[bool]]:
+    def getHalfPacketListFromPacket(self, packet: RU10Packet) -> List[List[bool]]:
         """
         Generates a list of halfpackets from a packet.
         :param packet: The packet to get the list from
         :return: List of halfpackets
         """
-        res: typing.List[typing.List[bool]] = []
+        res: List[List[bool]] = []
         aux_used_packets = packet.get_bool_array_half_packets()
         for i in range(len(aux_used_packets)):
             if aux_used_packets[i]:
@@ -280,7 +311,7 @@ class RU10BPDecoder(BPDecoder):
 
     def getNextValidPacket(self, from_multiple_files: bool = False, packet_len_format: str = "I",
                            crc_len_format: str = "L", number_of_chunks_len_format: str = "I",
-                           id_len_format: str = "I") -> typing.Optional[RU10Packet]:
+                           id_len_format: str = "I") -> Optional[RU10Packet]:
         """
         Takes a raw packet from a file and calls @parse_raw_packet to get a RU10 packet. If the packet is corrupt the
         next one will be taken.
@@ -312,15 +343,15 @@ class RU10BPDecoder(BPDecoder):
                                     packet_len_format=packet_len_format,
                                     number_of_chunks_len_format=number_of_chunks_len_format,
                                     id_len_format=id_len_format)
-        if res == "CORRUPT":
+        if res is None:
             res = self.getNextValidPacket(from_multiple_files, packet_len_format=packet_len_format,
                                           crc_len_format=crc_len_format,
                                           number_of_chunks_len_format=number_of_chunks_len_format,
                                           id_len_format=id_len_format)
         return res
 
-    def parse_raw_packet(self, packet, crc_len_format: str = "L", number_of_chunks_len_format: str = "L",
-                         packet_len_format: str = "I", id_len_format: str = "L") -> typing.Union[RU10Packet, str]:
+    def parse_raw_packet(self, packet: bytes, crc_len_format: str = "L", number_of_chunks_len_format: str = "L",
+                         packet_len_format: str = "I", id_len_format: str = "L") -> Optional[RU10Packet]:
         """
         Creates a RU10 packet from a raw given packet. Also checks if the packet is corrupted. If any method was used to
         create packets from specific chunks, set self.use_method = True. This will treat the last byte of the raw packet
@@ -352,7 +383,7 @@ class RU10BPDecoder(BPDecoder):
             packet = self.error_correction(packet)
         except:
             self.corrupt += 1
-            return "CORRUPT"
+            return None
 
         data = packet[struct_len:]
         if self.use_method:
@@ -401,13 +432,13 @@ class RU10BPDecoder(BPDecoder):
                          save_number_of_chunks_in_packet=self.static_number_of_chunks is None)
         return res
 
-    def generateIntermediateBlocksFormat(self, number_of_chunks: int) -> typing.List[typing.List[typing.List[int]]]:
+    def generateIntermediateBlocksFormat(self, number_of_chunks: int) -> List[List[List[int]]]:
         """
         Generates the format of the intermediate blocks from the number of used chunks.
         :param number_of_chunks: The number of used chunks.
         :return:
         """
-        compositions: typing.List[typing.List[int]] = [[] for _ in range(self.s)]
+        compositions: List[List[int]] = [[] for _ in range(self.s)]
         for i in range(0, number_of_chunks):
             a = 1 + (int(floor(np.float64(i) / np.float64(self.s))) % (self.s - 1))
             b = int(i % self.s)
@@ -419,7 +450,7 @@ class RU10BPDecoder(BPDecoder):
 
         hprime: int = int(ceil(np.float64(self.h) / 2))
         m = buildGraySequence(number_of_chunks + self.s, hprime)
-        hcompositions: typing.List[typing.List[int]] = [[] for _ in range(self.h)]
+        hcompositions: List[List[int]] = [[] for _ in range(self.h)]
         for i in range(0, self.h):
             hcomposition = []
             for j in range(0, number_of_chunks + self.s):
@@ -438,7 +469,7 @@ class RU10BPDecoder(BPDecoder):
                 return
 
     def saveDecodedFile(self, last_chunk_len_format: str = "I", null_is_terminator: bool = False,
-                        print_to_output: bool = True, return_file_name=False) -> typing.Union[bytes, str]:
+                        print_to_output: bool = True, return_file_name: bool = False) -> Union[bytes, str]:
         """
         Saves the file - if decoded. The filename is either taken from the headerchunk or generated based on the input
         filename.
@@ -451,11 +482,11 @@ class RU10BPDecoder(BPDecoder):
         assert self.is_decoded(), "Can not save File: Unable to reconstruct."
         if self.use_headerchunk:
             self.decodeHeader()
-        file_name = "DEC_" + os.path.basename(self.file) if self.file is not None else "RU10.BIN"
+        file_name:str = "DEC_" + os.path.basename(self.file) if self.file is not None else "RU10.BIN"
         output_concat = b""
         if self.headerChunk is not None:
-            file_name = self.headerChunk.get_file_name().decode("utf-8")
-        file_name = file_name.split("\x00")[0]
+            file_name:str = self.headerChunk.get_file_name().decode("utf-8")
+        file_name:str = file_name.split("\x00")[0]
         with open(file_name, "wb") as f:
             a = []
             for decoded in sorted(self.decodedPackets):
@@ -464,7 +495,7 @@ class RU10BPDecoder(BPDecoder):
                     if isinstance(decoded, RU10IntermediatePacket):
                         a.append(num)
                     if self.number_of_chunks - 1 == num and self.use_headerchunk:
-                        output: typing.Union[bytes, np.array] = decoded.get_data()[
+                        output: Union[bytes, np.ndarray] = decoded.get_data()[
                                                                 0: self.headerChunk.get_last_chunk_length()]
                         if type(output) == bytes:
                             output_concat += output
@@ -493,7 +524,7 @@ class RU10BPDecoder(BPDecoder):
                             else:
                                 output_concat += output.tobytes()
                             f.write(output)
-        print("Saved file as '" + str(file_name) + "'")
+        print(f"Saved file as '{file_name}'")
         if print_to_output:
             print("Result:")
             print(output_concat.decode("utf-8"))
@@ -503,22 +534,24 @@ class RU10BPDecoder(BPDecoder):
     def mode_1_bmp_decode(self, last_chunk_len_format: str = "I"):
         dec_out = self.saveDecodedFile(last_chunk_len_format=last_chunk_len_format, null_is_terminator=False,
                                        print_to_output=False)
+        assert isinstance(dec_out, bytes), "saveDecodedFile did not return a bytes object!"
         return self.bytes_to_bitmap(dec_out)
 
     def bytes_to_bitmap(self, img_byt: bytes):
-        width, height = struct.unpack('>H', img_byt[:2])[0], struct.unpack('>H', img_byt[2:4])[0]
+        width, height = int(struct.unpack('>H', img_byt[:2])[0]), int(struct.unpack('>H', img_byt[2:4])[0])
         unpack = np.unpackbits(
             np.frombuffer(img_byt, dtype=np.uint8, count=int((width * height) / 8), offset=4)).reshape(height,
                                                                                                        width).transpose()
-        flip_bits = np.logical_not(unpack).astype(int)
+        flip_bits:NDArray[np.int_] = np.logical_not(unpack).astype(int)
         new_img = self.draw_img(flip_bits, width, height)
+        assert self.file is not None, "filename must be known, not None!"
         tmp_file_name = os.path.basename(self.file) + ".bmp"
         file_name = "DEC_" + tmp_file_name if self.file is not None else "RU10.BIN.bmp"
         new_img.save(file_name)
         return file_name
 
     @staticmethod
-    def draw_img(unpacked_flipped_bits, width: int, height: int) -> Image:
+    def draw_img(unpacked_flipped_bits:NDArray[np.int_], width: int, height: int) -> Image.Image:
         new_img = Image.new('1', (width, height))
         pixels = new_img.load()
 
@@ -528,7 +561,7 @@ class RU10BPDecoder(BPDecoder):
         return new_img
 
 
-def main(file: str, num_of_chunks: int, err_correction: typing.Callable = nocode, insert_header: bool = False,
+def main(file: str, num_of_chunks: int, err_correction: Callable[[bytes], bytes] = nocode, insert_header: bool = False,
          mode_1_bmp: bool = False):
     x = RU10BPDecoder(file, use_headerchunk=insert_header, error_correction=err_correction,
                       static_number_of_chunks=num_of_chunks)

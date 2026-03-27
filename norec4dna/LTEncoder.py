@@ -10,6 +10,7 @@ import os
 import numpy as np
 import typing
 from math import ceil
+from numpy.typing import NDArray
 
 from norec4dna.Decoder import Decoder
 from norec4dna.Encoder import Encoder
@@ -43,7 +44,8 @@ class LTEncoder(Encoder):
         self.insert_header: bool = insert_header
         self.chunk_size: int = chunk_size
         self.file: str = file
-        self.rules: typing.Optional = rules
+        self.rules: typing.Optional[
+                typing.Union[DNARules, DNARules2, FastDNARules, DNARules_ErlichZielinski]] = rules
         self.upper_bound: float = drop_upper_bound
         if self.chunk_size == 0:
             self.number_of_chunks: int = number_of_chunks
@@ -55,7 +57,7 @@ class LTEncoder(Encoder):
         self.setOfEncodedPackets: typing.Set[int] = set()
         self.pseudo_decoder: typing.Optional[Decoder] = pseudo_decoder
         self.prioritized_packets: typing.List = prioritized_packets
-        self.error_correction: typing.Callable = error_correction
+        self.error_correction: typing.Callable[[bytes], bytes] = error_correction
         self.implicit_mode: bool = implicit_mode
         # Struct-Strings:
         self.packet_len_format: str = packet_len_format
@@ -68,7 +70,7 @@ class LTEncoder(Encoder):
         self.ruleDrop: int = 0
         self.next_checkblock_id = -1
         self.sequential_seed = sequential_seed
-        self.progress_bar = self.create_progress_bar(self.number_of_chunks + 0.02 * self.number_of_chunks)
+        self.progress_bar = self.create_progress_bar(int(self.number_of_chunks + 0.02 * self.number_of_chunks))
 
     def encode_file(self, split_to_multiple_files: bool = False):
         self.encode_to_packets()
@@ -132,7 +134,7 @@ class LTEncoder(Encoder):
                 self.pseudo_decoder.input_new_packet(new_pack)
             self.encodedPackets.add(new_pack)
 
-    def encode_header_info(self) -> bytes:
+    def encode_header_info(self) -> NDArray[np.uint8]:
         # Size of last Chunk
         # Filename
         # PAD-Bytes

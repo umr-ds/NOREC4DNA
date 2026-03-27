@@ -13,13 +13,13 @@ from norec4dna.helper.quaternary2Bin import tranlate_quat_to_byte
 
 from norec4dna.helper.bin2Quaternary import string2QUATS
 
-from NOREC4DNA.ConfigWorker import ConfigReadAndExecute
-from NOREC4DNA.norec4dna.HeaderChunk import HeaderChunk
-from NOREC4DNA.norec4dna.RU10Packet import RU10Packet
-from NOREC4DNA.invivo_window_decoder import load_fasta
-from NOREC4DNA.norec4dna import RU10Encoder
-from NOREC4DNA.norec4dna.Packet import Packet
-from NOREC4DNA.norec4dna.helper.helper import calc_crc
+from ConfigWorker import ConfigReadAndExecute
+from norec4dna.HeaderChunk import HeaderChunk
+from norec4dna.RU10Packet import RU10Packet
+from invivo_window_decoder import load_fasta
+from norec4dna import RU10Encoder
+from norec4dna.Packet import Packet
+from norec4dna.helper.helper import calc_crc
 
 from semi_automatic_reconstruction_toolkit import SemiAutomaticReconstructionToolkit
 import imagehash

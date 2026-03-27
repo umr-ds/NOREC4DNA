@@ -55,7 +55,7 @@ class ErlichZielinskiRobustSolitonDistribution(Distribution):
     def preCompute(self, k: int, c: float, delta: float) -> typing.List[float]:
         ideal = self.idealSolitonDist(k)
         robust = self.robustSolitonDist(k, c, delta)
-        return self.normalize([i for i in map(add, ideal, robust)])
+        return self.normalize(list(map(add, ideal, robust)))
 
 
 if __name__ == "__main__":

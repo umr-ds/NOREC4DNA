@@ -6,12 +6,12 @@ import typing
 
 import numpy as np
 
-from norec4dna import Encoder, IdealSolitonDistribution, get_error_correction_encode, \
+from . import Encoder, IdealSolitonDistribution, get_error_correction_encode, \
     OnlineDistribution, OnlineEncoder, OnlineDecoder, get_error_correction_decode
 from norec4dna.HeaderChunk import HeaderChunk
 from norec4dna.Packet import Packet
-from norec4dna.helper.quaternary2Bin import tranlate_quat_to_byte
-from norec4dna.rules.FastDNARules import FastDNARules
+from .helper.quaternary2Bin import tranlate_quat_to_byte
+from .rules.FastDNARules import FastDNARules
 
 # INPUT_FILE = "Dorn"
 OVERHEAD = 0.2

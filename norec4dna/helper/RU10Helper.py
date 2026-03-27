@@ -5,14 +5,16 @@ import numpy as np
 from functools import lru_cache
 from math import ceil, floor, pow, sqrt, log
 
-from norec4dna.distributions import RaptorDistribution
+from numpy.typing import NDArray
+
+from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 
 int63 = int(pow(2, 63) - 1)
 int31 = int(pow(2, 31) - 1)
 
 
 def choose_packet_numbers(number_of_chunks: int, code_block_index: int, dist: RaptorDistribution,
-                          systematic: bool = False, max_l: int = None) -> typing.List[int]:
+                          systematic: bool = False, max_l: typing.Optional[int] = None) -> typing.List[int]:
     if systematic:
         d, a, b = systematic_ru10_triple_generator(number_of_chunks, code_block_index, dist)
     else:
@@ -21,7 +23,7 @@ def choose_packet_numbers(number_of_chunks: int, code_block_index: int, dist: Ra
         l, _, _ = intermediate_symbols(number_of_chunks, dist)
     else:
         l = max_l
-    lprime: np.uint32 = np.uint32(dist.smallestPrimeGreaterOrEqual(l))
+    lprime: int = int(np.uint32(dist.smallestPrimeGreaterOrEqual(l)))
 
     if d > l:
         d = l
@@ -58,19 +60,19 @@ def intermediate_symbols(k, dist) -> typing.Tuple[int, int, int]:
 
 
 def ru10_triple_generator(k: int, x: int, dist: RaptorDistribution, max_l: typing.Optional[int] = None) \
-        -> typing.Tuple[int, np.uint32, np.uint32]:
+        -> typing.Tuple[int, int, int]:
     if max_l is None:
         l, _, _ = intermediate_symbols(k, dist)
     else:
         l = max_l
     lprime = dist.smallestPrimeGreaterOrEqual(l)
-    rng: np.random = np.random
+    rng: np.random = np.random # type: ignore
     rng.seed(x)
     v = np.uint32(r_int63(rng) % 1048576)
     a = np.uint32(1 + (r_int63(rng) % (lprime - 1)))
     b = np.uint32(r_int63(rng) % lprime)
-    d = dist.deg(v)
-    return d, a, b
+    d = dist.deg(int(v))
+    return d, int(a), int(b)
 
 
 def systematic_ru10_triple_generator(k: int, x: int, dist: RaptorDistribution) -> typing.Tuple[int, int, int]:
@@ -89,13 +91,13 @@ def systematic_ru10_triple_generator(k: int, x: int, dist: RaptorDistribution) -
     return d, a, b
 
 
-def r_int63(rng: np.random) -> int:
+def r_int63(rng: np.random) -> int: # type: ignore
     return rng.randint(0, int31)
 
 
-def from_true_false_list(tf_list: typing.List[bool]) -> typing.List[int]:
+def from_true_false_list(tf_list: typing.Union[typing.List[bool], NDArray[np.bool_]]) -> typing.List[int]:
     return [i for i, x in enumerate(tf_list) if x]
 
 
 if __name__ == '__main__':
-    print(choose_packet_numbers(500, 123, RaptorDistribution.RaptorDistribution(500)), False, None)
+    print(choose_packet_numbers(500, 123, RaptorDistribution(500)), False, None)
