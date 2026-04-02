@@ -3,7 +3,7 @@ import typing
 from typing import List, Optional
 
 import numpy as np
-from norec4dna.helper import xor_numpy
+from .helper import xor_numpy
 from numpy.typing import NDArray
 
 debug = False
@@ -179,10 +179,10 @@ class GEPP_intern:
         return self.isSolved()
 
     try:
-        from .cdnarules import elimination  # just to trigger exception before running...
+        from cdnarules import elimination  # just to trigger exception before running...
 
         def _elimination(self) -> bool:
-            from .cdnarules import elimination
+            from cdnarules import elimination
 
             # chunk_to_used_packets is always initialized in __init__
             elimination(self.A, self.b, self.packet_mapping, self.chunk_to_used_packets)
@@ -198,7 +198,7 @@ class GEPP_intern:
     try:
 
         def _elimination_with_first_row(self, first_row: int = -1) -> bool:
-            from .cdnarules import elimination_with_first_row
+            from cdnarules import elimination_with_first_row
 
             # chunk_to_used_packets is always initialized in __init__
             elimination_with_first_row(

@@ -8,16 +8,16 @@ from math import floor, ceil
 from PIL import Image
 from numpy.typing import NDArray
 
-from norec4dna.helper.RU10Helper import from_true_false_list, intermediate_symbols, choose_packet_numbers
-from norec4dna.BPDecoder import BPDecoder
-from norec4dna.ErrorCorrection import get_error_correction_decode, nocode
-from norec4dna.HeaderChunk import HeaderChunk
-from norec4dna.RU10IntermediatePacket import RU10IntermediatePacket
-from norec4dna.RU10Packet import RU10Packet
-from norec4dna.helper import logical_xor, xor_mask, buildGraySequence, bitSet
-from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.helper.quaternary2Bin import quat_file_to_bin, quad_file_to_bytes, tranlate_quat_to_byte
-from norec4dna.distributions.Distribution import Distribution
+from .helper.RU10Helper import from_true_false_list, intermediate_symbols, choose_packet_numbers
+from .BPDecoder import BPDecoder
+from .ErrorCorrection import get_error_correction_decode, nocode
+from .HeaderChunk import HeaderChunk
+from .RU10IntermediatePacket import RU10IntermediatePacket
+from .RU10Packet import RU10Packet
+from .helper import logical_xor, xor_mask, buildGraySequence, bitSet
+from .distributions.RaptorDistribution import RaptorDistribution
+from .helper.quaternary2Bin import quat_file_to_bin, quad_file_to_bytes, tranlate_quat_to_byte
+from .distributions.Distribution import Distribution
 
 
 class RU10BPDecoder(BPDecoder):

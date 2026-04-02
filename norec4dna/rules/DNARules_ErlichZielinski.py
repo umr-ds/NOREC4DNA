@@ -1,7 +1,7 @@
 import copy
 import math
 
-from norec4dna.rules.RuleParser import longestSequenceOfChar, gc_content
+from .RuleParser import longestSequenceOfChar, gc_content
 
 
 class DNARules_ErlichZielinski:

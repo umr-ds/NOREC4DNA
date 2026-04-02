@@ -1,4 +1,4 @@
-from norec4dna.RU10Packet import RU10Packet
+from .RU10Packet import RU10Packet
 
 
 class RU10IntermediatePacket(RU10Packet):

@@ -7,7 +7,7 @@ from math import ceil, floor, pow, sqrt, log
 
 from numpy.typing import NDArray
 
-from norec4dna.distributions.RaptorDistribution import RaptorDistribution
+from ..distributions.RaptorDistribution import RaptorDistribution
 
 int63 = int(pow(2, 63) - 1)
 int31 = int(pow(2, 31) - 1)

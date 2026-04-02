@@ -2,6 +2,7 @@ import os
 import shutil
 import pytest
 import filecmp
+from pathlib import Path
 
 from norec4dna import Encoder
 from norec4dna import RU10Encoder
@@ -12,12 +13,17 @@ from norec4dna.rules.FastDNARules import FastDNARules
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.ErrorCorrection import nocode, crc32, reed_solomon_decode, reed_solomon_encode, crc32_decode
 
-file = "logo.jpg"
-file2 = "Dorn"
-out_dir = "RU10_logo.jpg"
-out_dir2 = "RU10_Dorn"
-cmp_file = "tests/cmp_logo.jpg"
-cmp_file2 = "tests/cmp_dorn"
+# Get the directory containing this test file
+TEST_DIR = Path(__file__).parent.absolute()
+# Get the NOREC4DNA root directory (parent of tests) - decoder saves files here
+NOREC4DNA_DIR = TEST_DIR.parent.absolute()
+
+file = str(TEST_DIR / "logo.jpg")
+file2 = str(TEST_DIR / "Dorn")
+out_dir = str(TEST_DIR / "RU10_logo.jpg")
+out_dir2 = str(TEST_DIR / "RU10_Dorn")
+cmp_file = str(TEST_DIR / "cmp_logo.jpg")
+cmp_file2 = str(TEST_DIR / "cmp_dorn")
 
 
 # runs before and after every test to cleanup the files
@@ -29,6 +35,13 @@ def run_between_tests():
     if os.path.exists(file2):
         os.remove(file2)
     shutil.copy(cmp_file2, file2)
+    # Clean up any decoded files from previous runs
+    for f in Path('.').glob('go.jpg'):
+        os.remove(f)
+    for f in Path('.').glob('DEC_RU10_*'):
+        os.remove(f)
+    for f in TEST_DIR.glob('DEC_RU10_*'):
+        os.remove(f)
 
 
 # testing as_dna and headerchunk with both dna_rules
@@ -63,9 +76,14 @@ def test_suite(as_dna, chunk_size, dna_rules, error_correction, headerchunk, xor
     os.remove(file)
     decoder.saveDecodedFile(print_to_output=False)
     if headerchunk:
-        assert os.path.exists(file) and filecmp.cmp(file, cmp_file)
+        # When headerchunk=True, decoder reads filename from header chunk
+        # The cmp_logo.jpg was created from 'go.jpg', so that's what will be decoded
+        out_file = str(NOREC4DNA_DIR / "go.jpg")
+        assert os.path.exists(out_file) and filecmp.cmp(out_file, cmp_file)
     else:
-        assert os.path.exists("DEC_RU10_logo.jpg") and filecmp.cmp("DEC_RU10_logo.jpg", cmp_file)
+        # Decoder saves files to current working directory (NOREC4DNA/)
+        out_file = str(NOREC4DNA_DIR / "DEC_RU10_logo.jpg")
+        assert os.path.exists(out_file) and filecmp.cmp(out_file, cmp_file)
     shutil.rmtree(out_dir)
 
 
@@ -98,7 +116,10 @@ def test_suite2(as_dna, chunk_size, dna_rules, error_correction_pair):
     assert decoder.is_decoded() and decoder.getSolvedCount() == encoder.number_of_chunks
     os.remove(file)
     decoder.saveDecodedFile(print_to_output=False)
-    assert os.path.exists(file) and filecmp.cmp(file, cmp_file)
+    # When headerchunk=True (default), decoder reads filename from header chunk
+    # The cmp_logo.jpg was created from 'go.jpg', so that's what will be decoded
+    out_file = str(NOREC4DNA_DIR / "go.jpg")
+    assert os.path.exists(out_file) and filecmp.cmp(out_file, cmp_file)
     shutil.rmtree(out_dir)
 
 
@@ -132,7 +153,10 @@ def test_suite3(as_dna, chunk_size, dna_rules, id_len_form, number_of_chunks_len
     assert decoder.is_decoded() and decoder.getSolvedCount() == encoder.number_of_chunks
     os.remove(file2)
     decoder.saveDecodedFile(print_to_output=False)
-    assert os.path.exists(file2) and filecmp.cmp(file2, cmp_file2)
+    # When headerchunk=True (default), decoder reads filename from header chunk
+    # The cmp_dorn was created from 'Dorn', so that's what will be decoded
+    out_file = str(NOREC4DNA_DIR / "Dorn")
+    assert os.path.exists(out_file) and filecmp.cmp(out_file, cmp_file2)
     shutil.rmtree(out_dir2)
 
 
@@ -160,10 +184,11 @@ def test_suite4(as_dna, chunk_size, dna_rules, error_correction):
     # do not delete all packets (and break the last one).
     # that way the GEPP inside the decoder will get initialized and we might not end in a race-condition for
     # decoder.decode() sometimes raising an Exception..
+    out_folder = out_dir
     for i in range(2, number_of_chunks):
-        tmp_path = "RU10_" + file + "/" + str(i) + ".RU10_DNA"
+        tmp_path = str(TEST_DIR / f"RU10_logo.jpg/{i}.RU10_DNA")
         os.remove(tmp_path)
-    with open("RU10_" + file + "/0.RU10_DNA", 'rb+') as tmp_file:
+    with open(str(TEST_DIR / "RU10_logo.jpg/0.RU10_DNA"), 'rb+') as tmp_file:
         # TODO we should flip bits in the middle rather than deleting 4 bytes at the end (we store crc32 / reedsolomon at the end)
         tmp_file.seek(-4, os.SEEK_END)
         tmp_file.truncate()
@@ -174,7 +199,9 @@ def test_suite4(as_dna, chunk_size, dna_rules, error_correction):
     os.remove(file)
     with pytest.raises(AssertionError):
         decoder.saveDecodedFile(print_to_output=False, partial_decoding=False)
-    assert not (os.path.exists(file) and filecmp.cmp(file, cmp_file))
+    # When headerchunk=True, decoder reads filename from header chunk
+    out_file = str(NOREC4DNA_DIR / "go.jpg")
+    assert not (os.path.exists(out_file) and filecmp.cmp(out_file, cmp_file))
     shutil.rmtree(out_dir)
 
 
@@ -207,7 +234,10 @@ def test_suite5(as_dna, chunk_size, dna_rules, error_correction, headerchunk, de
     assert decoder.is_decoded() and decoder.getSolvedCount() == encoder.number_of_chunks
     os.remove(file2)
     decoder.saveDecodedFile(print_to_output=True, null_is_terminator=True)
-    assert os.path.exists('DEC_RU10_' + file2) and filecmp.cmp('DEC_RU10_' + file2, cmp_file2)
+    # Decoder saves files to current working directory (NOREC4DNA/)
+    # When headerchunk=False, decoder creates DEC_ + basename of output folder
+    out_file = str(NOREC4DNA_DIR / "DEC_RU10_Dorn")
+    assert os.path.exists(out_file) and filecmp.cmp(out_file, cmp_file2)
     shutil.rmtree(out_dir2)
 
 

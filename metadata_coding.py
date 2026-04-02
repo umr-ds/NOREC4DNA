@@ -7,8 +7,9 @@ import typing
 
 import numpy
 import numpy as np
-from cdnarules import byte2QUATS
+from python_utils.types import deprecated
 
+from NOREC4DNA.norec4dna import RU10Decoder
 from norec4dna.helper.quaternary2Bin import tranlate_quat_to_byte
 
 from norec4dna.helper.bin2Quaternary import string2QUATS
@@ -209,9 +210,9 @@ def create_new_metadata_packets(semiautomatic_solver: SemiAutomaticReconstructio
 
     return new_packets
 
-
-def encoder_from_decoder(semiautomatic_solver: SemiAutomaticReconstructionToolkit,
-                         config_worker: ConfigReadAndExecute, rules=None) -> RU10Encoder:
+@deprecated("Use encoder_from_decoder instead!")
+def encoder_from_sart(semiautomatic_solver: SemiAutomaticReconstructionToolkit,
+                      config_worker: ConfigReadAndExecute, rules=None) -> RU10Encoder:
     """
     Generate an encoder instance from an existing decoder
     IMPORTANT: Before using the encoder, prepend the new header to the encoder.chunks (...insert(0,header)) and call
@@ -257,6 +258,60 @@ def encoder_from_decoder(semiautomatic_solver: SemiAutomaticReconstructionToolki
         packet.packed_used_packets = packet.prepare_and_pack()
         packet.packed = packet.calculate_packed_data()
     ru10_encoder.encodedPackets = set(semiautomatic_solver.decoder.packets.copy())
+
+    # ru10_encoder.chunks.insert(0,header)
+    # ru10_encoder.generate_intermediate_blocks()
+
+    return ru10_encoder
+
+def encoder_from_decoder(decoder: RU10Decoder,
+                      config_worker: ConfigReadAndExecute, rules=None) -> RU10Encoder:
+    """
+    Generate an encoder instance from an existing decoder
+    IMPORTANT: Before using the encoder, prepend the new header to the encoder.chunks (...insert(0,header)) and call
+               encoder.generate_intermediate_blocks()
+    """
+    # file, number_of_chunks, distribution: Distribution, insert_header=True, pseudo_decoder=None,
+    #             chunk_size=0, rules=None, error_correction=nocode, packet_len_format="I", crc_len_format="L",
+    #             number_of_chunks_len_format="L", id_len_format="L", save_number_of_chunks_in_packet=True,
+    #             mode_1_bmp=False, prepend="", append="", drop_upper_bound=1.0, keep_all_packets=False,
+    #             checksum_len_str=None, xor_by_seed=False, mask_id=True, id_spacing=0):
+    sctn_config = config_worker.config[config_worker.config.sections()[0]]
+    chunk_size = sctn_config.getint("chunk_size")
+    number_of_chunks_len_format = sctn_config.get("number_of_chunks_len_format", "I")
+    id_len_format = sctn_config.get("id_len_format", "I")
+    save_number_of_chunks_in_packet = sctn_config.getboolean("savenumberofchunks", False)
+    xor_by_seed = sctn_config.getboolean("xor_by_seed", True)
+    mask_id = sctn_config.getboolean("mask_id", True)
+    number_of_chunks = decoder.number_of_chunks
+    id_spacing = sctn_config.getint("id_spacing", 0)
+    crc_len_format = sctn_config.get("crc_len_format", "L")
+    checksum_len_str = sctn_config.get("checksum_len_str", "I")
+    last_chunk_len_str = sctn_config.get("last_chunk_len_str", "I")
+    decoder.solve()
+    decoder.populate_header_chunk(last_chunk_len_str=last_chunk_len_str)
+    dist = decoder.distribution
+    assert dist is not None
+    ru10_encoder = RU10Encoder(decoder.headerChunk.file_name.decode(), number_of_chunks,
+                               dist, decoder.use_headerchunk,
+                               None, 0, rules,
+                               decoder.error_correction, "I", crc_len_format,
+                               number_of_chunks_len_format, id_len_format,
+                               save_number_of_chunks_in_packet, False, "", "",
+                               1.0, True, "", xor_by_seed,
+                               mask_id, id_spacing, last_chunk_len_str)
+    ru10_encoder.chunk_size = chunk_size  # avoid overwriting the number of chunks by postponing the chunk_size setup
+    ru10_encoder.checksum_len_str = checksum_len_str
+    ru10_encoder.checksum = decoder.headerChunk.checksum
+    # remove the header and any decoded rows after the last chunk. Padding will be auto-applied as we use GEPP.b
+    ru10_encoder.chunks = [x for x in decoder.GEPP.b[
+        0:number_of_chunks]]  # TODO: check for off-by-one due to header
+    ru10_encoder.generate_intermediate_blocks()  # missing command from the prepare block
+    # (we MUST not call prepare() as it would add an additional header!)
+    for packet in decoder.packets:
+        packet.packed_used_packets = packet.prepare_and_pack()
+        packet.packed = packet.calculate_packed_data()
+    ru10_encoder.encodedPackets = set(decoder.packets.copy())
 
     # ru10_encoder.chunks.insert(0,header)
     # ru10_encoder.generate_intermediate_blocks()
@@ -412,7 +467,7 @@ if __name__ == '__main__':
     x = cfg_worker.execute(return_decoder=True, skip_solve=True)[0]
     semiautomatic_solver = SemiAutomaticReconstructionToolkit(x)
 
-    encoder = encoder_from_decoder(semiautomatic_solver, cfg_worker)
+    encoder = encoder_from_sart(semiautomatic_solver, cfg_worker)
 
     encoder.save_packets_fasta("1test_out.fasta", "", False)
 

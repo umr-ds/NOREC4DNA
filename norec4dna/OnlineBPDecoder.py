@@ -6,6 +6,7 @@ import os
 import typing
 import struct
 from math import ceil
+from numpy.typing import NDArray
 
 import numpy as np
 from norec4dna.BPDecoder import BPDecoder
@@ -19,30 +20,33 @@ from norec4dna.helper.quaternary2Bin import quat_file_to_bin
 
 
 class OnlineBPDecoder(BPDecoder):
-    def __init__(self, file: str, error_correction: typing.Callable = nocode, use_headerchunk: bool = True,
+    def __init__(self, file: typing.Optional[str] = None, error_correction: typing.Callable[[bytes], bytes] = nocode, use_headerchunk: bool = True,
                  static_number_of_chunks: typing.Optional[int] = None):
         super().__init__(file, error_correction, use_headerchunk, static_number_of_chunks)
         self.use_headerchunk: bool = use_headerchunk
-        self.file: str = file
+        self.file: typing.Optional[str] = file
         if file is not None:
             self.isFolder: bool = os.path.isdir(file)
             if not self.isFolder:
-                self.f = open(self.file, "rb")
-        self.rng: numpy.random = numpy.random
+                self.f = open(file, "rb")
+        self.rng: numpy.random.RandomState = numpy.random.RandomState()
         self.auxBlockNumbers: typing.Dict[int, typing.Set[int]] = dict()
-        self.error_correction: typing.Callable = error_correction
-        self.static_number_of_chunks: int = static_number_of_chunks
-        self.epsilon = None
-        self.quality = None
+        self.error_correction: typing.Callable[[bytes], bytes] = error_correction
+        self.static_number_of_chunks: typing.Optional[int] = static_number_of_chunks
+        self.epsilon: typing.Optional[float] = None
+        self.quality: typing.Optional[int] = None
 
     def decodeFolder(self, packet_len_format: str = "I", crc_len_format: str = "L",
                      number_of_chunks_len_format: str = "I", quality_len_format: str = "I",
                      epsilon_len_format: str = "f", check_block_number_len_format: str = "I") -> int:
+        effective_number_of_chunks_len_format = number_of_chunks_len_format
         decoded: bool = False
         self.EOF: bool = False
         if self.static_number_of_chunks is not None:
             self.number_of_chunks: int = self.static_number_of_chunks
-            number_of_chunks_len_format: str = ""  # if we got static number_of_chunks we do not need it in struct string
+            effective_number_of_chunks_len_format = ""  # if we got static number_of_chunks we do not need it in struct string
+        if self.file is None:
+            return 0
         for dir_file in os.listdir(self.file):
             if dir_file.endswith(".ONLINE") or dir_file.endswith("DNA"):
                 self.EOF = False
@@ -52,7 +56,7 @@ class OnlineBPDecoder(BPDecoder):
                     self.f = open(self.file + "/" + dir_file, "rb")
                 new_pack = self.getNextValidPacket(True, packet_len_format=packet_len_format,
                                                    crc_len_format=crc_len_format,
-                                                   number_of_chunks_len_format=number_of_chunks_len_format,
+                                                   number_of_chunks_len_format=effective_number_of_chunks_len_format,
                                                    quality_len_format=quality_len_format,
                                                    epsilon_len_format=epsilon_len_format,
                                                    check_block_number_len_format=check_block_number_len_format)
@@ -69,19 +73,21 @@ class OnlineBPDecoder(BPDecoder):
         if not decoded and self.EOF:
             print("Unable to retrieve file from chunks. Too many errors?")
             return -1
+        return 0
 
     def decodeFile(self, packet_len_format: str = "I", crc_len_format: str = "L",
                    number_of_chunks_len_format: str = "I", quality_len_format: str = "I", epsilon_len_format: str = "f",
                    check_block_number_len_format: str = "I") -> int:
+        effective_number_of_chunks_len_format = number_of_chunks_len_format
         if self.static_number_of_chunks is not None:
             self.number_of_chunks = self.static_number_of_chunks
-            number_of_chunks_len_format = ""  # if we got static number_of_chunks we do not need it in struct string
+            effective_number_of_chunks_len_format = ""  # if we got static number_of_chunks we do not need it in struct string
         decoded = False
         self.EOF: bool = False
         while not (decoded or self.EOF):
             new_pack = self.getNextValidPacket(False, packet_len_format=packet_len_format,
                                                crc_len_format=crc_len_format,
-                                               number_of_chunks_len_format=number_of_chunks_len_format,
+                                               number_of_chunks_len_format=effective_number_of_chunks_len_format,
                                                quality_len_format=quality_len_format,
                                                epsilon_len_format=epsilon_len_format,
                                                check_block_number_len_format=check_block_number_len_format)
@@ -96,13 +102,17 @@ class OnlineBPDecoder(BPDecoder):
         if not decoded and self.EOF:
             print("Unable to retrieve file from chunks. Too many errors?")
             return -1
+        return 0
+
+    def decodeZip(self, *args: typing.Any, **kwargs: typing.Any) -> typing.Optional[typing.Any]:
+        raise RuntimeError("Not implemented for BP-based decoders in the current version!")
 
     def input_new_packet(self, packet: OnlinePacket, last_chunk_len_format: str = "I") -> bool:
         self.number_of_chunks = packet.total_number_of_chunks
-        self.quality: int = packet.quality
-        self.epsilon: float = packet.epsilon
+        self.quality = packet.quality
+        self.epsilon = packet.epsilon
         if self.headerChunk is None and self.use_headerchunk:
-            self.decodeHeader()
+            self.decodeHeader(last_chunk_len_format=last_chunk_len_format)
         if self.correct == 0:
             self.createAuxBlocks()
         self.correct += 1
@@ -115,19 +125,35 @@ class OnlineBPDecoder(BPDecoder):
         i = 0
         for aux in aux_used_packets:
             if aux:
-                res.append(self.auxBlocks[i].get_bool_array_used_packets())
+                bool_array = self.auxBlocks[i].get_bool_array_used_packets()
+                # Convert numpy array to list if needed, handle None case
+                if bool_array is None:
+                    res.append([])
+                elif hasattr(bool_array, 'tolist'):
+                    res.append(bool_array.tolist())
+                else:
+                    res.append(bool_array)
             i += 1
         return res
 
     def removeAndXorAuxPackets(self, packet: OnlinePacket) -> typing.List[bool]:
         aux_mapping = self.getAuxPacketListFromPacket(packet)
-        aux_mapping.append(packet.get_bool_array_used_packets())
-        return logical_xor(aux_mapping)
+        packet_bool_array = packet.get_bool_array_used_packets()
+        # Convert numpy array to list if needed
+        if hasattr(packet_bool_array, 'tolist'):
+            aux_mapping.append(packet_bool_array.tolist())
+        else:
+            aux_mapping.append(packet_bool_array)
+        result = logical_xor(aux_mapping)
+        # Ensure result is a list
+        if hasattr(result, 'tolist'):
+            return result.tolist()
+        return result if isinstance(result, list) else list(result)
 
     def createAuxBlocks(self) -> None:
         assert self.number_of_chunks is not None, "createAuxBlocks can only be called AFTER first Packet"
         # self.dist.update_number_of_chunks(self.number_of_chunks)
-        self.rng.seed(self.number_of_chunks)
+        self.rng.seed(int(self.number_of_chunks))
         if self.debug: print("We should have " + str(self.getNumberOfAuxBlocks()) + " Aux-Blocks and " + str(
             self.number_of_chunks) + " normal Chunks (+ 1 HeaderChunk)")
         for i in range(0, self.getNumberOfAuxBlocks()):
@@ -135,9 +161,9 @@ class OnlineBPDecoder(BPDecoder):
         for chunk_no in range(0,
                               self.number_of_chunks):  # + (1 if self.use_headerchunk else 0)):  # + 1 for HeaderChunk
             # Insert this Chunk into quality different Aux-Packets
-            for i in range(0, self.quality):
+            for i in range(0, self.quality if self.quality is not None else 0):
                 # uniform choose a number of aux blocks
-                aux_no = self.rng.randint(0, self.getNumberOfAuxBlocks())
+                aux_no = int(self.rng.randint(0, self.getNumberOfAuxBlocks()))
                 self.auxBlockNumbers[aux_no].add(chunk_no)
 
         # XOR all Chunks into the corresponding AUX-Block
@@ -193,22 +219,42 @@ class OnlineBPDecoder(BPDecoder):
         struct_str: str = "<" + number_of_chunks_len_format + quality_len_format + epsilon_len_format + check_block_number_len_format
         struct_len: int = struct.calcsize(struct_str)
         data = packet[struct_len:crc_len]
-        len_data: typing.Union[typing.Tuple[int, float, int], typing.Tuple[int, int, float, int]] = struct.unpack(
-            struct_str, packet[0:struct_len])
+        len_data: typing.Tuple = struct.unpack(struct_str, packet[0:struct_len])
+        quality: int
+        check_block_number: int
+        
+        def convert_xor_result(result: typing.Any) -> int:
+            """Helper to convert xor_mask result to int"""
+            if isinstance(result, np.ndarray):
+                return int(result.item())
+            elif isinstance(result, (int, float)):
+                return int(result)
+            else:
+                return int(result)
+        
         if self.static_number_of_chunks is None:
-            number_of_chunks, quality, self.epsilon, check_block_number = len_data
-            self.number_of_chunks = xor_mask(number_of_chunks, number_of_chunks_len_format)
+            number_of_chunks_raw, quality_raw, self.epsilon, check_block_number_raw = len_data
+            number_of_chunks_result = xor_mask(number_of_chunks_raw, number_of_chunks_len_format)
+            self.number_of_chunks = convert_xor_result(number_of_chunks_result)
+            quality_result = xor_mask(quality_raw, quality_len_format)
+            quality = convert_xor_result(quality_result)
+            check_block_number = int(check_block_number_raw)
         else:
-            quality, self.epsilon, check_block_number = len_data
-        self.quality = xor_mask(quality, quality_len_format)
+            quality_raw, self.epsilon, check_block_number_raw = len_data
+            quality_result = xor_mask(quality_raw, quality_len_format)
+            quality = convert_xor_result(quality_result)
+            check_block_number = int(check_block_number_raw)
         if self.dist is None:
-            self.dist = OnlineDistribution(self.epsilon)
+            eps_value: float = self.epsilon if self.epsilon is not None else 0.0
+            self.dist = OnlineDistribution(eps_value)
         if self.correct == 0:
             # Create MockUp AuxBlocks with the given Pseudo-Random Number -> we will know which Packets are Encoded in which AuxBlock
             self.createAuxBlocks()
 
         self.correct += 1
-        res = OnlinePacket(np.frombuffer(data, dtype=np.uint8), self.number_of_chunks, self.quality, self.epsilon,
+        data_array: NDArray[np.uint8] = np.frombuffer(data, dtype=np.uint8)
+        epsilon_value: float = self.epsilon if self.epsilon is not None else 0.0
+        res = OnlinePacket(data_array.tobytes(), self.number_of_chunks, quality, epsilon_value,
                            check_block_number, read_only=True, crc_len_format=crc_len_format,
                            number_of_chunks_len_format=number_of_chunks_len_format,
                            quality_len_format=quality_len_format, epsilon_len_format=epsilon_len_format,
@@ -228,6 +274,7 @@ class OnlineBPDecoder(BPDecoder):
         assert self.is_decoded(), "Can not save File: Unable to reconstruct."
         if self.use_headerchunk:
             self.decodeHeader()
+        assert self.file is not None, "Cannot save file: file is None"
         file_name = "DEC_" + self.file.split("\x00")[0]  # split is needed for weird  MAC / Windows bugs...
         output_concat = b""
         if self.headerChunk is not None:
@@ -240,9 +287,8 @@ class OnlineBPDecoder(BPDecoder):
                     if isinstance(decoded, OnlineAuxPacket):
                         a.append(num)
                     if self.number_of_chunks - 1 == num and self.use_headerchunk:
-                        output: typing.Union[bytes, numpy.array] = decoded.get_data()[
-                                                                   0: self.headerChunk.get_last_chunk_length()]
-                        if type(output) == bytes:
+                        output = decoded.get_data()[0: self.headerChunk.get_last_chunk_length()]
+                        if isinstance(output, bytes):
                             output_concat += output
                         else:
                             output_concat += output.tobytes()
@@ -250,12 +296,12 @@ class OnlineBPDecoder(BPDecoder):
                     else:
                         if null_is_terminator:
                             data = decoded.get_data()
-                            if type(data) == bytes:
+                            if isinstance(data, bytes):
                                 splitter = data.decode().split("\x00")
                             else:
-                                splitter = data.tostring().decode().split("\x00")
+                                splitter = data.tobytes().decode().split("\x00")
                             output = splitter[0].encode()
-                            if type(output) == bytes:
+                            if isinstance(output, bytes):
                                 output_concat += output
                             else:
                                 output_concat += output.tobytes()
@@ -264,7 +310,7 @@ class OnlineBPDecoder(BPDecoder):
                                 break  # since we are in null-terminator mode, we exit once we see the first 0-byte
                         else:
                             output = decoded.get_data()
-                            if type(output) == bytes:
+                            if isinstance(output, bytes):
                                 output_concat += output
                             else:
                                 output_concat += output.tobytes()
@@ -275,7 +321,9 @@ class OnlineBPDecoder(BPDecoder):
             print(output_concat.decode("utf-8"))
 
     def getNumberOfAuxBlocks(self) -> int:
-        return int(ceil(0.55 * self.quality * self.epsilon * self.number_of_chunks))
+        quality = self.quality if self.quality is not None else 0
+        epsilon = self.epsilon if self.epsilon is not None else 0.0
+        return int(ceil(0.55 * quality * epsilon * self.number_of_chunks))
 
 
 if __name__ == "__main__":

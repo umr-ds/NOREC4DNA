@@ -1,3 +1,25 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+addopts = "-v --cov=norec4dna --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["norec4dna"]
+branch = true
+relative_files = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
 [build-system]
 requires = [
     "setuptools>=65.0",
@@ -8,14 +30,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "norec4dna"
-version = "0.2.1"
+version = "0.2.0"
 description = "NOREC4DNA - a Fountain Code based approach to DNA-Storage (Optimized)"
-authors = [{ name = "Michael Schwarz" }]
+authors = [{name = "Michael Schwarz"}]
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-    "build",
-    "cython",
     "numpy>=1.26",
 ]
 keywords = ["dna", "storage", "fountain", "codes", "bioinformatics"]

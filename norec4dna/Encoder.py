@@ -44,7 +44,7 @@ class Encoder(ABC):
         widgets: typing.List[typing.Any] = [progressbar.Percentage(), progressbar.Bar(), ' Encoded: ', progressbar.Counter(), ', ',
                    progressbar.Variable('Dropped'), ', ', progressbar.AdaptiveETA(), ' ', progressbar.Timer()]
         return progressbar.ProgressBar(max_value=max_value, widgets=widgets, max_error=False,
-                                       redirect_stdout=True).start()
+                                       redirect_stdout=False).start()
 
     def encode_to_packets(self) -> None:
         pass  # implemented in subclasses

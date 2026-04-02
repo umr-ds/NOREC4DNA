@@ -40,7 +40,7 @@ class LTEncoder(Encoder):
         assert number_of_chunks == distribution.get_size()
         self.out_file: typing.Optional[str] = None
         self.dist: Distribution = distribution
-        self.rng: np.random = np.random
+        self.rng: np.random.RandomState = np.random.RandomState()
         self.insert_header: bool = insert_header
         self.chunk_size: int = chunk_size
         self.file: str = file
@@ -83,8 +83,9 @@ class LTEncoder(Encoder):
             self.chunk_size = ceil(1.0 * file_size / (self.number_of_chunks - 1))
             self.chunks = self.create_chunks(self.chunk_size)
             self.number_of_chunks += 1
-            # First Chunk is a Header
-            self.chunks.insert(0, self.encode_header_info())
+            # First Chunk is a Header - convert NDArray to bytes
+            header_info: NDArray[np.uint8] = self.encode_header_info()
+            self.chunks.insert(0, header_info.tobytes())
         else:
             self.chunk_size = ceil(1.0 * file_size / self.number_of_chunks)
             self.chunks = self.create_chunks(self.chunk_size)
@@ -145,8 +146,9 @@ class LTEncoder(Encoder):
         last_chunk_len_struct_size = struct.calcsize("<" + self.last_chunk_len_format)
         struct_str = "<" + self.last_chunk_len_format + str(file_name_length) + "s" + \
                      str(self.chunk_size - file_name_length - last_chunk_len_struct_size) + "x"
-        return np.frombuffer(struct.pack(struct_str, len(last_chunk), bytes(self.file, encoding="utf-8")),
-                             dtype=np.uint8)
+        packed_data: bytes = struct.pack(struct_str, len(last_chunk), bytes(self.file, encoding="utf-8"))
+        # Convert bytes to NDArray
+        return np.frombuffer(packed_data, dtype=np.uint8)
 
     def number_of_packets_encoded_already(self) -> int:
         return len(self.setOfEncodedPackets)
@@ -213,16 +215,19 @@ class LTEncoder(Encoder):
                 raise RuntimeError("sequential checkblock_id > max allowed number!")
             return self.next_checkblock_id
         random_generator: np.random.RandomState = np.random.RandomState()
-        return random_generator.randint(0, max_num, dtype=np.uint32)
+        return int(random_generator.randint(0, int(max_num), dtype=np.uint32))
 
-    def create_new_packet(self, seed=None) -> Packet:
+    def create_new_packet(self, seed: typing.Optional[int] = None) -> Packet:
+        generated_seed: int
         if seed is None:
-            seed: int = self.generate_new_checkblock_id(self.sequential_seed)
+            generated_seed = self.generate_new_checkblock_id(self.sequential_seed)
+        else:
+            generated_seed = seed
         if self.implicit_mode:  # in implicit mode we want to be able derive the used chunks from having only the seed
-            self.dist.set_seed(seed)
+            self.dist.set_seed(generated_seed)
         degree: int = self.dist.getNumber()
 
-        packet_numbers: typing.Set[int] = self.choose_packet_numbers(degree, seed=seed)
+        packet_numbers: typing.Set[int] = self.choose_packet_numbers(degree, seed=generated_seed)
         chunks: typing.List[bytes] = [self.chunks[i] for i in packet_numbers]
         self.setOfEncodedPackets |= set(packet_numbers)
         return Packet(
@@ -230,7 +235,7 @@ class LTEncoder(Encoder):
             packet_numbers,
             self.number_of_chunks,
             read_only=False,
-            seed=seed,
+            seed=generated_seed,
             error_correction=self.error_correction,
             implicit_mode=self.implicit_mode,
             packet_len_format=self.packet_len_format,
@@ -256,24 +261,32 @@ class LTEncoder(Encoder):
             res.add(tmp)
         return res
 
-    def save_config_file(self, default_map=None, section_name=None):
+    def save_config_file(self, default_map: typing.Optional[typing.Dict[str, typing.Any]] = None, section_name: typing.Optional[str] = None):
         if default_map is None:
             default_map = {}
         if section_name is None:
-            section_name = self.out_file
+            section_name = str(self.out_file)
         config = configparser.ConfigParser()
-        config[section_name] = {'algorithm': 'LT', 'error_correction': self.error_correction.__code__,
-                                'insert_header': self.insert_header,
-                                'savenumberofchunks': self.save_number_of_chunks_in_packet,
-                                'mode_1_bmp': self.mode_1_bmp, 'upper_bound': self.upper_bound,
-                                'number_of_chunks': self.number_of_chunks, 'config_str': self.getConfigStr(),
-                                'id_len_format': self.id_len_format,
-                                'number_of_chunks_len_format': self.number_of_chunks_len_format,
-                                'packet_len_format': self.packet_len_format, 'crc_len_format': self.crc_len_format,
-                                'master_seed': 0, 'distribution': self.dist.get_config_string(),
-                                'rules': [rule for rule in self.rules.active_rules],
-                                'chunk_size': self.chunk_size, 'dropped_packets': self.ruleDrop,
-                                'created_packets': len(self.encodedPackets)}
+        config[section_name] = {
+            'algorithm': 'LT',
+            'error_correction': self.error_correction.__code__.co_name,
+            'insert_header': str(self.insert_header),
+            'savenumberofchunks': str(self.save_number_of_chunks_in_packet),
+            'mode_1_bmp': str(self.mode_1_bmp),
+            'upper_bound': str(self.upper_bound),
+            'number_of_chunks': str(self.number_of_chunks),
+            'config_str': self.getConfigStr(),
+            'id_len_format': self.id_len_format,
+            'number_of_chunks_len_format': self.number_of_chunks_len_format,
+            'packet_len_format': self.packet_len_format,
+            'crc_len_format': self.crc_len_format,
+            'master_seed': '0',
+            'distribution': self.dist.get_config_string(),
+            'rules': str([rule for rule in self.rules.active_rules]) if self.rules else '[]',
+            'chunk_size': str(self.chunk_size),
+            'dropped_packets': str(self.ruleDrop),
+            'created_packets': str(len(self.encodedPackets))
+        }
         for key, val in default_map.items():
             config[section_name][str(key)] = str(val)
         config_file_name = "{}_{}.ini".format(self.file, datetime.datetime.now().ctime().replace(" ", "_").replace(":",

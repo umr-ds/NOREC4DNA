@@ -6,12 +6,12 @@ import typing
 
 import numpy as np
 from bitstring import BitArray
-from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.ErrorCorrection import nocode
-from norec4dna.helper import xor_mask
-from norec4dna.helper.helper import xor_with_seed
-from norec4dna.helper.RU10Helper import intermediate_symbols
-from norec4dna.Packet import Packet
+from .distributions.RaptorDistribution import RaptorDistribution
+from .ErrorCorrection import nocode
+from .helper import xor_mask
+from .helper.helper import xor_with_seed
+from .helper.RU10Helper import intermediate_symbols
+from .Packet import Packet
 
 
 class RU10Packet(Packet):

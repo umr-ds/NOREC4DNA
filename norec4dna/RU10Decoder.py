@@ -12,27 +12,27 @@ from zipfile import ZipFile
 
 import numpy as np
 from numpy.typing import NDArray
-from norec4dna.Decoder import Decoder
-from norec4dna.distributions.Distribution import Distribution
-from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.ErrorCorrection import get_error_correction_decode, nocode
-from norec4dna.GEPP import GEPP, GEPP_intern
-from norec4dna.HeaderChunk import HeaderChunk
-from norec4dna.helper import bitSet, buildGraySequence, calc_file_crc, logical_xor, xor_mask
-from norec4dna.helper.helper import xor_with_seed
-from norec4dna.helper.quaternary2Bin import (
+from .Decoder import Decoder
+from .distributions.Distribution import Distribution
+from .distributions.RaptorDistribution import RaptorDistribution
+from .ErrorCorrection import get_error_correction_decode, nocode
+from .GEPP import GEPP, GEPP_intern
+from .HeaderChunk import HeaderChunk
+from .helper import bitSet, buildGraySequence, calc_file_crc, logical_xor, xor_mask
+from .helper.helper import xor_with_seed
+from .helper.quaternary2Bin import (
     quad_file_to_bytes,
     quat_file_to_bin,
     tranlate_quat_to_byte,
 )
-from norec4dna.helper.RU10Helper import (
+from .helper.RU10Helper import (
     choose_packet_numbers,
     from_true_false_list,
     intermediate_symbols,
 )
-from norec4dna.Packet import Packet
-from norec4dna.RU10IntermediatePacket import RU10IntermediatePacket
-from norec4dna.RU10Packet import RU10Packet
+from .Packet import Packet
+from .RU10IntermediatePacket import RU10IntermediatePacket
+from .RU10Packet import RU10Packet
 from PIL import Image
 
 DEBUG = False
@@ -500,8 +500,8 @@ class RU10Decoder(Decoder):
             Boolean numpy array where index i=True means chunk i is in the result after aux removal
         """
         import numpy as np
-        from norec4dna.helper.helper import logical_xor
-        from norec4dna.helper.RU10Helper import from_true_false_list
+        from .helper.helper import logical_xor
+        from .helper.RU10Helper import from_true_false_list
 
         # Convert input to set of indices
         if isinstance(packet_indices, np.ndarray):

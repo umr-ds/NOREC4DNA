@@ -1,6 +1,5 @@
-import io
 import struct
-from typing import Any, AnyStr, Callable, List, Optional, Union
+from typing import Any, Callable, List, Optional, Union
 
 from bitarray import bitarray
 from norec4dna.helper import calc_crc
@@ -22,7 +21,7 @@ def nocode(txt: bytes, *args: Any) -> bytes:
 
 
 def crc32(txt: Union[bytes, bytearray], crc_len_format: str = "B") -> bytes:
-    crc = calc_crc(io.BytesIO(txt), crc_len_format)
+    crc = calc_crc(bytes(txt), crc_len_format)
     packed = struct.pack("<" + str(len(txt)) + "s" + crc_len_format, txt, crc)
     return packed
 
@@ -31,7 +30,7 @@ def crc32_decode(txt: bytes, crc_len_format="B") -> bytes:
     crc_len = -struct.calcsize("<" + crc_len_format)
     crc = struct.unpack("<" + crc_len_format, txt[crc_len:])[0]
     payload = txt[:crc_len]
-    calced_crc = calc_crc(io.BytesIO(payload), crc_len_format)
+    calced_crc = calc_crc(payload, crc_len_format)
     assert crc == calced_crc, "CRC-Error - " + str(hex(crc)) + " != " + str(hex(calced_crc))
     return payload
 
@@ -80,13 +79,16 @@ def dna_reed_solomon_decode(
     Warning: dna_reed_solomon_* requires a custom RSCodec version with support for custom c_exp and nsize.
     """
     tmp_rscodec = RSCodec(number_repair_symbols, c_exp=c_exp, prim=prim_poly, nsize=2**c_exp - 1)
-    decoded: bytearray = tmp_rscodec.decode(txt)
-    return bytes(bits_to_bytes(decoded))
+    decoded = tmp_rscodec.decode(txt)
+    # reedsolo returns tuple of arrays, we need bytes
+    if isinstance(decoded, tuple):
+        return bytes(decoded[0])
+    return bytes(decoded)
 
 
 # Helper functions.
 def bits_to_bytes(decoded_bytes: Union[bytearray, List[int], bytes]) -> bytes:
-    decoded_bits = dec_to_bits(decoded_bytes)
+    decoded_bits = dec_to_bits(list(decoded_bytes) if isinstance(decoded_bytes, (bytearray, bytes)) else decoded_bytes)
     return bitarray(decoded_bits).tobytes()
 
 
@@ -109,9 +111,10 @@ def bits_to_dec(input_string: bytes) -> List[int]:
     return [translation[input_bits[i : i + 2]] for i in range(0, len(input_bits), 2)]
 
 
-def dec_to_bits(decoded_bytes: List[int]) -> str:
+def dec_to_bits(decoded_bytes: Union[List[int], bytearray, bytes]) -> str:
     translation = {0: "00", 1: "01", 2: "10", 3: "11"}
-    return "".join([translation[bits] for bits in decoded_bytes])
+    byte_list = list(decoded_bytes) if isinstance(decoded_bytes, (bytearray, bytes)) else decoded_bytes
+    return "".join([translation[bits] for bits in byte_list])
 
 
 def get_error_correction_decode(

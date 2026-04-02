@@ -12,10 +12,10 @@ from crccheck.crc import Crc32, Crc16, Crc64
 try:
     from cdnarules import xorArray as xor_numpy_internal
 except ImportError:
-    from norec4dna.helper.fallback_code import xor_numpy_internal
+    from .fallback_code import xor_numpy_internal
 
 if TYPE_CHECKING:
-    from norec4dna.Packet import Packet
+    from .Packet import Packet
 
 
 def xor_numpy(p1: Union[bytes, bytearray, NDArray], p2: Union[bytes, bytearray, NDArray]) -> NDArray:
@@ -97,7 +97,7 @@ try:
         return bitSet_c(int(x), int(b))
 except ImportError:
     print("BitSet - C Module failed to load, falling back to slow mode")
-    from norec4dna.helper.fallback_code import bitSet
+    from .fallback_code import bitSet
 
 try:
     from cdnarules import bitsSet as bitsSet_c
@@ -106,7 +106,7 @@ try:
         return bitsSet_c(int(x))
 except ImportError:
     print("BitsSet - C Module failed to load, falling back to slow mode")
-    from norec4dna.helper.fallback_code import bitsSet
+    from .fallback_code import bitsSet
 
 try:
     from cdnarules import grayCode as grayCode_c
@@ -115,10 +115,10 @@ try:
         return numpy.uint64(grayCode_c(int(x)))
 except ImportError:
     print("Gray-Code - C Module failed to load, falling back to slow mode")
-    from norec4dna.helper.fallback_code import grayCode
+    from .fallback_code import grayCode
 
 try:
     from cdnarules import buildGraySequence
 except ImportError:
     print("Graysequence - C Module failed to load, falling back to slow mode")
-    from norec4dna.helper.fallback_code import buildGraySequence
+    from .fallback_code import buildGraySequence

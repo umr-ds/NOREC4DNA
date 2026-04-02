@@ -78,6 +78,7 @@ def run(seq_seed=None, file='logo.jpg', repair_symbols=2, insert_header=False,
         x.prepareEncoder()
     elif method == 'Online':
         number_of_chunks = dist.get_size()
+        assert number_of_chunks is not None, "Distribution size must be set for Online method"
         x = OnlineEncoder(file, number_of_chunks, dist, ONLINE_EPS, ONLINE_QUALITY, error_correction=error_correction,
                           quality_len_format="B", insert_header=False, check_block_number_len_format=seed_len_format,
                           number_of_chunks_len_format=number_of_chunks_len_format, rules=rules,
@@ -97,12 +98,12 @@ def run(seq_seed=None, file='logo.jpg', repair_symbols=2, insert_header=False,
         # if i == 0:
         #    print(f"%i , %s" % (len(packet.get_dna_struct(True)), packet.get_dna_struct(True)))
         _ = should_drop_packet(rules, packet)
-        if packet.error_prob <= drop_above and (len(tmp_list) < l_size or packet.error_prob < tmp_list[-1].error_prob):
+        if packet.error_prob is not None and packet.error_prob <= drop_above and (len(tmp_list) < l_size or packet.error_prob < tmp_list[-1].error_prob):
             if packet not in tmp_list:
                 bisect.insort_left(tmp_list, packet)
             else:
                 elem = next((x for x in tmp_list if x == packet), None)
-                if packet < elem:
+                if elem is not None and packet < elem:
                     tmp_list.remove(elem)
                     del elem
                     bisect.insort_left(tmp_list, packet)

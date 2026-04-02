@@ -9,15 +9,15 @@ import numpy as np
 from io import BytesIO
 from numpy.typing import NDArray
 
-from norec4dna.Decoder import Decoder
-from norec4dna.ErrorCorrection import crc32, nocode, reed_solomon_decode
-from norec4dna.GEPP import GEPP, GEPP_intern
-from norec4dna.HeaderChunk import HeaderChunk
-from norec4dna.Packet import Packet
-from norec4dna.distributions.Distribution import Distribution
-from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import ErlichZielinskiRobustSolitonDistribution
-from norec4dna.helper import calc_crc, xor_mask, calc_file_crc, logical_xor
-from norec4dna.helper.quaternary2Bin import quat_file_to_bin, tranlate_quat_to_byte
+from .Decoder import Decoder
+from .ErrorCorrection import crc32, nocode, reed_solomon_decode
+from .GEPP import GEPP, GEPP_intern
+from .HeaderChunk import HeaderChunk
+from .Packet import Packet
+from .distributions.Distribution import Distribution
+from .distributions.ErlichZielinskiRobustSolitonDisribution import ErlichZielinskiRobustSolitonDistribution
+from .helper import calc_crc, xor_mask, calc_file_crc, logical_xor
+from .helper.quaternary2Bin import quat_file_to_bin, tranlate_quat_to_byte
 
 
 class LTDecoder(Decoder):

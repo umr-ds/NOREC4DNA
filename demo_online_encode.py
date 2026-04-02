@@ -15,6 +15,7 @@ class demo_online_encode:
                checksum_len_str=None):
         dist = OnlineDistribution(epsilon)
         number_of_chunks = dist.get_size()
+        assert number_of_chunks is not None, "Distribution size must be set"
         dna_rules = FastDNARules()
         if asdna:
             rules = dna_rules

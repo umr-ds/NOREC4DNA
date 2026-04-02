@@ -28,5 +28,5 @@ class Distribution(ABC):
     def update_number_of_chunks(self, num_chunks: int):
         pass  # implemented in subclasses
 
-    def getNumber(self, *args, **kwargs):
+    def getNumber(self, *args, **kwargs) -> int:
         pass

@@ -4,7 +4,7 @@ import numpy
 import typing
 
 import numpy as np
-from norec4dna.Packet import Packet
+from .Packet import Packet
 
 
 class HeaderChunk:

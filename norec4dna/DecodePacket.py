@@ -3,9 +3,9 @@
 import typing
 import numpy as np
 from numpy.typing import NDArray
-from norec4dna.ErrorCorrection import nocode
-from norec4dna.Packet import Packet
-from norec4dna.helper import xor_numpy
+from .ErrorCorrection import nocode
+from .Packet import Packet
+from .helper import xor_numpy
 
 
 class DecodePacket(Packet):

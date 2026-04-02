@@ -4,7 +4,7 @@ import typing
 from re import compile, search
 from collections import Counter
 
-from norec4dna.helper.fallback_code import strContainsSub_python, microsatellite_python, longestSequenceOfChar_python
+from ..helper.fallback_code import strContainsSub_python, microsatellite_python, longestSequenceOfChar_python
 
 try:
     import cdnarules

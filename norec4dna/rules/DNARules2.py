@@ -3,7 +3,8 @@ import json
 import random
 import requests
 
-from norec4dna.helper import bin2Quaternary, quaternary2Bin
+from norec4dna.helper.bin2Quaternary import byte2QUATS, string2QUATS
+from norec4dna.helper.quaternary2Bin import quats_to_bytes
 
 # IMPORTANT: if you plan to use this, you should change the MESA_URL to a (local) instance of your own.
 MESA_URL = 'http://pc12291.mathematik.uni-marburg.de:5000/api/all'
@@ -57,13 +58,13 @@ class DNARules2:
             dna_data_bin_enc = b""
             for i in range(0, len(seq), 4):
                 try:
-                    dna_data_bin_enc += quaternary2Bin.quats_to_bytes(seq[i:i + 4])
+                    dna_data_bin_enc += quats_to_bytes(seq[i:i + 4])
                 except:
                     pass
             dna_data_bin_dec = dna_data_bin_enc
             dna_data_dec = ''
             for x in dna_data_bin_dec:
-                dna_data_dec += bin2Quaternary.byte2QUATS(x)
+                dna_data_dec += byte2QUATS(x)
             changes = sum([1 if dna_data_dec[x] != seq_org[x] else 0 for x in
                            range(min(len(dna_data_dec), len(seq_org)))])
             if changes < 3 - abs(len(dna_data_dec) - len(seq_org)):

@@ -10,14 +10,14 @@ import typing
 import numpy as np
 from math import ceil, floor
 
-from norec4dna.helper.RU10Helper import int31, choose_packet_numbers, intermediate_symbols
-from norec4dna.distributions.Distribution import Distribution
-from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.helper import should_drop_packet, listXOR, calc_crc, buildGraySequence, bitSet, calc_file_crc
-from norec4dna.rules.FastDNARules import FastDNARules
-from norec4dna.ErrorCorrection import get_error_correction_encode, nocode, get_error_correction_name
-from norec4dna.Encoder import Encoder
-from norec4dna.RU10Packet import RU10Packet
+from .helper.RU10Helper import int31, choose_packet_numbers, intermediate_symbols
+from .distributions.Distribution import Distribution
+from .distributions.RaptorDistribution import RaptorDistribution
+from .helper import should_drop_packet, listXOR, calc_crc, buildGraySequence, bitSet, calc_file_crc
+from .rules.FastDNARules import FastDNARules
+from .ErrorCorrection import get_error_correction_encode, nocode, get_error_correction_name
+from .Encoder import Encoder
+from .RU10Packet import RU10Packet
 
 
 class RU10Encoder(Encoder):

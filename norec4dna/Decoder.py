@@ -2,7 +2,7 @@ import typing
 from typing import Any, List, Optional
 
 import progressbar
-from norec4dna.Packet import Packet
+from .Packet import Packet
 from abc import ABC, abstractmethod
 
 class Decoder(ABC):

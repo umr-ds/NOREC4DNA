@@ -4,6 +4,7 @@ import os
 import shutil
 import pytest
 import filecmp
+from pathlib import Path
 
 from norec4dna.Encoder import Encoder
 from norec4dna.LTDecoder import LTDecoder
@@ -16,13 +17,18 @@ from norec4dna.distributions.IdealSolitonDistribution import IdealSolitonDistrib
 from norec4dna.distributions.RobustSolitonDistribution import RobustSolitonDistribution
 from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import ErlichZielinskiRobustSolitonDistribution
 
-file = "logo.jpg"
-out_dir = "LT_logo.jpg"
-cmp_file = "tests/cmp_logo.jpg"
+# Get the directory containing this test file
+TEST_DIR = Path(__file__).parent.absolute()
+# Get the current working directory - decoder saves files here
+CWD = Path.cwd()
 
-file2 = "Dorn"
-out_dir2 = "LT_Dorn"
-cmp_file2 = "tests/cmp_dorn"
+file = str(TEST_DIR / "logo.jpg")
+out_dir = str(TEST_DIR / "LT_logo.jpg")
+cmp_file = str(TEST_DIR / "cmp_logo.jpg")
+
+file2 = str(TEST_DIR / "Dorn")
+out_dir2 = str(TEST_DIR / "LT_Dorn")
+cmp_file2 = str(TEST_DIR / "cmp_dorn")
 
 @pytest.fixture(autouse=True)
 def run_between_tests():
@@ -37,12 +43,11 @@ def run_between_tests():
 @pytest.mark.parametrize("use_header", [True, False])
 @pytest.mark.parametrize("implicit_mode", [True, False])
 def test_suite(as_dna, decoder_instance, distribution, use_header, implicit_mode):
-    dir_path = os.getcwd()
     try:
-        os.remove(dir_path + "/" + file)
+        os.remove(file)
     except:
         print("Not deleting, File did not exists")
-    shutil.copyfile(dir_path + "/" + cmp_file, dir_path + "/" + file)
+    shutil.copyfile(cmp_file, file)
     chunksize = 200
     number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunksize)
     pseudo_decoder = decoder_instance.pseudo_decoder(number_of_chunks)
@@ -72,10 +77,14 @@ def test_suite(as_dna, decoder_instance, distribution, use_header, implicit_mode
     assert decoder.is_decoded() and decoder.getSolvedCount() == encoder.number_of_chunks
     os.remove(file)
     decoder.saveDecodedFile(print_to_output=False)
+    # Decoder saves files:
+    # - When use_header=False: Creates DEC_ + basename of output folder in CWD
+    # - When use_header=True: Reads full path from header chunk and saves there
     if not use_header:
-        out_file = "DEC_LT_" + file
+        out_file = str(CWD / "DEC_LT_logo.jpg")
     else:
-        out_file = file
+        # Header contains full path, decoder saves to that exact path
+        out_file = str(TEST_DIR / "logo.jpg")
     assert os.path.exists(out_file) and filecmp.cmp(out_file, cmp_file)
     if decoder_instance == LTBPDecoder:
         # since ApproxDecoder defines an upper bound Gauss-Decoder MUST be able to decode!
@@ -92,12 +101,11 @@ def test_suite(as_dna, decoder_instance, distribution, use_header, implicit_mode
 
 
 def test_erlich_zielinski_dnarules():
-    dir_path = os.getcwd()
     try:
-        os.remove(dir_path + "/DEC_" + out_dir2)
+        os.remove(str(f"{TEST_DIR}/DEC_{os.path.basename(out_dir2)}"))
     except:
         print("Not deleting, File did not exists")
-    shutil.copyfile(dir_path + "/" + cmp_file2, dir_path + "/" + file2)
+    shutil.copyfile(cmp_file2, file2)
     chunksize = 75
     number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file2, chunksize)
     pseudo_decoder = LTDecoder.pseudo_decoder(number_of_chunks)
@@ -116,18 +124,18 @@ def test_erlich_zielinski_dnarules():
     decoder.decodeFolder(number_of_chunks_len_format="H", seed_len_format="H", degree_len_format="H")
     assert decoder.is_decoded() and decoder.getSolvedCount() == encoder.number_of_chunks
     decoder.saveDecodedFile(print_to_output=False, null_is_terminator=True)
-    out_file2 = "DEC_LT_" + file2
+    # Decoder saves files to current working directory (where pytest runs from)
+    out_file2 = str(CWD / "DEC_LT_Dorn")
     assert os.path.exists(out_file2) and filecmp.cmp(out_file2, cmp_file2)
     os.remove(out_file2)
 
 
 def test_size_shrink():
-    dir_path = os.getcwd()
     try:
-        os.remove(dir_path + "/" + file)
+        os.remove(file)
     except:
         print("Not deleting, File did not exists")
-    shutil.copyfile(dir_path + "/" + cmp_file, dir_path + "/" + file)
+    shutil.copyfile(cmp_file, file)
     chunksize = 200
     number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunksize)
     dist = RobustSolitonDistribution(S=number_of_chunks, delta=0.2, seed=2)

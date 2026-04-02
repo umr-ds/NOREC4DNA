@@ -29,7 +29,8 @@ class demo_decode:
                number_of_chunks=STATIC_NUM_CHUNKS, use_header_chunk=False, id_len_format=ID_LEN_FORMAT,
                number_of_chunks_len_format=NUMBER_OF_CHUNKS_LEN_FORMAT, packet_len_format=PACKET_LEN_FORMAT,
                crc_len_format=CRC_LEN_FORMAT, read_all=READ_ALL_BEFORE_DECODER, distribution_cfg_str="",
-               return_decoder=False, checksum_len_str=None, config_map=None):
+               return_decoder=False, checksum_len_str=None, skip_solve=False, xor_by_seed=False,
+               id_spacing=0, mask_id=True, store_parsed_packets=False, config_map=None):
         dist = ErlichZielinskiRobustSolitonDistribution(number_of_chunks, seed=2)
         if distribution_cfg_str != "":
             # parse distribution_cfg_str and create distribution with the defined settings...

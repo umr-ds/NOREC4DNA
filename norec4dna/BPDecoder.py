@@ -1,6 +1,6 @@
 import os
 from collections import deque
-from typing import Any, Callable, Deque, Dict, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Deque, Dict, List, Optional, Set, Tuple, Union
 
 from norec4dna import Decoder, HeaderChunk
 from norec4dna.distributions import Distribution
@@ -12,6 +12,9 @@ from norec4dna.Packet import Packet
 from norec4dna.RU10IntermediatePacket import RU10IntermediatePacket
 from norec4dna.RU10Packet import RU10Packet
 
+if TYPE_CHECKING:
+    from io import BufferedReader
+
 
 class BPDecoder(Decoder):
     def __init__(
@@ -22,15 +25,16 @@ class BPDecoder(Decoder):
         static_number_of_chunks: Optional[int] = None,
         use_method: bool = False,
     ):
-        super().__init__()
+        super().__init__(file=file)
         self.debug = False
         self.isPseudo: bool = False
         self.file: Optional[str] = file
         self.use_method: bool = use_method
+        self.f: Optional["BufferedReader"] = None
         if file is not None:
             self.isFolder = os.path.isdir(file)
             if not self.isFolder:
-                self.f = open(self.file, "rb")
+                self.f = open(file, "rb")
         self.correct: int = 0
         self.corrupt: int = 0
         self.number_of_chunks: int = 1000000
@@ -84,7 +88,9 @@ class BPDecoder(Decoder):
         return finished
 
     def removeAndXorAuxPackets(self, packet: Union[Packet, RU10Packet, OnlinePacket]) -> List[bool]:
-        pass  # type: ignore[return-value]
+        # Abstract method - implemented in subclasses
+        # Return empty list as default (no packets removed)
+        return []
 
     def compareAndReduce(self, packet: Packet, other: Packet) -> Union[bool, int]:
         if self.file is None:

@@ -3,9 +3,9 @@ import typing
 from typing import Any, Callable, List, Optional, Set, Union
 
 import numpy as np
-from norec4dna.ErrorCorrection import nocode
-from norec4dna.helper import xor_mask, xor_numpy
-from norec4dna.helper.bin2Quaternary import quads2dna, string2QUATS
+from .ErrorCorrection import nocode
+from .helper import xor_mask, xor_numpy
+from .helper.bin2Quaternary import quads2dna, string2QUATS
 from numpy.typing import NDArray
 
 

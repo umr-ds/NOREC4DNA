@@ -12,13 +12,13 @@ from numpy.typing import NDArray
 mode = "single_cpu"
 
 if mode == "gpu":
-    from norec4dna.helper.helper_cuda import *  # type: ignore
+    from .helper_cuda import *  # type: ignore
 elif mode == "gpu_simple":
-    from norec4dna.helper.helper_cuda_simple import *  # type: ignore
+    from .helper_cuda_simple import *  # type: ignore
 elif mode == "single_cpu":
-    from norec4dna.helper.helper_cpu_single_core import *  # type: ignore
+    from .helper_cpu_single_core import *  # type: ignore
 else:
-    from norec4dna.helper.helper_cpu import *  # type: ignore
+    from .helper_cpu import *  # type: ignore
 
 
 def split_file(in_file_name: str, number_of_splits: int) -> List[str]:

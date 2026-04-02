@@ -7,7 +7,7 @@ try:
 except:
     import pybloom as pybloomfilter  # code for windows...
 
-from norec4dna.rules.RuleParser import longestSequenceOfChar, microsatellite, length, strContainsIllegalChars, \
+from .RuleParser import longestSequenceOfChar, microsatellite, length, strContainsIllegalChars, \
     charCountBiggerEqualThanX, gc_content, strContainsSub, strContainsSubRegex
 
 try:

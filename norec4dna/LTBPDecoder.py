@@ -16,6 +16,10 @@ from norec4dna.distributions.Distribution import Distribution
 from norec4dna.helper import calc_crc, xor_mask
 from norec4dna.helper.quaternary2Bin import quat_file_to_bin
 
+if typing.TYPE_CHECKING:
+    from norec4dna.OnlinePacket import OnlinePacket
+    from norec4dna.RU10Packet import RU10Packet
+
 """
     |  len(packed)  | total_number_of_chunks  | len(used_packets) |         used_packets        |        Data       |           CRC32           |
     |  I (4 bytes)  |      I (4 byte)      |     I (4 byte)   | len(used_packets)*H (2byte) | len(packed_data)*s | L (unsiged long) (4 byte) |
@@ -25,26 +29,26 @@ from norec4dna.helper.quaternary2Bin import quat_file_to_bin
 
 
 class LTBPDecoder(BPDecoder):
-    def __init__(self, file: typing.Optional[str] = None, error_correction: typing.Callable = nocode,
+    def __init__(self, file: typing.Optional[str] = None, error_correction: typing.Callable[[bytes], bytes] = nocode,
                  use_headerchunk: bool = True, static_number_of_chunks: typing.Optional[int] = None,
                  implicit_mode: bool = True, dist: typing.Optional[Distribution] = None):
         super().__init__(file, error_correction, use_headerchunk, static_number_of_chunks)
         self.implicit_mode: bool = implicit_mode
         self.use_headerchunk: bool = use_headerchunk
-        self.file: str = file
-        self.decodedPackets: typing.Dict = {}
-        self.degreeToPacket: typing.Dict[int, typing.Set] = {}
+        self.file: typing.Optional[str] = file
+        self.decodedPackets: typing.Dict[int, Packet] = {}
+        self.degreeToPacket: typing.Dict[int, typing.Set[Packet]] = {}
         if file is not None:
             self.isFolder: bool = os.path.isdir(file)
             if not self.isFolder:
-                self.f = open(self.file, "rb")
+                self.f = open(file, "rb")
         self.correct: int = 0
         self.corrupt: int = 0
         self.number_of_chunks: int = 1000000
         self.headerChunk: typing.Optional[HeaderChunk] = None
         self.queue: deque = deque()
-        self.error_correction: typing.Callable = error_correction
-        self.static_number_of_chunks: int = static_number_of_chunks
+        self.error_correction: typing.Callable[[bytes], bytes] = error_correction
+        self.static_number_of_chunks: typing.Optional[int] = static_number_of_chunks
         self.dist: typing.Optional[Distribution] = dist  # if implicit_mode is True, dist MUST be != None
 
     def decodeFolder(self, packet_len_format: str = "I", crc_len_format: str = "L",
@@ -57,6 +61,8 @@ class LTBPDecoder(BPDecoder):
             number_of_chunks_len_format = ""  # if we got static number_of_chunks we do not need it in struct string
         if self.implicit_mode:
             degree_len_format = ""
+        if self.file is None:
+            return None
         for file in os.listdir(self.file):
             if file.endswith(".LT") or file.endswith("DNA"):
                 self.EOF = False
@@ -95,7 +101,7 @@ class LTBPDecoder(BPDecoder):
         if self.implicit_mode:
             degree_len_format = ""
         while not (decoded or self.EOF):
-            new_pack: Packet = self.getNextValidPacket(False, packet_len_format=packet_len_format,
+            new_pack: typing.Optional[Packet] = self.getNextValidPacket(False, packet_len_format=packet_len_format,
                                                        crc_len_format=crc_len_format,
                                                        number_of_chunks_len_format=number_of_chunks_len_format,
                                                        degree_len_format=degree_len_format,
@@ -114,10 +120,15 @@ class LTBPDecoder(BPDecoder):
             print("Unable to retrieve file from chunks. Too many errors?")
             return -1
 
+    def decodeZip(self, *args: typing.Any, **kwargs: typing.Any) -> typing.Optional[typing.Any]:
+        raise RuntimeError("Not implemented for BP-based decoders in the current version!")
+
     def input_new_packet(self, packet: Packet) -> bool:
         """ Used for easy PseudoDecode """
         if not isinstance(packet, DecodePacket):
-            packet: Packet = DecodePacket.from_packet(packet)
+            decode_packet: Packet = DecodePacket.from_packet(packet)
+            self.addPacket(decode_packet)
+            return self.updatePackets(decode_packet)
         self.addPacket(packet)
         return self.updatePackets(packet)
 
@@ -187,6 +198,10 @@ class LTBPDecoder(BPDecoder):
         return (1 in self.degreeToPacket and len(
             self.degreeToPacket[1]) == self.number_of_chunks)  # self.number_of_chunks
 
+    def removeAndXorAuxPackets(self, packet: typing.Union[Packet, "OnlinePacket", "RU10Packet"]) -> typing.List[bool]:
+        """Override parent class method - LTBPDecoder doesn't use aux packets"""
+        return []
+
     def getSolvedCount(self) -> int:
         return len(self.degreeToPacket[1])
 
@@ -230,25 +245,50 @@ class LTBPDecoder(BPDecoder):
         struct_str = "<" + number_of_chunks_len_format + degree_len_format + seed_len_format
         struct_len = struct.calcsize(struct_str)
         len_data = struct.unpack(struct_str, packet[0:struct_len])
-        degree = None
+        degree: typing.Optional[int] = None
+        seed_value: int
         if self.static_number_of_chunks is None:
             if self.implicit_mode:
-                number_of_chunks, seed = len_data
+                number_of_chunks_raw, seed_raw = len_data
             else:
-                number_of_chunks, degree, seed = len_data
-            self.number_of_chunks = xor_mask(number_of_chunks, number_of_chunks_len_format)
+                number_of_chunks_raw, degree_raw, seed_raw = len_data
+            number_of_chunks_result = xor_mask(number_of_chunks_raw, number_of_chunks_len_format)
+            # Handle various return types from xor_mask
+            if isinstance(number_of_chunks_result, np.ndarray):
+                self.number_of_chunks = int(number_of_chunks_result.item())
+            elif isinstance(number_of_chunks_result, (int, float)):
+                self.number_of_chunks = int(number_of_chunks_result)
+            else:
+                self.number_of_chunks = int(number_of_chunks_result) # type: ignore
         else:
             if self.implicit_mode:
-                seed, = len_data
+                seed_raw, = len_data
             else:
-                degree, seed = len_data
-        seed = xor_mask(seed, seed_len_format)
-        if degree is None:
-            self.dist.set_seed(seed)
-            degree = self.dist.getNumber()
+                degree_raw, seed_raw = len_data
+        seed_result = xor_mask(seed_raw, seed_len_format)
+        # Handle various return types from xor_mask
+        if isinstance(seed_result, np.ndarray):
+            seed_value = int(seed_result.item())
+        elif isinstance(seed_result, (int, float)):
+            seed_value = int(seed_result)
         else:
-            degree = xor_mask(degree, degree_len_format)
-        used_packets = self.choose_packet_numbers(degree, seed=seed)
+            seed_value = int(seed_result) # type: ignore
+        if degree is None:
+            if self.dist is not None:
+                self.dist.set_seed(seed_value)
+                degree = int(self.dist.getNumber())
+            else:
+                degree = 1
+        else:
+            degree_result = xor_mask(degree_raw, degree_len_format)
+            # Handle various return types from xor_mask
+            if isinstance(degree_result, np.ndarray):
+                degree = int(degree_result.item())
+            elif isinstance(degree_result, (int, float)):
+                degree = int(degree_result)
+            else:
+                degree = int(degree_result)
+        used_packets = self.choose_packet_numbers(degree, seed=seed_value)
         data = packet[struct_len:crc_len]
 
         self.correct += 1
@@ -258,28 +298,40 @@ class LTBPDecoder(BPDecoder):
             self.headerChunk = HeaderChunk(res)
         return res
 
-    def choose_packet_numbers(self, degree: int, seed: int = 0) -> typing.Set:
+    def choose_packet_numbers(self, degree: int, seed: int = 0) -> typing.Set[int]:
         assert degree <= self.number_of_chunks
-        res = set()
+        res: typing.Set[int] = set()
         rng = np.random
-        rng.seed(seed)
+        rng.seed(int(seed))
         for _ in range(0, degree):
-            tmp = rng.choice(range(0, self.number_of_chunks))
+            tmp = int(rng.choice(range(0, self.number_of_chunks)))
             while tmp in res:
-                tmp = rng.choice(range(0, self.number_of_chunks))
+                tmp = int(rng.choice(range(0, self.number_of_chunks)))
             res.add(tmp)
         return res
 
     def saveDecodedFile(self, last_chunk_len_format: str = "I", null_is_terminator: bool = False,
                         print_to_output: bool = True) -> None:
         assert self.is_decoded(), "Can not save File: Unable to reconstruct."
-        file_name: str = "DEC_" + self.file.split("\x00")[0]  # split is needed for weird  MAC / Windows bugs...
+        assert self.file is not None, "Cannot save file: file is None"
+        file_name: str = "DEC_" + os.path.basename(self.file.split("\x00")[0])
         sort_list: typing.List = sorted(self.degreeToPacket[1])
-        if 0 in sort_list[0].get_used_packets() and self.use_headerchunk:
-            self.headerChunk = HeaderChunk(sort_list[0])
+        # Find the packet that contains ONLY chunk 0 (the header chunk)
+        if self.use_headerchunk:
+            for packet in sort_list:
+                if packet.get_used_packets() == {0}:
+                    self.headerChunk = HeaderChunk(packet, last_chunk_len_format=last_chunk_len_format)
+                    break
         output_concat: bytes = b""
         if self.headerChunk is not None:
-            file_name = self.headerChunk.get_file_name().decode("utf-8")
+            try:
+                file_name = self.headerChunk.get_file_name().decode("utf-8")
+                # Extract just the basename from the full path
+                file_name = os.path.basename(file_name)
+            except (UnicodeDecodeError, AttributeError) as e:
+                # If filename decoding fails, use default filename
+                print(f"Warning: Could not decode filename from header chunk ({e}), using default filename")
+                file_name = "DEC_" + os.path.basename(self.file.split("\x00")[0])
         with open(file_name, "wb") as f:
             for decoded in sort_list:
                 if 0 in decoded.get_used_packets() and self.use_headerchunk:

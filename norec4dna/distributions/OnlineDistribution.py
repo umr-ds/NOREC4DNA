@@ -2,7 +2,7 @@ import numpy
 import typing
 from math import ceil, log
 
-from norec4dna.distributions.Distribution import Distribution
+from .Distribution import Distribution
 
 
 class OnlineDistribution(Distribution):

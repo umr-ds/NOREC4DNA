@@ -13,8 +13,8 @@ T = 3
 """
 
 try:
-    from .cdnarules import byte2QUATS
-    from .cdnarules import getQUAT
+    from cdnarules import byte2QUATS
+    from cdnarules import getQUAT
 except ImportError:
     print("C Module failed to load, falling back to slow mode")
 

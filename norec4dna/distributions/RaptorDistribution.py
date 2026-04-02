@@ -5,7 +5,7 @@ import typing
 import numpy as np
 from functools import lru_cache
 import bisect
-from norec4dna.distributions.Distribution import Distribution
+from .Distribution import Distribution
 
 
 class RaptorDistribution(Distribution):

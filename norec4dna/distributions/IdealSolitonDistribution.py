@@ -1,7 +1,7 @@
 import numpy
 import typing
 
-from norec4dna.distributions.Distribution import Distribution
+from .Distribution import Distribution
 
 
 class IdealSolitonDistribution(Distribution):

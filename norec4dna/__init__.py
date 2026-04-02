@@ -43,6 +43,7 @@ from .OnlineDecoder import OnlineDecoder
 from .OnlineBPDecoder import OnlineBPDecoder
 from .RU10Decoder import RU10Decoder
 from .RU10BPDecoder import RU10BPDecoder
+from .HeaderChunk import HeaderChunk
 from norec4dna.distributions.IdealSolitonDistribution import IdealSolitonDistribution
 from norec4dna.distributions.RobustSolitonDistribution import RobustSolitonDistribution
 from norec4dna.distributions.OnlineDistribution import OnlineDistribution

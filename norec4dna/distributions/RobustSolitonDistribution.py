@@ -4,7 +4,7 @@ import typing
 from math import ceil
 from operator import add
 
-from norec4dna.distributions.Distribution import Distribution
+from .Distribution import Distribution
 
 
 class RobustSolitonDistribution(Distribution):
