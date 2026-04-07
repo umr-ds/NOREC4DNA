@@ -48,18 +48,93 @@ def create_decoder():
     return decoder
 
 
-def load_fasta(fasta_file):
+def load_fasta_list(fasta_file):
     """
-    Loads fasta file and returns a dictionary of sequences
+    Load a FASTA file and return all entries as a list of ``(header, sequence)`` tuples.
+
+    Unlike :func:`load_fasta`, this function preserves *every* entry in the file,
+    including multiple entries that share the same header key.  The order of
+    entries matches the order in the file.
+
+    Args:
+        fasta_file: Path to the FASTA file to read.
+
+    Returns:
+        A list of ``(header, sequence)`` tuples where *header* is the sequence
+        name (the part after ``>`` up to the first whitespace) and *sequence*
+        is the concatenated nucleotide string for that entry.
+
+    Example:
+        >>> entries = load_fasta_list("pool.fasta")
+        >>> for header, seq in entries:
+        ...     print(header, seq[:10])
     """
-    fasta_dict = {}
+    entries = []
+    current_name = None
+    current_seq = []
     with open(fasta_file, 'r') as f:
         for line in f:
+            line = line.strip()
+            if not line:
+                continue
             if line.startswith('>'):
-                seq_name = line.strip().split()[0][1:]
-                fasta_dict[seq_name] = ''
+                if current_name is not None:
+                    entries.append((current_name, ''.join(current_seq)))
+                current_name = line.split()[0][1:]
+                current_seq = []
             else:
-                fasta_dict[seq_name] += line.strip()
+                current_seq.append(line)
+    if current_name is not None:
+        entries.append((current_name, ''.join(current_seq)))
+    return entries
+
+
+def load_fasta(fasta_file):
+    """
+    Load a FASTA file and return a dictionary mapping header → sequence.
+
+    .. deprecated::
+        Use :func:`load_fasta_list` instead.  ``load_fasta`` silently drops all
+        but the *last* entry when multiple entries share the same header key,
+        which can cause data loss in pools that contain multiple packets with the
+        same seed.  :func:`load_fasta_list` returns every entry as a
+        ``(header, sequence)`` tuple list and is the preferred API going forward.
+
+    Args:
+        fasta_file: Path to the FASTA file to read.
+
+    Returns:
+        A ``dict`` mapping sequence name → sequence string.  When duplicate
+        headers with differing content are present only the last entry for each
+        key is kept and a ``UserWarning`` is emitted.
+
+    Example:
+        >>> sequences = load_fasta("pool.fasta")  # deprecated – prefer load_fasta_list
+    """
+    import warnings
+
+    entries = load_fasta_list(fasta_file)
+
+    # Build dict, detecting headers whose entries have differing content.
+    fasta_dict = {}
+    duplicates = set()
+    for name, seq in entries:
+        if name in fasta_dict and fasta_dict[name] != seq:
+            duplicates.add(name)
+        fasta_dict[name] = seq  # keep the last entry for each key
+
+    if duplicates:
+        affected = sorted(duplicates)
+        warnings.warn(
+            f"load_fasta: {len(duplicates)} FASTA header(s) have multiple entries with "
+            f"differing content – only the last entry per key is kept. "
+            f"Affected headers: {affected[:10]}"
+            f"{'...' if len(duplicates) > 10 else ''}. "
+            "Use load_fasta_list() to retrieve all entries without data loss.",
+            UserWarning,
+            stacklevel=2,
+        )
+
     return fasta_dict
 
 

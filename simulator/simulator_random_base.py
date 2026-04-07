@@ -4,7 +4,7 @@ import numpy as np
 import scipy.stats
 import matplotlib.pyplot as plt
 
-import norec4dna.rules.DNARules
+from . import norec4dna.rules.DNARules
 
 
 class RandomBaseSimulator:

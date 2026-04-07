@@ -4,9 +4,9 @@ import struct
 import numpy as np
 from random import random
 
-from norec4dna.rules.DNARules import DNARules
-from norec4dna.helper.bin2Quaternary import string2QUATS
-from norec4dna.helper.quaternary2Bin import quats_to_bytes
+from .rules.DNARules import DNARules
+from .helper.bin2Quaternary import string2QUATS
+from .helper.quaternary2Bin import quats_to_bytes
 from norec4dna.ReedSolomonSuite import get_file_size, ReedSolomonEncoder, ReedSolomonDecoder, xor_mask
 
 lines = [

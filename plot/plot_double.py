@@ -79,7 +79,7 @@ for name, group in df.groupby(["codecName"]):
     m = tmp["number_of_chunks"].mean()
     tmp1 = df2.reset_index()
     print(tmp1["result"])
-    a = tmp1.plot(x="overhead", y="result", label=name.replace("_", " ").replace("eps", "\epsilon"), ax=axs,
+    a = tmp1.plot(x="overhead", y="result", label=name.replace("_", " ").replace("eps", r"\epsilon"), ax=axs,
                   legend=True, )
 manager = plt.get_current_fig_manager()
 manager.resize(*manager.window.maxsize())

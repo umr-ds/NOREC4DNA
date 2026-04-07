@@ -6,9 +6,9 @@ import numpy as np
 from random import random
 
 from norec4dna.helper import xor_mask
-from norec4dna.rules.DNARules import DNARules
-from norec4dna.helper.bin2Quaternary import string2QUATS
-from norec4dna.helper.quaternary2Bin import quats_to_bytes
+from .rules.DNARules import DNARules
+from .helper.bin2Quaternary import string2QUATS
+from .helper.quaternary2Bin import quats_to_bytes
 
 lines = [
     "Algorithm,A_Permutation,T_Permutation,C_Permutation,G_Permutation,dinucleotid_Runs,Homopolymers,GC_Content,Trinucleotid_Runs,Random_Permutation,Overall_Dropchance,Random_Number,Did_Drop"

@@ -9,7 +9,7 @@ import argparse
 from random import random
 
 from norec4dna.Encoder import Encoder
-from norec4dna.rules.FastDNARules import FastDNARules
+from .rules.FastDNARules import FastDNARules
 from norec4dna.RU10Decoder import RU10Decoder
 from norec4dna.OnlineEncoder import OnlineEncoder
 from norec4dna.OnlineBPDecoder import OnlineBPDecoder

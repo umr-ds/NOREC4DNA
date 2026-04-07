@@ -19,23 +19,23 @@ def vergleich():
         robust = RobustSolitonDistribution(S=S, K=8, delta=delt, seed=0)
         print(robust.pre_comp_dist)
         if a == "log":
-            plt.semilogy([0.0] + robust.pre_comp_dist, label="K=8,   $\delta$ = 0.1")
+            plt.semilogy([0.0] + robust.pre_comp_dist, label=r"K=8,   $\delta$ = 0.1")
         else:
-            plt.plot([0.0] + robust.pre_comp_dist, label="K=8,   $\delta$ = 0.1")
+            plt.plot([0.0] + robust.pre_comp_dist, label=r"K=8,   $\delta$ = 0.1")
 
         robust = RobustSolitonDistribution(S=S, K=8, delta=1.0, seed=0)
         print(robust.pre_comp_dist)
         if a == "log":
-            plt.semilogy([0.0] + robust.pre_comp_dist, label="K=8,   $\delta$ = 1.0")
+            plt.semilogy([0.0] + robust.pre_comp_dist, label=r"K=8,   $\delta$ = 1.0")
         else:
-            plt.plot([0.0] + robust.pre_comp_dist, label="K=8,   $\delta$ = 1.0")
+            plt.plot([0.0] + robust.pre_comp_dist, label=r"K=8,   $\delta$ = 1.0")
 
         robust = RobustSolitonDistribution(S=S, K=15, delta=0.5, seed=0)
         print(robust.pre_comp_dist)
         if a == "log":
-            plt.semilogy([0.0] + robust.pre_comp_dist, label="K=15, $\delta$ = 0.5")
+            plt.semilogy([0.0] + robust.pre_comp_dist, label=r"K=15, $\delta$ = 0.5")
         else:
-            plt.plot([0.0] + robust.pre_comp_dist, label="K=15, $\delta$ = 0.5")
+            plt.plot([0.0] + robust.pre_comp_dist, label=r"K=15, $\delta$ = 0.5")
 
         plt.ylabel("Probability")
         plt.xlabel("Degree")
@@ -121,25 +121,25 @@ def OnlineVergleich():
         print("eps = 0.01")
         print(dist.pre_comp_dist[:30])
         if a == "log":
-            plt.semilogy([0.0] + dist.pre_comp_dist[:30], label="$\epsilon$ = 0.01")
+            plt.semilogy([0.0] + dist.pre_comp_dist[:30], label=r"$\epsilon$ = 0.01")
         else:
-            plt.plot([0.0] + dist.pre_comp_dist[:30], label="$\epsilon$ = 0.01")
+            plt.plot([0.0] + dist.pre_comp_dist[:30], label=r"$\epsilon$ = 0.01")
 
         dist = OnlineDistribution(eps=0.03, seed=0)
         print("eps = 0.03")
         print(dist.pre_comp_dist[:30])
         if a == "log":
-            plt.semilogy([0.0] + dist.pre_comp_dist[:30], label="$\epsilon$ = 0.03")
+            plt.semilogy([0.0] + dist.pre_comp_dist[:30], label=r"$\epsilon$ = 0.03")
         else:
-            plt.plot([0.0] + dist.pre_comp_dist[:30], label="$\epsilon$ = 0.03")
+            plt.plot([0.0] + dist.pre_comp_dist[:30], label=r"$\epsilon$ = 0.03")
 
         dist = OnlineDistribution(eps=0.06, seed=0)
         print("eps = 0.06")
         print(dist.pre_comp_dist[:30])
         if a == "log":
-            plt.semilogy([0.0] + dist.pre_comp_dist[:30], label="$\epsilon$ = 0.06")
+            plt.semilogy([0.0] + dist.pre_comp_dist[:30], label=r"$\epsilon$ = 0.06")
         else:
-            plt.plot([0.0] + dist.pre_comp_dist[:30], label="$\epsilon$ = 0.06")
+            plt.plot([0.0] + dist.pre_comp_dist[:30], label=r"$\epsilon$ = 0.06")
 
         plt.ylabel("Probability")
         plt.xlabel("Degree")
@@ -189,17 +189,17 @@ def erlich_zielinski_robust_soliton_dist():
         print("eps = 0.03")
         print(dist.pre_comp_dist[:30])
         if a == "log":
-            plt.semilogy([0.0] + dist.pre_comp_dist[:30], label="$\epsilon$ = 0.03")
+            plt.semilogy([0.0] + dist.pre_comp_dist[:30], label=r"$\epsilon$ = 0.03")
         else:
-            plt.plot([0.0] + dist.pre_comp_dist[:30], label="$\epsilon$ = 0.03")
+            plt.plot([0.0] + dist.pre_comp_dist[:30], label=r"$\epsilon$ = 0.03")
 
         dist = OnlineDistribution(eps=0.06, seed=0)
         print("eps = 0.06")
         print(dist.pre_comp_dist[:30])
         if a == "log":
-            plt.semilogy([0.0] + dist.pre_comp_dist[:30], label="$\epsilon$ = 0.06")
+            plt.semilogy([0.0] + dist.pre_comp_dist[:30], label=r"$\epsilon$ = 0.06")
         else:
-            plt.plot([0.0] + dist.pre_comp_dist[:30], label="$\epsilon$ = 0.06")
+            plt.plot([0.0] + dist.pre_comp_dist[:30], label=r"$\epsilon$ = 0.06")
     """
         plt.ylabel("Probability")
         plt.xlabel("Degree")
