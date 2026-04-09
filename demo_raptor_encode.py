@@ -21,11 +21,13 @@ class demo_raptor_encode:
     def encode(file, asdna=True, chunk_size=DEFAULT_CHUNK_SIZE, error_correction=nocode, insert_header=False,
                save_number_of_chunks_in_packet=False, mode_1_bmp=False, prepend="", append="", upper_bound=0.5,
                save_as_fasta=True, save_as_zip=True, overhead=0.40, checksum_len_str=None, xor_by_seed=False,
-               mask_id=True, id_spacing=0):
+               mask_id=True, id_spacing=0, forbidden_sequences=None):
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
         dist = RaptorDistribution(number_of_chunks)
         if asdna:
             rules = FastDNARules()
+            if forbidden_sequences:
+                rules.add_forbidden_sequences(forbidden_sequences)
         else:
             rules = None
         x = RU10Encoder(file, number_of_chunks, dist, insert_header=insert_header, pseudo_decoder=None,

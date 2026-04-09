@@ -106,9 +106,13 @@ def lax_homopolymers():
 
 
 class FastDNARules:
-    def __init__(self, active_rules=None):
+    def __init__(self, active_rules=None, extra_motifs=None):
         #self.nineteen_mers = pybloomfilter.BloomFilter(50000000, 0.0001)
         #self.tmp_nineteen_mers = pybloomfilter.BloomFilter(50000, 0.0001)
+        # Extra forbidden motifs supplied at construction time or via add_forbidden_sequences().
+        # Each entry is a (dna_sequence, error_probability) tuple; error_probability >= 1.01
+        # guarantees the packet is rejected (same convention as the built-in undesired motifs).
+        self.extra_motifs: list = list(extra_motifs) if extra_motifs else []
         if active_rules is None:
             self.active_rules = [
                 # FastDNARules.a_permutation,
@@ -127,7 +131,7 @@ class FastDNARules:
                 #  FastDNARules.illegal_symbols,
                 # FastDNARules.trinucleotid_runs,
                 # FastDNARules.random_permutations,
-                FastDNARules.motif_search
+                self._motif_search  # bound method so extra_motifs are included
                 # FastDNARules.motif_regex_search,
                 # FastDNARules.repeatRegion,
                 # FastDNARules.smallRepeatRegion,
@@ -135,6 +139,43 @@ class FastDNARules:
             ]
         else:
             self.active_rules = active_rules
+
+    def add_forbidden_sequences(self, sequences, error_prob: float = 1.01) -> None:
+        """Register additional DNA sequences that must not appear in any encoded packet.
+
+        Sequences are added to the instance-level extra_motifs list and are checked
+        by ``_motif_search`` alongside the built-in undesired-motif catalogue.
+        An ``error_prob`` of 1.01 (the default) guarantees the packet is rejected
+        because ``generate_new_packets`` only accepts packets with ``error_prob < 1.0``.
+
+        Args:
+            sequences: Iterable of DNA strings (uppercase A/C/G/T) to forbid.
+            error_prob: Error probability assigned to each sequence (default 1.01).
+        """
+        for seq in sequences:
+            self.extra_motifs.append((seq, error_prob))
+
+    def _motif_search(self, data: str) -> float:
+        """Instance wrapper around ``motif_search`` that also checks ``extra_motifs``.
+
+        Delegates to the static ``motif_search`` for the built-in catalogue, then
+        checks any sequences registered via ``extra_motifs`` / ``add_forbidden_sequences``.
+
+        Args:
+            data: DNA string to evaluate.
+
+        Returns:
+            Combined error probability, capped at 1.0.
+        """
+        drop = FastDNARules.motif_search(data)
+        if drop >= 1.0:
+            return 1.0
+        for motif, prob in self.extra_motifs:
+            if strContainsSub(data, motif):
+                drop += prob
+                if drop >= 1.0:
+                    return 1.0
+        return drop
 
     def check_and_add_mers(self, data, length=19):
         chunks = [data[i:i + length] for i in range(0, len(data), length)]
