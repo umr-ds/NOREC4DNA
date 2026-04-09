@@ -21,6 +21,7 @@ from .invivo_window_decoder import load_fasta
 from norec4dna import RU10Encoder
 from norec4dna.Packet import Packet
 from norec4dna.helper.helper import calc_crc
+from norec4dna.ErrorCorrection import get_error_correction_encode
 
 from semi_automatic_reconstruction_toolkit import SemiAutomaticReconstructionToolkit
 import imagehash
@@ -238,14 +239,17 @@ def encoder_from_sart(semiautomatic_solver: SemiAutomaticReconstructionToolkit,
     semiautomatic_solver.decoder.solve()
     semiautomatic_solver.decoder.populate_header_chunk(last_chunk_len_str=last_chunk_len_str)
     dist = semiautomatic_solver.decoder.distribution
+    ec_name = sctn_config.get("error_correction", "nocode")
+    repair_symbols = sctn_config.getint("repair_symbols", 2)
+    encode_error_correction = get_error_correction_encode(ec_name, repair_symbols)
     ru10_encoder = RU10Encoder(semiautomatic_solver.decoder.headerChunk.file_name.decode(), number_of_chunks,
                                dist, semiautomatic_solver.decoder.use_headerchunk,
                                None, 0, rules,
-                               semiautomatic_solver.decoder.error_correction, "I", crc_len_format,
+                               encode_error_correction, "I", crc_len_format,
                                number_of_chunks_len_format, id_len_format,
                                save_number_of_chunks_in_packet, False, "", "",
                                1.0, True, "", xor_by_seed,
-                               mask_id, id_spacing, last_chunk_len_str)
+                               mask_id, id_spacing, last_chunk_len_str, repair_symbols)
     ru10_encoder.chunk_size = chunk_size  # avoid overwriting the number of chunks by postponing the chunk_size setup
     ru10_encoder.checksum_len_str = checksum_len_str
     ru10_encoder.checksum = semiautomatic_solver.decoder.headerChunk.checksum
@@ -292,14 +296,17 @@ def encoder_from_decoder(decoder: RU10Decoder,
     decoder.populate_header_chunk(last_chunk_len_str=last_chunk_len_str)
     dist = decoder.distribution
     assert dist is not None
+    ec_name = sctn_config.get("error_correction", "nocode")
+    repair_symbols = sctn_config.getint("repair_symbols", 2)
+    encode_error_correction = get_error_correction_encode(ec_name, repair_symbols)
     ru10_encoder = RU10Encoder(decoder.headerChunk.file_name.decode(), number_of_chunks,
                                dist, decoder.use_headerchunk,
                                None, 0, rules,
-                               decoder.error_correction, "I", crc_len_format,
+                               encode_error_correction, "I", crc_len_format,
                                number_of_chunks_len_format, id_len_format,
                                save_number_of_chunks_in_packet, False, "", "",
                                1.0, True, "", xor_by_seed,
-                               mask_id, id_spacing, last_chunk_len_str)
+                               mask_id, id_spacing, last_chunk_len_str, repair_symbols)
     ru10_encoder.chunk_size = chunk_size  # avoid overwriting the number of chunks by postponing the chunk_size setup
     ru10_encoder.checksum_len_str = checksum_len_str
     ru10_encoder.checksum = decoder.headerChunk.checksum

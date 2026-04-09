@@ -105,7 +105,7 @@ class RU10Decoder(Decoder):
         return RU10Decoder(
             file=config_map.name,
             error_correction=get_error_correction_decode(
-                config_map.get("error_correction", "nocode"), config_map.getint("repair_symbols", 0)
+                config_map.get("error_correction", "nocode"), config_map.getint("repair_symbols", 2)
             ),
             use_headerchunk=config_map.getboolean("insert_header", True),
             static_number_of_chunks=config_map.getint("number_of_chunks", None),

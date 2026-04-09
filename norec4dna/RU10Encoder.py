@@ -25,7 +25,8 @@ class RU10Encoder(Encoder):
                  chunk_size=0, rules=None, error_correction=nocode, packet_len_format="I", crc_len_format="L",
                  number_of_chunks_len_format="L", id_len_format="L", save_number_of_chunks_in_packet=True,
                  mode_1_bmp=False, prepend="", append="", drop_upper_bound=1.0, keep_all_packets=False,
-                 checksum_len_str=None, xor_by_seed=False, mask_id=True, id_spacing=0, last_chunk_len_format="H"):
+                 checksum_len_str=None, xor_by_seed=False, mask_id=True, id_spacing=0, last_chunk_len_format="H",
+                 repair_symbols: int = 2):
         super().__init__(file, number_of_chunks, distribution, insert_header, pseudo_decoder,
                          chunk_size, mode_1_bmp)
         if checksum_len_str is None:
@@ -49,6 +50,7 @@ class RU10Encoder(Encoder):
         self.upper_bound = drop_upper_bound
         self.xor_by_seed = xor_by_seed
         self.mask_id = mask_id
+        self.repair_symbols: int = repair_symbols
         if self.chunk_size == 0:
             self.number_of_chunks: int = number_of_chunks
         else:
@@ -371,7 +373,8 @@ class RU10Encoder(Encoder):
                                 'created_packets': len(self.encodedPackets),
                                 'checksum': self.checksum if self.checksum is not None else "",
                                 'checksum_len_str': self.checksum_len_str, 'mask_id': self.mask_id,
-                                'xor_by_seed': self.xor_by_seed, 'id_spacing': self.id_spacing}
+                                'xor_by_seed': self.xor_by_seed, 'id_spacing': self.id_spacing,
+                                'repair_symbols': self.repair_symbols}
         for key, val in default_map.items():
             config[section_name][str(key)] = str(val)
         config_file_name = "{}_{}.ini".format(self.file, datetime.datetime.now().ctime().replace(" ", "_")).replace(":",
