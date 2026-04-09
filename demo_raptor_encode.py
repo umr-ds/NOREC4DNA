@@ -4,7 +4,7 @@ import argparse
 
 from norec4dna.Encoder import Encoder
 from norec4dna.RU10Encoder import RU10Encoder
-from .rules.FastDNARules import FastDNARules
+from norec4dna.rules.FastDNARules import FastDNARules
 from norec4dna.ErrorCorrection import nocode, get_error_correction_encode
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.helper import split_file, number_to_base_str, find_ceil_power_of_four, merge_folder_content
@@ -117,7 +117,7 @@ if __name__ == "__main__":
                                        id_spacing=_id_spacing)
         conf = {'error_correction': args.error_correction, 'repair_symbols': _no_repair_symbols, 'asdna': _as_dna,
                 'number_of_splits': _number_of_splits, 'read_all': True}
-        config_filename = encoder_instance.save_config_file(conf)
+        config_filename = encoder_instance.save_config_file(conf, add_dot_fasta=True)
         print("Saved config file: %s" % config_filename)
 
     if len(input_files) > 1:
