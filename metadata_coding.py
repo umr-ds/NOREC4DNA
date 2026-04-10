@@ -80,11 +80,7 @@ def calculate_new_last_chunk_packet(packet: RU10Packet, last_chunk_length: int, 
     start_idx = len(packet.data) - len(wanted_metadata)
     # metadata_array[start_idx:] = np.frombuffer(wanted_metadata, dtype=np.bool)
     np_packet = numpy.frombuffer(packet.data, dtype=np.uint8).copy()
-    logger.error(np_packet)
-    logger.error("".join(string2QUATS(np_packet.tobytes())))
     np_packet[start_idx:] = np.frombuffer(wanted_metadata, dtype=np.uint8)
-    logger.error(np_packet)
-    logger.error("".join(string2QUATS(np_packet.tobytes())))
 
     out_packet = RU10Packet(np_packet, used_packets=packet.used_packets,
                             total_number_of_chunks=packet.total_number_of_chunks,
@@ -116,11 +112,7 @@ def calculate_new_header_packet(packet: RU10Packet, header_chunk: HeaderChunk, w
     start_idx = len(np_header_chunk) - len(wanted_metadata)
     # metadata_array[start_idx:] = np.frombuffer(wanted_metadata, dtype=np.bool)
     np_packet = numpy.frombuffer(packet.data, dtype=np.uint8).copy()
-    logger.error(np_packet)
-    logger.error("".join(string2QUATS(np_packet.tobytes())))
     np_packet[start_idx:] = np.frombuffer(wanted_metadata, dtype=np.uint8)
-    logger.error(np_packet)
-    logger.error("".join(string2QUATS(np_packet.tobytes())))
 
     out_packet = RU10Packet(np_packet, used_packets=packet.used_packets,
                             total_number_of_chunks=packet.total_number_of_chunks,
@@ -164,7 +156,7 @@ def create_new_metadata_packets(semiautomatic_solver: SemiAutomaticReconstructio
     4. apply: tmp_header = old_header XOR <padding>diff<checksum_padding>
     5. new_packet = old_packet XOR tmp_header + (recalculate checksum / RS)
     """
-    if not (replace_packets_with_header and replace_packets_with_last_chunk):
+    if not replace_packets_with_header and not replace_packets_with_last_chunk:
         raise RuntimeError(
             "At least one of replace_packets_with_header or replace_packets_with_last_chunk must be set!")
     new_packets = []
@@ -174,7 +166,7 @@ def create_new_metadata_packets(semiautomatic_solver: SemiAutomaticReconstructio
         raise ValueError("Decoder does not contain any packets!")
     tmp_gepp = semiautomatic_solver.decoder.GEPP.clone()
     tmp_gepp.solve()
-    header_row = tmp_gepp.result_mapping[0]
+    header_row = int(tmp_gepp.result_mapping[0][0])
     header_chunk = HeaderChunk(
         Packet(tmp_gepp.b[header_row], {0}, semiautomatic_solver.decoder.number_of_chunks, read_only=True),
         last_chunk_len_format=semiautomatic_solver.last_chunk_len_format,
@@ -194,7 +186,9 @@ def create_new_metadata_packets(semiautomatic_solver: SemiAutomaticReconstructio
         for unwanted_metadata_str in unwanted_metadata:
             if unwanted_metadata_str in dna_str:
                 logger.error(f"Found unwanted metadata string {unwanted_metadata_str} in a packet! "
-                             f"This will lead to false-positives during querying!")
+                             f"This will lead to false-positives during querying! - consider manually removing it")
+        if type(packet) is str:
+            continue  # cannot determine chunk coverage for raw DNA strings
         used_raw_chunks = semiautomatic_solver.decoder.removeAndXorAuxPackets(packet)
         if replace_packets_with_header and used_raw_chunks[0]:
             packets_using_header.append(packet)
@@ -366,37 +360,46 @@ def parse_metadata_file(file: str) -> typing.List[str]:
 
 
 def replace_packets(encoder: RU10Encoder, new_packet_list: typing.List[RU10Packet], keep_percentage: float = 0.0,
-                    keep_one_header=False, keep_one_last_chunk=False):
+                    keep_one_header=False, keep_one_last_chunk=False,
+                    decoder: typing.Optional[RU10Decoder] = None):
     """
-    replace the matching packets (same seed)
-    @encoder: encoder instance to update
-    @new_packet_list: list of new packets to insert
-    @keep_percentage: percentage of packets to
+    Replace matching packets (same seed) in *encoder* with the metadata-carrying *new_packet_list*.
+
+    @encoder:            Encoder whose ``encodedPackets`` set is updated in-place.
+    @new_packet_list:    New (modified) packets to insert.
+    @keep_percentage:    Fraction (0.0–1.0) of the old matching packets to keep alongside the new
+                         ones, increasing redundancy.  Default 0.0 removes all old matching packets.
+    @keep_one_header:    When True, always keep at least one original packet that covers the header
+                         chunk (chunk 0), so the filename is never lost entirely.  Requires
+                         *decoder* to be provided.
+    @keep_one_last_chunk: When True, always keep at least one original packet that covers the last
+                          chunk.  Requires *decoder* to be provided.
+    @decoder:            ``RU10Decoder`` instance used for ``removeAndXorAuxPackets`` lookups.
+                         Required when *keep_one_header* or *keep_one_last_chunk* is True.
     """
+    if (keep_one_header or keep_one_last_chunk) and decoder is None:
+        raise ValueError("'decoder' must be provided when keep_one_header or keep_one_last_chunk is True")
+
     # TODO: we _MUST_ make sure that SOME of the original packets with the header are kept - otherwise the filename gets lost!
     # TODO: we _MUST_ make sure that each selected packet with the header can be used to decode WITHOUT any other modified packets - otherwise we may end up with a header that is constructed using two modified packets making it impossible or very hard to resolve the deltas
     # - or: calculate all deltas as we did for the automatic reconstruction to detect the unique error deltas and the possible packets to find the delta of each packet!
     num_packets_to_keep: int = int(np.ceil(len(new_packet_list) * keep_percentage))
     new_packets_seeds = [x.id for x in new_packet_list]
     packets_to_remove: typing.List[RU10Packet] = []
-    # find all packet with same seed as the new packets
+    # find all packets with same seed as the new packets
     for packet in encoder.encodedPackets:
         if packet.id in new_packets_seeds:
             packets_to_remove.append(packet)
     random.shuffle(packets_to_remove)
-    # remove "unwanted" packets from encoder:
-    # if len(packets_to_remove) > num_packets_to_keep:
-    #    for packet in packets_to_remove[int(num_packets_to_keep):]:
-    #        encoder.encodedPackets.remove(packet)
     num_packets_to_keep_offset = 0
     if keep_one_header:
         special_packet_to_keep = -1
         for packet_to_keep in range(num_packets_to_keep):
-            if semiautomatic_solver.decoder.removeAndXorAuxPackets(packets_to_remove[packet_to_keep])[0]:
+            if decoder.removeAndXorAuxPackets(packets_to_remove[packet_to_keep])[0]:
                 special_packet_to_keep = packet_to_keep
                 break
         for potential_packet_to_keep in range(num_packets_to_keep, len(packets_to_remove)):
-            if semiautomatic_solver.decoder.removeAndXorAuxPackets(packets_to_remove[potential_packet_to_keep])[0]:
+            if decoder.removeAndXorAuxPackets(packets_to_remove[potential_packet_to_keep])[0]:
                 special_packet_to_keep = potential_packet_to_keep
                 break
         if special_packet_to_keep == -1:
@@ -409,11 +412,11 @@ def replace_packets(encoder: RU10Encoder, new_packet_list: typing.List[RU10Packe
     if keep_one_last_chunk:
         special_packet_to_keep = -1
         for packet_to_keep in range(num_packets_to_keep):
-            if semiautomatic_solver.decoder.removeAndXorAuxPackets(packets_to_remove[packet_to_keep])[-1]:
+            if decoder.removeAndXorAuxPackets(packets_to_remove[packet_to_keep])[-1]:
                 special_packet_to_keep = packet_to_keep
                 break
         for potential_packet_to_keep in range(num_packets_to_keep, len(packets_to_remove)):
-            if semiautomatic_solver.decoder.removeAndXorAuxPackets(packets_to_remove[potential_packet_to_keep])[-1]:
+            if decoder.removeAndXorAuxPackets(packets_to_remove[potential_packet_to_keep])[-1]:
                 special_packet_to_keep = potential_packet_to_keep
                 break
         if special_packet_to_keep == -1:
@@ -422,7 +425,8 @@ def replace_packets(encoder: RU10Encoder, new_packet_list: typing.List[RU10Packe
         packets_to_remove[1], packets_to_remove[special_packet_to_keep] = packets_to_remove[
             special_packet_to_keep], packets_to_remove[1]
         num_packets_to_keep_offset += 1
-    if num_packets_to_keep < num_packets_to_keep_offset: num_packets_to_keep = num_packets_to_keep_offset
+    if num_packets_to_keep < num_packets_to_keep_offset:
+        num_packets_to_keep = num_packets_to_keep_offset
     to_remove = set(packets_to_remove[int(num_packets_to_keep):])
     to_remove_ids = {id(p) for p in to_remove}
     # Rebuild without relying on equality lookups during remove
@@ -440,54 +444,288 @@ def replace_packets(encoder: RU10Encoder, new_packet_list: typing.List[RU10Packe
 
 
 def init_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--ini", metavar="ini", type=str, help="config file (ini)",
-                        default="/home/michael/Code/DR4DNA/eval/sleeping_beauty_no_error.ini")
-    wanted_arg_group = parser.add_mutually_exclusive_group(required=True)
-    wanted_arg_group.add_argument("--wanted_metadata_file", metavar="wantedmetafile", type=str,
-                                  help="file containing unwanted metadata in the fasta format, description should contain a multiplier and the corresponding metadata ")
-    wanted_arg_group.add_argument("--wanted_metadata", metavar="wantedmeta", type=str,
-                                  help="comma-separated list of metadata DNA sequences")
-    unwanted_arg_group = parser.add_mutually_exclusive_group(required=False)
-    unwanted_arg_group.add_argument("--unwanted_metadata_file", metavar="unwantedmetafile", type=str,
-                                    help="file containing unwanted metadata in the fasta format, description should contain a multiplier and the corresponding metadata ")
-    unwanted_arg_group.add_argument("--unwanted_metadata", metavar="wantedmeta", type=str,
-                                    help="comma-separated list of metadata DNA sequences")
+    parser = argparse.ArgumentParser(
+        prog="python -m NOREC4DNA.metadata_coding",
+        description=(
+            "Embed searchable DNA metadata into a NOREC4DNA pool, query a pool for metadata "
+            "sequences, or inspect padding capacity."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Embed one metadata sequence (inline):
+  python -m NOREC4DNA.metadata_coding embed \\
+      --ini pool.ini --metadata "ACGTACGTACGTACGT" --output pool_meta.fasta
+
+  # Embed multiple sequences from a FASTA file:
+  python -m NOREC4DNA.metadata_coding embed \\
+      --ini pool.ini --metadata_file meta.fasta --output pool_meta.fasta
+
+  # Keep 20%% of original matching packets (higher redundancy):
+  python -m NOREC4DNA.metadata_coding embed \\
+      --ini pool.ini --metadata "ACGTACGT" --keep_percentage 0.2 --output out.fasta
+
+  # Search a pool for a metadata sequence:
+  python -m NOREC4DNA.metadata_coding query \\
+      --fasta pool.fasta --metadata "ACGTACGT"
+
+  # Show available padding capacity for a pool:
+  python -m NOREC4DNA.metadata_coding info --ini pool.ini
+""",
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # ── embed ────────────────────────────────────────────────────────────────
+    embed_p = subparsers.add_parser(
+        "embed",
+        help="Embed DNA metadata strings into a FASTA pool.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    embed_p.add_argument("--ini", required=True, metavar="INI",
+                         help="INI config file of the pool to modify.")
+    embed_p.add_argument("--output", metavar="FASTA", default=None,
+                         help="Output FASTA path. Omit to overwrite the pool in-place.")
+
+    meta_g = embed_p.add_mutually_exclusive_group(required=True)
+    meta_g.add_argument("--metadata", metavar="DNA[,DNA,...]",
+                        help="Comma-separated DNA metadata sequences to embed.")
+    meta_g.add_argument("--metadata_file", metavar="FILE",
+                        help="FASTA file of metadata sequences.  Header format: >name_N where N "
+                             "is the number of copies to embed (e.g. >hash_3 embeds the sequence 3 times).")
+
+    unwanted_g = embed_p.add_mutually_exclusive_group()
+    unwanted_g.add_argument("--unwanted", metavar="DNA[,DNA,...]",
+                            help="Comma-separated sequences that must NOT appear in any packet "
+                                 "(logged as errors if found).")
+    unwanted_g.add_argument("--unwanted_file", metavar="FILE",
+                            help="FASTA file of unwanted sequences (same format as --metadata_file).")
+
+    embed_p.add_argument("--keep_percentage", type=float, default=0.0, metavar="FRAC",
+                         help="Fraction [0.0–1.0] of original matching packets to keep alongside "
+                              "the new metadata packets for extra redundancy.  Default removes all "
+                              "original matching packets.")
+    embed_p.add_argument("--keep_one_header", action="store_true",
+                         help="Always preserve at least one original packet covering the header "
+                              "chunk (chunk 0) so the filename is never lost.")
+    embed_p.add_argument("--keep_one_last_chunk", action="store_true",
+                         help="Always preserve at least one original packet covering the last chunk.")
+    embed_p.add_argument("--use_last_chunk", action="store_true",
+                         help="Use last-chunk packets as carriers in addition to header-chunk packets.")
+
+    # ── query ────────────────────────────────────────────────────────────────
+    query_p = subparsers.add_parser(
+        "query",
+        help="Search a FASTA pool for one or more metadata sequences.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    query_p.add_argument("--fasta", required=True, metavar="FASTA",
+                         help="FASTA file to search.")
+
+    qmeta_g = query_p.add_mutually_exclusive_group(required=True)
+    qmeta_g.add_argument("--metadata", metavar="DNA[,DNA,...]",
+                         help="Comma-separated metadata sequences to search for.")
+    qmeta_g.add_argument("--metadata_file", metavar="FILE",
+                         help="FASTA file of metadata sequences to search for.")
+
+    query_p.add_argument("--count_only", action="store_true",
+                         help="Print only the match counts, not the matching sequence IDs.")
+
+    # ── info ─────────────────────────────────────────────────────────────────
+    info_p = subparsers.add_parser(
+        "info",
+        help="Show padding capacity and pool statistics for metadata embedding.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    info_p.add_argument("--ini", required=True, metavar="INI",
+                        help="INI config file of the pool to inspect.")
+
     return parser.parse_args()
 
 
-if __name__ == '__main__':
-    # LES detektion der wiedersprüchlichen zeilen durch augmented matrix und diese mittels gauss lösen: [0 0 0 | x (x!=0)] -> beteiligte Zeilen sind verantwortlich!
-    #
-    parsed_args = init_args()
+# ── subcommand implementations ─────────────────────────────────────────────
 
-    ini_file = parsed_args.ini
-
-    if parsed_args.wanted_metadata_file is not None:
-        wanted_metadata = parse_metadata_file(parsed_args.wanted_metadata_file)
-    else:
-        wanted_metadata = parsed_args.wanted_metadata.split(",")
-
-    if parsed_args.unwanted_metadata_file is not None:
-        unwanted_metadata = parse_metadata_file(parsed_args.unwanted_metadata_file)
-    else:
-        unwanted_metadata = parsed_args.unwanted_metadata.split(",")
-
+def _load_pool(ini_file: str):
+    """Load INI, return (cfg_worker, decoder, semiautomatic_solver)."""
     cfg_worker = ConfigReadAndExecute(ini_file)
-    x = cfg_worker.execute(return_decoder=True, skip_solve=True)[0]
-    semiautomatic_solver = SemiAutomaticReconstructionToolkit(x)
+    decoder = cfg_worker.execute(return_decoder=True, skip_solve=True)[0]
+    semiautomatic_solver = SemiAutomaticReconstructionToolkit(decoder)
+    return cfg_worker, decoder, semiautomatic_solver
 
-    encoder = encoder_from_sart(semiautomatic_solver, cfg_worker)
 
-    encoder.save_packets_fasta("1test_out.fasta", "", False)
+def _resolve_metadata(args_metadata, args_metadata_file) -> typing.List[str]:
+    if args_metadata_file is not None:
+        return parse_metadata_file(args_metadata_file)
+    if args_metadata:
+        return [s.strip() for s in args_metadata.split(",") if s.strip()]
+    return []
 
-    new_packets = create_new_metadata_packets(semiautomatic_solver, wanted_metadata, unwanted_metadata, True, True)
 
-    replace_packets(encoder, new_packets, 0.0, True, True)
+def _cmd_embed(args: argparse.Namespace) -> int:
+    """Embed metadata into a pool and save the result."""
+    cfg_worker, decoder, semiautomatic_solver = _load_pool(args.ini)
 
-    logger.error(encoder.encodedPackets)
+    wanted = _resolve_metadata(getattr(args, "metadata", None),
+                                getattr(args, "metadata_file", None))
+    if not wanted:
+        print("ERROR: no metadata sequences provided.", flush=True)
+        return 1
 
-    encoder.save_packets_fasta("test_out.fasta", "", False)
-    encoder.save_config_file(section_name="test_out.fasta")
-    logger.warning(semiautomatic_solver.decoder.packets)
-    # semiautomatic_solver.get_file_as_bytes()
+    unwanted = _resolve_metadata(getattr(args, "unwanted", None),
+                                  getattr(args, "unwanted_file", None))
+
+    use_header = True
+    use_last = getattr(args, "use_last_chunk", False)
+    if not use_last:
+        # keep_one_last_chunk only makes sense when we also embed into last-chunk packets
+        use_last = getattr(args, "keep_one_last_chunk", False)
+
+    print(f"Embedding {len(wanted)} metadata sequence(s) into '{args.ini}' …", flush=True)
+
+    encoder = encoder_from_decoder(decoder, cfg_worker)
+
+    new_packets = create_new_metadata_packets(
+        semiautomatic_solver, wanted, unwanted,
+        replace_packets_with_header=use_header,
+        replace_packets_with_last_chunk=use_last,
+    )
+
+    # Re-pack each modified packet so .packed reflects the new .data
+    for pkt in new_packets:
+        pkt.packed_used_packets = pkt.prepare_and_pack()
+        pkt.packed = pkt.calculate_packed_data()
+
+    replace_packets(
+        encoder, new_packets,
+        keep_percentage=args.keep_percentage,
+        keep_one_header=args.keep_one_header,
+        keep_one_last_chunk=args.keep_one_last_chunk,
+        decoder=decoder if (args.keep_one_header or args.keep_one_last_chunk) else None,
+    )
+
+    # Determine output path
+    import os
+    import configparser
+
+    ini_path = args.ini
+    if args.output:
+        out_fasta = args.output
+    else:
+        cfg = configparser.ConfigParser()
+        cfg.read(ini_path)
+        section = cfg.sections()[0]
+        out_fasta = cfg[section].get("filename", section)
+
+    encoder.save_packets_fasta(out_fasta, "", False)
+
+    # Write companion INI — save_config_file always writes to {encoder.file}_{timestamp}.ini;
+    # use section_name to record the output FASTA path in the config.
+    saved_ini = encoder.save_config_file(section_name=out_fasta)
+    out_ini = saved_ini  # returned path (timestamped)
+
+    print(f"✓ Embedded {len(new_packets)} packet(s).  Pool saved to '{out_fasta}' / '{out_ini}'.",
+          flush=True)
+    return 0
+
+
+def _cmd_query(args: argparse.Namespace) -> int:
+    """Search a FASTA pool for metadata sequences."""
+    wanted = _resolve_metadata(getattr(args, "metadata", None),
+                                getattr(args, "metadata_file", None))
+    if not wanted:
+        print("ERROR: no metadata sequences provided.", flush=True)
+        return 1
+
+    fasta = load_fasta(args.fasta)
+    total_seqs = len(fasta)
+
+    results: typing.Dict[str, typing.List[str]] = {m: [] for m in wanted}
+    for seq_id, dna in fasta.items():
+        for meta in wanted:
+            if meta in dna:
+                results[meta].append(seq_id)
+
+    found_any = False
+    for meta, seq_ids in results.items():
+        count = len(seq_ids)
+        if count:
+            found_any = True
+        status = f"FOUND ({count} packet(s))" if count else "NOT FOUND"
+        print(f"[{status}]  {meta}")
+        if count and not args.count_only:
+            for sid in seq_ids:
+                print(f"        → {sid}")
+
+    print(f"\nSearched {total_seqs} sequences in '{args.fasta}'.")
+    return 0 if found_any else 2  # exit 2 = searched OK but not found
+
+
+def _cmd_info(args: argparse.Namespace) -> int:
+    """Show padding capacity for metadata embedding."""
+    cfg_worker, decoder, semiautomatic_solver = _load_pool(args.ini)
+
+    # Solve to populate GEPP
+    decoder.solve()
+    decoder.populate_header_chunk()
+
+    tmp_gepp = semiautomatic_solver.decoder.GEPP.clone()
+    tmp_gepp.solve()
+    header_row = int(tmp_gepp.result_mapping[0][0])
+    last_chunk_len_str = semiautomatic_solver.decoder.config_map.get("last_chunk_len_str", "I")
+    header_chunk = HeaderChunk(
+        Packet(tmp_gepp.b[header_row], {0}, semiautomatic_solver.decoder.number_of_chunks, read_only=True),
+        last_chunk_len_format=last_chunk_len_str,
+        checksum_len_format=semiautomatic_solver.decoder.checksum_len_str,
+    )
+
+    offset_no_fn, length_no_fn = get_padding_area_offset(header_chunk, filename_is_free_area=False)
+    offset_fn, length_fn = get_padding_area_offset(header_chunk, filename_is_free_area=True)
+
+    chunk_size = int(semiautomatic_solver.decoder.config_map.get("chunk_size", len(tmp_gepp.b[0])))
+    num_chunks = semiautomatic_solver.decoder.number_of_chunks
+    num_packets = len(semiautomatic_solver.decoder.packets)
+    filename = header_chunk.get_file_name()
+    try:
+        fn_str = filename.decode("utf-8", errors="replace")
+    except AttributeError:
+        fn_str = str(filename)
+
+    print(f"Pool:              {args.ini}")
+    print(f"Filename in pool:  {fn_str!r}  ({len(filename)} bytes)")
+    print(f"Chunk size:        {chunk_size} bytes")
+    print(f"Number of chunks:  {num_chunks}")
+    print(f"Packets in pool:   {num_packets}")
+    print()
+    print("── Padding capacity (filename area kept) ─────────────────────────")
+    print(f"  Padding offset:  {offset_no_fn} bytes")
+    print(f"  Padding length:  {length_no_fn} bytes  →  max {length_no_fn * 4} DNA bases per metadata string")
+    print()
+    print("── Padding capacity (filename area used as free area) ────────────")
+    print(f"  Padding offset:  {offset_fn} bytes")
+    print(f"  Padding length:  {length_fn} bytes  →  max {length_fn * 4} DNA bases per metadata string")
+    print()
+
+    # Count packets covering chunk 0 (header) and last chunk
+    n_header = sum(
+        1 for p in semiautomatic_solver.decoder.packets
+        if not isinstance(p, str)
+        and semiautomatic_solver.decoder.removeAndXorAuxPackets(p)[0]
+    )
+    n_last = sum(
+        1 for p in semiautomatic_solver.decoder.packets
+        if not isinstance(p, str)
+        and semiautomatic_solver.decoder.removeAndXorAuxPackets(p)[-1]
+    )
+    print(f"Header-chunk carrier candidates:    {n_header}")
+    print(f"Last-chunk carrier candidates:      {n_last}")
+    return 0
+
+
+if __name__ == '__main__':
+    import sys
+    parsed_args = init_args()
+    if parsed_args.command == "embed":
+        sys.exit(_cmd_embed(parsed_args))
+    elif parsed_args.command == "query":
+        sys.exit(_cmd_query(parsed_args))
+    elif parsed_args.command == "info":
+        sys.exit(_cmd_info(parsed_args))
