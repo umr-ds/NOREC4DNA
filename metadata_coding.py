@@ -23,7 +23,10 @@ from norec4dna.Packet import Packet
 from norec4dna.helper.helper import calc_crc
 from norec4dna.ErrorCorrection import get_error_correction_encode
 
-from semi_automatic_reconstruction_toolkit import SemiAutomaticReconstructionToolkit
+try:
+    from norec4dna_multiversion.reconstruction import SemiAutomaticReconstructionToolkit
+except ImportError:
+    from semi_automatic_reconstruction_toolkit import SemiAutomaticReconstructionToolkit  # type: ignore[no-redef]
 import imagehash
 
 logger = logging.getLogger(__name__)
