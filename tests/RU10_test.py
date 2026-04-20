@@ -1,17 +1,21 @@
+import filecmp
 import os
 import shutil
-import pytest
-import filecmp
 from pathlib import Path
 
-from norec4dna import Encoder
-from norec4dna import RU10Encoder
+import pytest
+from norec4dna import Encoder, RU10BPDecoder, RU10Decoder, RU10Encoder
+from norec4dna.distributions.RaptorDistribution import RaptorDistribution
+from norec4dna.ErrorCorrection import (
+    crc32,
+    crc32_decode,
+    nocode,
+    reed_solomon_decode,
+    reed_solomon_encode,
+)
 from norec4dna.rules.DNARules import DNARules
 from norec4dna.rules.DNARules2 import DNARules2
-from norec4dna import RU10Decoder, RU10BPDecoder
 from norec4dna.rules.FastDNARules import FastDNARules
-from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.ErrorCorrection import nocode, crc32, reed_solomon_decode, reed_solomon_encode, crc32_decode
 
 # Get the directory containing this test file
 TEST_DIR = Path(__file__).parent.absolute()
@@ -36,11 +40,11 @@ def run_between_tests():
         os.remove(file2)
     shutil.copy(cmp_file2, file2)
     # Clean up any decoded files from previous runs
-    for f in Path('.').glob('go.jpg'):
+    for f in Path(".").glob("go.jpg"):
         os.remove(f)
-    for f in Path('.').glob('DEC_RU10_*'):
+    for f in Path(".").glob("DEC_RU10_*"):
         os.remove(f)
-    for f in TEST_DIR.glob('DEC_RU10_*'):
+    for f in TEST_DIR.glob("DEC_RU10_*"):
         os.remove(f)
 
 
@@ -56,21 +60,33 @@ def test_suite(as_dna, chunk_size, dna_rules, error_correction, headerchunk, xor
     number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunksize)
     dist = RaptorDistribution(number_of_chunks)
     decoder_instance = RU10Decoder
-    pseudo_decoder = decoder_instance.pseudo_decoder(number_of_chunks=number_of_chunks + (1 if headerchunk else 0))
+    pseudo_decoder = decoder_instance.pseudo_decoder(
+        number_of_chunks=number_of_chunks + (1 if headerchunk else 0)
+    )
     rules = dna_rules if as_dna else None
     encoder = RU10Encoder(
-        file, number_of_chunks, dist, pseudo_decoder=pseudo_decoder, rules=rules, error_correction=error_correction,
-        insert_header=headerchunk, xor_by_seed=xor_by_seed
+        file,
+        number_of_chunks,
+        dist,
+        pseudo_decoder=pseudo_decoder,
+        rules=rules,
+        error_correction=error_correction,
+        insert_header=headerchunk,
+        xor_by_seed=xor_by_seed,
     )
     encoder.encode_to_packets()
     encoder.save_packets(split_to_multiple_files=True, save_as_dna=as_dna)
     assert (
-            pseudo_decoder.is_decoded()
-            and pseudo_decoder.getSolvedCount() == pseudo_decoder.number_of_chunks
+        pseudo_decoder.is_decoded()
+        and pseudo_decoder.getSolvedCount() == pseudo_decoder.number_of_chunks
     )
     assert os.path.exists(out_dir)
-    decoder = decoder_instance(out_dir, error_correction=error_correction, use_headerchunk=headerchunk,
-                               xor_by_seed=xor_by_seed)
+    decoder = decoder_instance(
+        out_dir,
+        error_correction=error_correction,
+        use_headerchunk=headerchunk,
+        xor_by_seed=xor_by_seed,
+    )
     decoder.decode()
     assert decoder.is_decoded() and decoder.getSolvedCount() == encoder.number_of_chunks
     os.remove(file)
@@ -91,8 +107,10 @@ def test_suite(as_dna, chunk_size, dna_rules, error_correction, headerchunk, xor
 @pytest.mark.parametrize("as_dna", [True])
 @pytest.mark.parametrize("chunk_size", [100])
 @pytest.mark.parametrize("dna_rules", [DNARules(), DNARules2(), FastDNARules()])
-@pytest.mark.parametrize("error_correction_pair",
-                         [(nocode, nocode), (crc32, crc32_decode), (reed_solomon_encode, reed_solomon_decode)])
+@pytest.mark.parametrize(
+    "error_correction_pair",
+    [(nocode, nocode), (crc32, crc32_decode), (reed_solomon_encode, reed_solomon_decode)],
+)
 def test_suite2(as_dna, chunk_size, dna_rules, error_correction_pair):
     chunksize = chunk_size
     number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunksize)
@@ -101,14 +119,18 @@ def test_suite2(as_dna, chunk_size, dna_rules, error_correction_pair):
     pseudo_decoder = decoder_instance.pseudo_decoder(number_of_chunks=number_of_chunks)
     rules = dna_rules if as_dna else None
     encoder = RU10Encoder(
-        file, number_of_chunks, dist, pseudo_decoder=pseudo_decoder, rules=rules,
+        file,
+        number_of_chunks,
+        dist,
+        pseudo_decoder=pseudo_decoder,
+        rules=rules,
         error_correction=error_correction_pair[0],
     )
     encoder.encode_to_packets()
     encoder.save_packets(split_to_multiple_files=True, save_as_dna=as_dna)
     assert (
-            pseudo_decoder.is_decoded()
-            and pseudo_decoder.getSolvedCount() == pseudo_decoder.number_of_chunks
+        pseudo_decoder.is_decoded()
+        and pseudo_decoder.getSolvedCount() == pseudo_decoder.number_of_chunks
     )
     assert os.path.exists(out_dir)
     decoder = decoder_instance(out_dir, error_correction=error_correction_pair[1])
@@ -138,14 +160,19 @@ def test_suite3(as_dna, chunk_size, dna_rules, id_len_form, number_of_chunks_len
     pseudo_decoder = decoder_instance.pseudo_decoder(number_of_chunks=number_of_chunks)
     rules = dna_rules if as_dna else None
     encoder = RU10Encoder(
-        file2, number_of_chunks, dist, pseudo_decoder=pseudo_decoder, rules=rules, id_len_format=id_len_form,
-        number_of_chunks_len_format=number_of_chunks_len_form
+        file2,
+        number_of_chunks,
+        dist,
+        pseudo_decoder=pseudo_decoder,
+        rules=rules,
+        id_len_format=id_len_form,
+        number_of_chunks_len_format=number_of_chunks_len_form,
     )
     encoder.encode_to_packets()
     encoder.save_packets(split_to_multiple_files=True, save_as_dna=as_dna)
     assert (
-            pseudo_decoder.is_decoded()
-            and pseudo_decoder.getSolvedCount() == pseudo_decoder.number_of_chunks
+        pseudo_decoder.is_decoded()
+        and pseudo_decoder.getSolvedCount() == pseudo_decoder.number_of_chunks
     )
     assert os.path.exists(out_dir2)
     decoder = decoder_instance(out_dir2)
@@ -164,7 +191,9 @@ def test_suite3(as_dna, chunk_size, dna_rules, id_len_form, number_of_chunks_len
 @pytest.mark.parametrize("as_dna", [True])
 @pytest.mark.parametrize("chunk_size", [100])
 @pytest.mark.parametrize("dna_rules", [None])
-@pytest.mark.parametrize("error_correction", [(crc32, crc32_decode), (reed_solomon_encode, reed_solomon_decode)])
+@pytest.mark.parametrize(
+    "error_correction", [(crc32, crc32_decode), (reed_solomon_encode, reed_solomon_decode)]
+)
 def test_suite4(as_dna, chunk_size, dna_rules, error_correction):
     chunksize = chunk_size
     number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunksize)
@@ -173,12 +202,18 @@ def test_suite4(as_dna, chunk_size, dna_rules, error_correction):
     pseudo_decoder = decoder_instance.pseudo_decoder(number_of_chunks=number_of_chunks)
     rules = dna_rules if as_dna else None
     encoder = RU10Encoder(
-        file, number_of_chunks, dist, pseudo_decoder=pseudo_decoder, rules=rules, error_correction=error_correction[0])
+        file,
+        number_of_chunks,
+        dist,
+        pseudo_decoder=pseudo_decoder,
+        rules=rules,
+        error_correction=error_correction[0],
+    )
     encoder.encode_to_packets()
     encoder.save_packets(split_to_multiple_files=True, save_as_dna=as_dna)
     assert (
-            pseudo_decoder.is_decoded()
-            and pseudo_decoder.getSolvedCount() == pseudo_decoder.number_of_chunks
+        pseudo_decoder.is_decoded()
+        and pseudo_decoder.getSolvedCount() == pseudo_decoder.number_of_chunks
     )
     assert os.path.exists(out_dir)
     # do not delete all packets (and break the last one).
@@ -188,7 +223,7 @@ def test_suite4(as_dna, chunk_size, dna_rules, error_correction):
     for i in range(2, number_of_chunks):
         tmp_path = str(TEST_DIR / f"RU10_logo.jpg/{i}.RU10_DNA")
         os.remove(tmp_path)
-    with open(str(TEST_DIR / "RU10_logo.jpg/0.RU10_DNA"), 'rb+') as tmp_file:
+    with open(str(TEST_DIR / "RU10_logo.jpg/0.RU10_DNA"), "rb+") as tmp_file:
         # TODO we should flip bits in the middle rather than deleting 4 bytes at the end (we store crc32 / reedsolomon at the end)
         tmp_file.seek(-4, os.SEEK_END)
         tmp_file.truncate()
@@ -219,17 +254,25 @@ def test_suite5(as_dna, chunk_size, dna_rules, error_correction, headerchunk, de
     pseudo_decoder = decoder_instance.pseudo_decoder(number_of_chunks=number_of_chunks)
     rules = dna_rules if as_dna else None
     encoder = RU10Encoder(
-        file2, number_of_chunks, dist, pseudo_decoder=pseudo_decoder, rules=rules, error_correction=error_correction,
-        insert_header=headerchunk)
+        file2,
+        number_of_chunks,
+        dist,
+        pseudo_decoder=pseudo_decoder,
+        rules=rules,
+        error_correction=error_correction,
+        insert_header=headerchunk,
+    )
     encoder.encode_to_packets()
     encoder.encode_to_packets()
     encoder.save_packets(split_to_multiple_files=True, save_as_dna=as_dna)
     assert (
-            pseudo_decoder.is_decoded()
-            and pseudo_decoder.getSolvedCount() == pseudo_decoder.number_of_chunks
+        pseudo_decoder.is_decoded()
+        and pseudo_decoder.getSolvedCount() == pseudo_decoder.number_of_chunks
     )
     assert os.path.exists(out_dir2)
-    decoder = decoder_instance(out_dir2, use_headerchunk=headerchunk, error_correction=error_correction)
+    decoder = decoder_instance(
+        out_dir2, use_headerchunk=headerchunk, error_correction=error_correction
+    )
     decoder.decode()
     assert decoder.is_decoded() and decoder.getSolvedCount() == encoder.number_of_chunks
     os.remove(file2)

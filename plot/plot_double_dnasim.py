@@ -1,6 +1,7 @@
 import itertools
-import pandas as pd
+
 import matplotlib.pyplot as plt
+import pandas as pd
 
 # Get current size
 fig_size = plt.rcParams["figure.figsize"]
@@ -28,9 +29,25 @@ def custom_round(x, base=5):
 def plot():
     name6 = "../../../../CSV/brauchbar/ALL_DNA_DOUBLE1006/o_out_simple.csv"
 
-    df6 = pd.read_csv(name6, delimiter=",", engine="python",
-                      usecols=["filename", "overhead", "number_of_chunks", "Decoder Input", "invalid_drop", "Seed",
-                               "Ergebnis", "Sekunden", "Kodierung", "createdPackets", "DropRate", ], index_col=False, )
+    df6 = pd.read_csv(
+        name6,
+        delimiter=",",
+        engine="python",
+        usecols=[
+            "filename",
+            "overhead",
+            "number_of_chunks",
+            "Decoder Input",
+            "invalid_drop",
+            "Seed",
+            "Ergebnis",
+            "Sekunden",
+            "Kodierung",
+            "createdPackets",
+            "DropRate",
+        ],
+        index_col=False,
+    )
 
     fig, axs = plt.subplots(1, 1)
     axs.set_ylabel("Dauer Decode")
@@ -45,7 +62,10 @@ def plot():
     plt.grid(True)
     plt.tight_layout()
     plt.show(block=False)
-    plt.savefig("../../../TeX/Bilder/doublednarules/box_result_overhead_kodierung_neu.pdf", bbox_inches="tight", )
+    plt.savefig(
+        "../../../TeX/Bilder/doublednarules/box_result_overhead_kodierung_neu.pdf",
+        bbox_inches="tight",
+    )
     plt.savefig("../../../TeX/Bilder/doublednarules/box_result_overhead_kodierung_neu.svg")
 
     df6["invalid_dropPercent"] = df6["invalid_drop"] / (df6["Decoder Input"] + df6["invalid_drop"])
@@ -63,7 +83,10 @@ def plot():
     plt.grid(True)
     plt.tight_layout()
     plt.show(block=False)
-    plt.savefig("../../../TeX/Bilder/doublednarules/box_fehlerwkeit_kodierung_neu.pdf", bbox_inches="tight", )
+    plt.savefig(
+        "../../../TeX/Bilder/doublednarules/box_fehlerwkeit_kodierung_neu.pdf",
+        bbox_inches="tight",
+    )
     plt.savefig("../../../TeX/Bilder/doublednarules/box_fehlerwkeit_kodierung_neu.svg")
     plt.close()
 
@@ -78,17 +101,44 @@ def plot():
             name = "_nolegend_"
         else:
             name = name.replace("_", " ")
-        group.plot.kde(x="Fehlerwahrscheinlichkeit", y="overhead", label=name, ax=axs, color=next(color),
-                       linestyle=next(linest), )
-    data = {"Fehlerwahrscheinlichkeit": [0, 1, 2, 3, 4], "overhead": [-100, -200, -20, -120, -890], }
+        group.plot.kde(
+            x="Fehlerwahrscheinlichkeit",
+            y="overhead",
+            label=name,
+            ax=axs,
+            color=next(color),
+            linestyle=next(linest),
+        )
+    data = {
+        "Fehlerwahrscheinlichkeit": [0, 1, 2, 3, 4],
+        "overhead": [-100, -200, -20, -120, -890],
+    }
 
-    pd.DataFrame.from_dict(data).plot.kde(x="Fehlerwahrscheinlichkeit", y="overhead", label="", ax=axs, color="white",
-                                          linestyle="-", )
+    pd.DataFrame.from_dict(data).plot.kde(
+        x="Fehlerwahrscheinlichkeit",
+        y="overhead",
+        label="",
+        ax=axs,
+        color="white",
+        linestyle="-",
+    )
 
-    pd.DataFrame.from_dict(data).plot.kde(x="Fehlerwahrscheinlichkeit", y="overhead", label="Erfolgreich", ax=axs,
-                                          color="black", linestyle="-", )
-    pd.DataFrame.from_dict(data).plot.kde(x="Fehlerwahrscheinlichkeit", y="overhead", label="nicht Erfolgreich", ax=axs,
-                                          color="black", linestyle="--", )
+    pd.DataFrame.from_dict(data).plot.kde(
+        x="Fehlerwahrscheinlichkeit",
+        y="overhead",
+        label="Erfolgreich",
+        ax=axs,
+        color="black",
+        linestyle="-",
+    )
+    pd.DataFrame.from_dict(data).plot.kde(
+        x="Fehlerwahrscheinlichkeit",
+        y="overhead",
+        label="nicht Erfolgreich",
+        ax=axs,
+        color="black",
+        linestyle="--",
+    )
     plt.title("")
     plt.xlabel("")
     plt.ylabel("Dichte")

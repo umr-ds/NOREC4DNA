@@ -13,8 +13,7 @@ T = 3
 """
 
 try:
-    from cdnarules import byte2QUATS
-    from cdnarules import getQUAT
+    from cdnarules import byte2QUATS, getQUAT
 except ImportError:
     print("C Module failed to load, falling back to slow mode")
 
@@ -64,7 +63,7 @@ def str2bool(s: str) -> bool:
 
 
 def quads2dna(quads: Union[List[int], bytes]) -> str:
-    translation = {0: 'A', 1: 'C', 2: 'G', 3: 'T'}
+    translation = {0: "A", 1: "C", 2: "G", 3: "T"}
     return "".join(translation[x] for x in quads)
 
 
@@ -77,17 +76,25 @@ def main() -> None:
 
 if __name__ == "__main__":
     # main()
-    filename = (
-        "vergleich bzgl ACGT-verteilung/mit dna rules/RU10_logo.jpg/0.RU10"
-    )  # ""RU10_b_lq.webm/1.RU10"  # "raptor.pdf"
-    x = [0, 0, 0, 1, 2, 3, 1, 1, 1, ]
+    filename = "vergleich bzgl ACGT-verteilung/mit dna rules/RU10_logo.jpg/0.RU10"  # ""RU10_b_lq.webm/1.RU10"  # "raptor.pdf"
+    x = [
+        0,
+        0,
+        0,
+        1,
+        2,
+        3,
+        1,
+        1,
+        1,
+    ]
     print(quads2dna(x))
 
     def bitstring_to_bytes(s: Union[str, bytes, bytearray]) -> bytes:
         v = int(s, 2)
         b = bytearray()
         while v:
-            b.append(v & 0xff)
+            b.append(v & 0xFF)
             v >>= 8
         return bytes(b[::-1])
 

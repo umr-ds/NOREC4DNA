@@ -1,23 +1,28 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
 import argparse
-import struct
+import logging
 import os
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union, BinaryIO
+import struct
+from io import BytesIO
+from typing import Any, BinaryIO, Callable, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
-from io import BytesIO
 from numpy.typing import NDArray
 
 from .Decoder import Decoder
+from .distributions.Distribution import Distribution
+from .distributions.ErlichZielinskiRobustSolitonDisribution import (
+    ErlichZielinskiRobustSolitonDistribution,
+)
 from .ErrorCorrection import crc32, nocode, reed_solomon_decode
 from .GEPP import GEPP, GEPP_intern
 from .HeaderChunk import HeaderChunk
-from .Packet import Packet
-from .distributions.Distribution import Distribution
-from .distributions.ErlichZielinskiRobustSolitonDisribution import ErlichZielinskiRobustSolitonDistribution
-from .helper import calc_crc, xor_mask, calc_file_crc, logical_xor
+from .helper import calc_crc, calc_file_crc, logical_xor, xor_mask
 from .helper.quaternary2Bin import quat_file_to_bin, tranlate_quat_to_byte
+from .Packet import Packet
+
+logger = logging.getLogger(__name__)
 
 
 class LTDecoder(Decoder):
@@ -30,7 +35,7 @@ class LTDecoder(Decoder):
         implicit_mode: bool = True,
         dist: Optional[Distribution] = None,
         checksum_len_str: Optional[str] = None,
-        config_map: Any = None
+        config_map: Any = None,
     ):
         super().__init__(file)
         if checksum_len_str is None:
@@ -71,13 +76,15 @@ class LTDecoder(Decoder):
         number_of_chunks_len_format: str = "I",
         degree_len_format: str = "I",
         seed_len_format: str = "I",
-        last_chunk_len_format: str = "I"
+        last_chunk_len_format: str = "I",
     ) -> Optional[int]:
         decoded: bool = False
         self.EOF: bool = False
         if self.static_number_of_chunks is not None:
             self.number_of_chunks = self.static_number_of_chunks
-            number_of_chunks_len_format = ""  # if we got static number_of_chunks we do not need it in struct string
+            number_of_chunks_len_format = (
+                ""  # if we got static number_of_chunks we do not need it in struct string
+            )
         assert self.file is not None, ""
         for filename in os.listdir(self.file):
             if filename.endswith(".LT") or filename.endswith("DNA"):
@@ -86,18 +93,22 @@ class LTDecoder(Decoder):
                     self.f = quat_file_to_bin(self.file + "/" + filename)
                 else:
                     self.f = open(self.file + "/" + filename, "rb")
-                new_pack = self.getNextValidPacket(True, packet_len_format=packet_len_format,
-                                                   crc_len_format=crc_len_format,
-                                                   number_of_chunks_len_format=number_of_chunks_len_format,
-                                                   degree_len_format=degree_len_format, seed_len_format=seed_len_format,
-                                                   last_chunk_len_format=last_chunk_len_format)
+                new_pack = self.getNextValidPacket(
+                    True,
+                    packet_len_format=packet_len_format,
+                    crc_len_format=crc_len_format,
+                    number_of_chunks_len_format=number_of_chunks_len_format,
+                    degree_len_format=degree_len_format,
+                    seed_len_format=seed_len_format,
+                    last_chunk_len_format=last_chunk_len_format,
+                )
                 if new_pack is not None:
                     decoded = self.input_new_packet(new_pack)
                 if decoded:
                     break
         self.EOF = True
-        print("Decoded Packets: " + str(self.correct))
-        print("Corrupt Packets : " + str(self.corrupt))
+        logger.info("Decoded Packets: %s", self.correct)
+        logger.info("Corrupt Packets : %s", self.corrupt)
         if self.GEPP is not None and self.GEPP.isPotentionallySolvable():
             decoded = self.GEPP.solve()
         else:
@@ -105,7 +116,7 @@ class LTDecoder(Decoder):
         if hasattr(self, "f") and self.f is not None:
             self.f.close()
         if not decoded and self.EOF:
-            print("Unable to retrieve file from chunks. Too many errors?")
+            logger.warning("Unable to retrieve file from chunks. Too many errors?")
             return -1
         return None
 
@@ -116,16 +127,18 @@ class LTDecoder(Decoder):
         number_of_chunks_len_format: str = "I",
         degree_len_format: str = "I",
         seed_len_format: str = "I",
-        last_chunk_len_format: str = "I"
+        last_chunk_len_format: str = "I",
     ) -> Optional[int]:
         assert self.file is not None, "file must not be None!"
         decoded: bool = False
         self.EOF: bool = False
         if self.static_number_of_chunks is not None:
             self.number_of_chunks = self.static_number_of_chunks
-            number_of_chunks_len_format = ""  # if we got static number_of_chunks we do not need it in struct string
+            number_of_chunks_len_format = (
+                ""  # if we got static number_of_chunks we do not need it in struct string
+            )
         if self.file.lower().endswith("fasta"):
-            if hasattr(self, 'f') and self.f is not None:
+            if hasattr(self, "f") and self.f is not None:
                 self.f.close()
             self.f = open(self.file, "rb")
             raw_packet_list: List[Tuple[bytes, bytes, bytes]] = []
@@ -144,36 +157,45 @@ class LTDecoder(Decoder):
                     break
                 dna_str = line.replace(b"\n", b"")
                 raw_packet_list.append((error_prob, seed, dna_str))
-                new_pack = self.parse_raw_packet(BytesIO(tranlate_quat_to_byte(str(dna_str))).read(),
-                                                 crc_len_format=crc_len_format,
-                                                 number_of_chunks_len_format=number_of_chunks_len_format,
-                                                 degree_len_format=degree_len_format,
-                                                 seed_len_format=seed_len_format)
+                new_pack = self.parse_raw_packet(
+                    BytesIO(tranlate_quat_to_byte(str(dna_str))).read(),
+                    crc_len_format=crc_len_format,
+                    number_of_chunks_len_format=number_of_chunks_len_format,
+                    degree_len_format=degree_len_format,
+                    seed_len_format=seed_len_format,
+                )
                 if isinstance(new_pack, Packet):
                     decoded = self.input_new_packet(new_pack)
                 else:
-                    print(f"[!] WARNING: Could not add a packet to the decoder: Seed: {seed} - {new_pack}")
+                    logger.warning(
+                        "Could not add a packet to the decoder: Seed: %s - %s",
+                        seed,
+                        new_pack,
+                    )
                 if self.progress_bar is not None:
                     self.progress_bar.update(self.correct, Corrupt=self.corrupt)
             else:
                 while not (decoded or self.EOF):
-                    new_pack = self.getNextValidPacket(False, packet_len_format=packet_len_format,
-                                                       crc_len_format=crc_len_format,
-                                                       number_of_chunks_len_format=number_of_chunks_len_format,
-                                                       degree_len_format=degree_len_format,
-                                                       seed_len_format=seed_len_format,
-                                                       last_chunk_len_format=last_chunk_len_format)
+                    new_pack = self.getNextValidPacket(
+                        False,
+                        packet_len_format=packet_len_format,
+                        crc_len_format=crc_len_format,
+                        number_of_chunks_len_format=number_of_chunks_len_format,
+                        degree_len_format=degree_len_format,
+                        seed_len_format=seed_len_format,
+                        last_chunk_len_format=last_chunk_len_format,
+                    )
                     if new_pack is None:
                         break
                     decoded = self.input_new_packet(new_pack)
-        print("Decoded Packets: " + str(self.correct))
-        print("Corrupt Packets : " + str(self.corrupt))
-        if hasattr(self, 'f') and self.f is not None:
+        logger.info("Decoded Packets: %s", self.correct)
+        logger.info("Corrupt Packets : %s", self.corrupt)
+        if hasattr(self, "f") and self.f is not None:
             self.f.close()
         if self.GEPP is not None and self.GEPP.isPotentionallySolvable():
             return self.GEPP.solve()
         if not decoded and self.EOF:
-            print("Unable to retrieve file from chunks. Too many errors?")
+            logger.warning("Unable to retrieve file from chunks. Too many errors?")
             return -1
         return None
 
@@ -191,11 +213,20 @@ class LTDecoder(Decoder):
                 else:
                     self.counter[i] = 1
         if self.GEPP is None:
-            self.GEPP = GEPP(np.array([packet.get_bool_array_used_packets()], dtype=bool),
-                             np.frombuffer(packet.get_data(), dtype="uint8"))
+            self.GEPP = GEPP(
+                np.array([packet.get_bool_array_used_packets()], dtype=bool),
+                np.frombuffer(packet.get_data(), dtype="uint8"),
+            )
         else:
-            self.GEPP.addRow(packet.get_bool_array_used_packets(), np.frombuffer(packet.get_data(), dtype="uint8"))
-        if self.isPseudo and not self.read_all_before_decode and self.GEPP.isPotentionallySolvable():
+            self.GEPP.addRow(
+                packet.get_bool_array_used_packets(),
+                np.frombuffer(packet.get_data(), dtype="uint8"),
+            )
+        if (
+            self.isPseudo
+            and not self.read_all_before_decode
+            and self.GEPP.isPotentionallySolvable()
+        ):
             return self.GEPP.solve(partial=False)
         return False
 
@@ -215,14 +246,16 @@ class LTDecoder(Decoder):
         rng = np.random
         rng.seed(seed)
         for _ in range(0, degree):
-            tmp:int = rng.choice(range(0, self.number_of_chunks))
+            tmp: int = rng.choice(range(0, self.number_of_chunks))
             while tmp in res:
                 tmp = rng.choice(range(0, self.number_of_chunks))
             res.add(tmp)
         return res
 
     def is_decoded(self) -> bool:
-        return self.GEPP is not None and self.GEPP.isPotentionallySolvable() and self.GEPP.isSolved()
+        return (
+            self.GEPP is not None and self.GEPP.isPotentionallySolvable() and self.GEPP.isSolved()
+        )
 
     def getNextValidPacket(
         self,
@@ -232,9 +265,9 @@ class LTDecoder(Decoder):
         number_of_chunks_len_format: str = "I",
         degree_len_format: str = "I",
         seed_len_format: str = "I",
-        last_chunk_len_format: str = "I"
+        last_chunk_len_format: str = "I",
     ) -> Optional[Packet]:
-        if not hasattr(self, 'f') or self.f is None:
+        if not hasattr(self, "f") or self.f is None:
             return None
         if not from_multiple_files:
             packet_len_bytes = self.f.read(struct.calcsize("<" + packet_len_format))
@@ -251,14 +284,19 @@ class LTDecoder(Decoder):
             self.EOF = True
             self.f.close()
             return None
-        res = self.parse_raw_packet(packet, number_of_chunks_len_format=number_of_chunks_len_format,
-                                    degree_len_format=degree_len_format,
-                                    seed_len_format=seed_len_format)
+        res = self.parse_raw_packet(
+            packet,
+            number_of_chunks_len_format=number_of_chunks_len_format,
+            degree_len_format=degree_len_format,
+            seed_len_format=seed_len_format,
+        )
         if res is None:
-            res = self.getNextValidPacket(from_multiple_files=from_multiple_files,
-                                          number_of_chunks_len_format=number_of_chunks_len_format,
-                                          degree_len_format=degree_len_format,
-                                          seed_len_format=seed_len_format)
+            res = self.getNextValidPacket(
+                from_multiple_files=from_multiple_files,
+                number_of_chunks_len_format=number_of_chunks_len_format,
+                degree_len_format=degree_len_format,
+                seed_len_format=seed_len_format,
+            )
         return res
 
     def saveDecodedFile(
@@ -267,16 +305,18 @@ class LTDecoder(Decoder):
         null_is_terminator: bool = False,
         print_to_output: bool = True,
         return_file_name: bool = False,
-        partial_decoding: bool = True
+        partial_decoding: bool = True,
     ) -> Union[bytes, str]:
         assert self.is_decoded() or partial_decoding, "Can not save File: Unable to reconstruct."
         if partial_decoding:
             self.solve(partial=True)
         dirty = False
         if self.use_headerchunk and self.GEPP is not None:
-            self.headerChunk = HeaderChunk(Packet(self.GEPP.b[0], {0}, self.number_of_chunks, read_only=True),
-                                           last_chunk_len_format=last_chunk_len_format,
-                                           checksum_len_format=self.checksum_len_str)
+            self.headerChunk = HeaderChunk(
+                Packet(self.GEPP.b[0], {0}, self.number_of_chunks, read_only=True),
+                last_chunk_len_format=last_chunk_len_format,
+                checksum_len_format=self.checksum_len_str,
+            )
         file_name = "DEC_" + os.path.basename(self.file) if self.file is not None else "LT.BIN"
         if self.headerChunk is not None:
             file_name = self.headerChunk.get_file_name().decode("utf-8")
@@ -295,7 +335,7 @@ class LTDecoder(Decoder):
                         if self.number_of_chunks - 1 == x and self.use_headerchunk:
                             if self.headerChunk is None:
                                 continue
-                            output = self.GEPP.b[x][0][0: self.headerChunk.get_last_chunk_length()]
+                            output = self.GEPP.b[x][0][0 : self.headerChunk.get_last_chunk_length()]
                             output_concat += output.tobytes()
                             f.write(output)
                         else:
@@ -310,15 +350,19 @@ class LTDecoder(Decoder):
                                 output = self.GEPP.b[x]
                                 output_concat += output.tobytes()
                                 f.write(output)
-            print("Saved file as '" + str(file_name) + "'")
+            logger.info("Saved file as '%s'", file_name)
             if self.checksum_len_str is not None and self.checksum_len_str != "":
                 decoded_crc = calc_file_crc(file_name, self.checksum_len_str)
                 if self.headerChunk is not None and self.headerChunk.checksum != decoded_crc:
-                    print("Decoded CRC:", decoded_crc)
-                    print("Header CRC:", self.headerChunk.checksum)
-                    raise ValueError("Checksum of decoded file does not match checksum in header chunk!")
+                    logger.warning("Decoded CRC: %s", decoded_crc)
+                    logger.warning("Header CRC: %s", self.headerChunk.checksum)
+                    raise ValueError(
+                        "Checksum of decoded file does not match checksum in header chunk!"
+                    )
             if dirty:
-                print("Some parts could not be restored, file WILL contain sections with \\x00 !")
+                logger.warning(
+                    "Some parts could not be restored, file WILL contain sections with \\x00 !"
+                )
             if print_to_output:
                 print("Result:")
                 print(output_concat.decode("utf-8"))
@@ -327,7 +371,7 @@ class LTDecoder(Decoder):
         if return_file_name:
             return file_name
         return output_concat
-    
+
     def removeAndXorAuxPackets(self, packet: Packet) -> NDArray[np.bool_]:
         """
         For LT this is an identity function (makes writing code for all three Coders easier)
@@ -336,14 +380,14 @@ class LTDecoder(Decoder):
         """
         packet_row = np.asarray(packet.get_bool_array_used_packets(), dtype=bool)
         return packet_row
-    
+
     def parse_raw_packet(
         self,
         packet: bytes,
         crc_len_format: str = "L",
         number_of_chunks_len_format: str = "I",
         degree_len_format: str = "I",
-        seed_len_format: str = "I"
+        seed_len_format: str = "I",
     ) -> Optional[Packet]:
         crc_len = -struct.calcsize("<" + crc_len_format)
         if self.error_correction.__name__ == crc32.__name__:
@@ -351,7 +395,7 @@ class LTDecoder(Decoder):
             crc: int = struct.unpack("<" + crc_len_format, packet[crc_len:])[0]
             calced_crc: int = calc_crc(payload)
             if crc != calced_crc:  # If the Packet is corrupt, try next one
-                print("[-] CRC-Error - " + str(hex(crc)) + " != " + str(hex(calced_crc)))
+                logger.warning("CRC-Error - %s != %s", hex(crc), hex(calced_crc))
                 self.corrupt += 1
                 return None
         else:
@@ -363,7 +407,7 @@ class LTDecoder(Decoder):
                 return None
         if self.implicit_mode:
             degree_len_format = ""
-        struct_str: str = ("<" + number_of_chunks_len_format + degree_len_format + seed_len_format)
+        struct_str: str = "<" + number_of_chunks_len_format + degree_len_format + seed_len_format
         struct_len: int = struct.calcsize(struct_str)
         len_data = struct.unpack(struct_str, packet[0:struct_len])
         degree: Optional[int] = None
@@ -396,9 +440,7 @@ class LTDecoder(Decoder):
 
         assert degree is not None, "Degree calculation failed!"
         used_packets = self.choose_packet_numbers(degree, seed)
-        data = (
-            packet[struct_len:crc_len] if crc_len is not None else packet[struct_len:]
-        )
+        data = packet[struct_len:crc_len] if crc_len is not None else packet[struct_len:]
         self.correct += 1
 
         return Packet(
@@ -411,28 +453,55 @@ class LTDecoder(Decoder):
         )
 
 
-def main(file: str, number_of_chunks: int, error_correction: Callable[[bytes], bytes], insertheader: bool,
-         _header_crc_str: Optional[str] = None) -> None:
+def main(
+    file: str,
+    number_of_chunks: int,
+    error_correction: Callable[[bytes], bytes],
+    insertheader: bool,
+    _header_crc_str: Optional[str] = None,
+) -> None:
     dist = ErlichZielinskiRobustSolitonDistribution(number_of_chunks, seed=2)
 
-    decoder = LTDecoder(file, error_correction=error_correction, use_headerchunk=insertheader,
-                        static_number_of_chunks=number_of_chunks, implicit_mode=False, dist=dist,
-                        checksum_len_str=_header_crc_str)
+    decoder = LTDecoder(
+        file,
+        error_correction=error_correction,
+        use_headerchunk=insertheader,
+        static_number_of_chunks=number_of_chunks,
+        implicit_mode=False,
+        dist=dist,
+        checksum_len_str=_header_crc_str,
+    )
     decoder.decode(number_of_chunks_len_format="H", seed_len_format="I", degree_len_format="H")
     decoder.saveDecodedFile(null_is_terminator=False)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
     parser = argparse.ArgumentParser()
     parser.add_argument("filename", metavar="file", type=str, help="the file / folder to Decode")
-    parser.add_argument("--error_correction", metavar="error_correction", type=str, required=False,
-                        default="nocode",
-                        help="Error Correction Method to use; possible values: \
-                                    nocode, crc, reedsolomon (default=nocode)")
-    parser.add_argument("--repair_symbols", metavar="repair_symbols", type=int, required=False, default=2,
-                        help="number of repair symbols for ReedSolomon (default=2)")
-    parser.add_argument("--insert_header", metavar="insert_header", required=False, type=bool, default=False)
-    parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
+    parser.add_argument(
+        "--error_correction",
+        metavar="error_correction",
+        type=str,
+        required=False,
+        default="nocode",
+        help="Error Correction Method to use; possible values: \
+                                    nocode, crc, reedsolomon (default=nocode)",
+    )
+    parser.add_argument(
+        "--repair_symbols",
+        metavar="repair_symbols",
+        type=int,
+        required=False,
+        default=2,
+        help="number of repair symbols for ReedSolomon (default=2)",
+    )
+    parser.add_argument(
+        "--insert_header", metavar="insert_header", required=False, type=bool, default=False
+    )
+    parser.add_argument(
+        "--header_crc_str", metavar="header_crc_str", required=False, type=str, default=""
+    )
     parser.add_argument("--number_of_chunks", metavar="number_of_chunks", required=True, type=int)
     args = parser.parse_args()
     filename = args.filename
@@ -451,9 +520,11 @@ if __name__ == "__main__":
         else:
             e_correction = reed_solomon_decode
     else:
-        print("Selected Error Correction not supported, choose: 'nocode', 'crc' or 'reedsolomon'")
+        logger.error(
+            "Selected Error Correction not supported, choose: 'nocode', 'crc' or 'reedsolomon'"
+        )
         e_correction = None
         exit()
-    print("File / Folder to decode: " + str(filename))
+    logger.info("File / Folder to decode: %s", filename)
     main(filename, _number_of_chunks, e_correction, _insert_header, _header_crc_str)
-    print("Decoding finished.")
+    logger.info("Decoding finished.")

@@ -1,6 +1,7 @@
-import pandas as pd
 from math import floor
+
 import matplotlib.pyplot as plt
+import pandas as pd
 
 # Get current size
 fig_size = plt.rcParams["figure.figsize"]
@@ -39,7 +40,9 @@ hours = str(floor(df["timeNeeded"].sum() % (60 * 60 * 24) / 60 / 60))
 minutes = floor(df["timeNeeded"].sum() % (60 * 60 * 24) % (60 * 60) / 60)
 secs = floor(df["timeNeeded"].sum() % (60 * 60 * 24) % (60 * 60) % 60)
 print(str(days) + ":" + str(hours) + ":" + str(minutes) + ":" + str(secs))
-df.sort_values(by=["codecName", "numberOfEncodedPackets", "number_of_chunks"], inplace=True)  # , 'droprate'
+df.sort_values(
+    by=["codecName", "numberOfEncodedPackets", "number_of_chunks"], inplace=True
+)  # , 'droprate'
 
 tmp = df.plot(subplots=True, grid=True, kind="box", by="numberOfEncodedPackets", title=" ")
 plt.grid(True)

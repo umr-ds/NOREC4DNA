@@ -1,10 +1,14 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
 import typing
-from re import compile, search
 from collections import Counter
+from re import compile, search
 
-from ..helper.fallback_code import strContainsSub_python, microsatellite_python, longestSequenceOfChar_python
+from ..helper.fallback_code import (
+    longestSequenceOfChar_python,
+    microsatellite_python,
+    strContainsSub_python,
+)
 
 try:
     import cdnarules
@@ -50,12 +54,8 @@ def switch(name: str) -> typing.Callable[[typing.AnyStr, typing.Any, typing.Any]
             lambda x, y, z: 1 if int(z) <= longestSequenceOfChar(x, y)[1] else 0
         ),
         "strContainsSub": (lambda x, y, z: 1 if strContainsSub(x, y) else 0),
-        "strContainsSubRegex": (
-            lambda x, y, z: 1 if strContainsSubRegex(x, y) else 0
-        ),
-        "strContainsIllegalChars": (
-            lambda x, y, z: 1 if strContainsIllegalChars(x, y) else 0
-        ),
+        "strContainsSubRegex": (lambda x, y, z: 1 if strContainsSubRegex(x, y) else 0),
+        "strContainsIllegalChars": (lambda x, y, z: 1 if strContainsIllegalChars(x, y) else 0),
         "charCountBiggerEqualThanX": (
             lambda x, y, z: 1 if int(z) <= charCountBiggerEqualThanX(x, y) else 0
         ),
@@ -76,6 +76,7 @@ def gc_content(text: typing.AnyStr) -> float:
     except NameError:
         return gc_content_python(text)
 
+
 def gc_content_python(text: typing.AnyStr) -> float:
     counter = Counter(text)
     count = counter["G"] + counter["C"]
@@ -83,12 +84,20 @@ def gc_content_python(text: typing.AnyStr) -> float:
 
 
 def iupac_replace(sequence: typing.AnyStr):
-    iupac_regex = {'M': '[AC]', 'R': '[AG]',
-                   'W': '[AT]', 'S': '[CG]',
-                   'Y': '[CT]', 'K': '[GT]',
-                   'V': '[ACG]', 'H': '[ACT]',
-                   'D': '[AGT]', 'B': '[CGT]',
-                   'X': '[ACGT]', 'N': '[ACGT]'}
+    iupac_regex = {
+        "M": "[AC]",
+        "R": "[AG]",
+        "W": "[AT]",
+        "S": "[CG]",
+        "Y": "[CT]",
+        "K": "[GT]",
+        "V": "[ACG]",
+        "H": "[ACT]",
+        "D": "[AGT]",
+        "B": "[CGT]",
+        "X": "[ACGT]",
+        "N": "[ACGT]",
+    }
     for i, j in iupac_regex.items():
         sequence = sequence.replace(i, j)
     if debug:

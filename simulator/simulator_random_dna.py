@@ -1,14 +1,15 @@
-import os
-import time
 import math
+import os
 import struct
-import numpy as np
+import time
 from random import random
 
+import numpy as np
 from norec4dna.helper import xor_mask
-from .rules.DNARules import DNARules
+
 from .helper.bin2Quaternary import string2QUATS
 from .helper.quaternary2Bin import quats_to_bytes
+from .rules.DNARules import DNARules
 
 lines = [
     "Algorithm,A_Permutation,T_Permutation,C_Permutation,G_Permutation,dinucleotid_Runs,Homopolymers,GC_Content,Trinucleotid_Runs,Random_Permutation,Overall_Dropchance,Random_Number,Did_Drop"
@@ -29,9 +30,7 @@ def get_random_int(max_int):
 
 
 def create_packet(leng=100):
-    tmp = np.random.bytes(
-        leng + 16
-    )  # +16 to adapt for average header in raptor/online/lt...
+    tmp = np.random.bytes(leng + 16)  # +16 to adapt for average header in raptor/online/lt...
     return tmp
 
 
@@ -41,8 +40,16 @@ def should_drop_packet(packet, add_line=True, scale=1.0):
     drop_chance, data, _ = DNARules.apply_all_rules_with_data(dna_data)
     drop_chance = scale * drop_chance
     if add_line:
-        line = ("random_bytes," + ",".join([str(round(x, 4)) for x in data]) + "," + str(drop_chance) + "," + str(
-            rand) + "," + str(drop_chance > rand))
+        line = (
+            "random_bytes,"
+            + ",".join([str(round(x, 4)) for x in data])
+            + ","
+            + str(drop_chance)
+            + ","
+            + str(rand)
+            + ","
+            + str(drop_chance > rand)
+        )
         lines.append(line)
     # drop packet if rand bigger than the drop_chance for this Packet.
     return drop_chance > rand
@@ -99,16 +106,54 @@ def main(file="logo.jpg", repeats=50):
                     overhead=overhead,
                     leng=chunk_size,
                 )
-                line = (str(file) + "," + str(overhead) + "," + str(name) + "," + str(number_of_chunks) + "," + str(
-                    invalid_drop) + "," + str(rnd) + "," + str(result) + "," + str(time_needed))
+                line = (
+                    str(file)
+                    + ","
+                    + str(overhead)
+                    + ","
+                    + str(name)
+                    + ","
+                    + str(number_of_chunks)
+                    + ","
+                    + str(invalid_drop)
+                    + ","
+                    + str(rnd)
+                    + ","
+                    + str(result)
+                    + ","
+                    + str(time_needed)
+                )
             except Exception:
-                line = (str(file) + "," + str(overhead) + "," + str(name) + "," + str(
-                    number_of_chunks) + "," + "ERROR" + "," + str(rnd) + "," + "ERROR" + "," + "ERROR")
+                line = (
+                    str(file)
+                    + ","
+                    + str(overhead)
+                    + ","
+                    + str(name)
+                    + ","
+                    + str(number_of_chunks)
+                    + ","
+                    + "ERROR"
+                    + ","
+                    + str(rnd)
+                    + ","
+                    + "ERROR"
+                    + ","
+                    + "ERROR"
+                )
             print(line)
             csv.append(line)
 
-        dtimeno = (mode + "_" + str(number_repair_symbols) + "_" + str(overhead) + "_sim" + str(
-            time.strftime("%Y-%m-%d_%H-%M", time.localtime())) + ".csv")
+        dtimeno = (
+            mode
+            + "_"
+            + str(number_repair_symbols)
+            + "_"
+            + str(overhead)
+            + "_sim"
+            + str(time.strftime("%Y-%m-%d_%H-%M", time.localtime()))
+            + ".csv"
+        )
 
         with open("DNA_" + dtimeno, "w") as f:
             for line in lines:

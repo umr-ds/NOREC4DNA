@@ -1,16 +1,17 @@
-import numpy as np
-import time, math
-from random import random
+import math
+import time
 from datetime import datetime
+from random import random
 
-from norec4dna.OnlineEncoder import OnlineEncoder
-from norec4dna.OnlineBPDecoder import OnlineBPDecoder
-from norec4dna.LTEncoder import LTEncoder
+import numpy as np
+from norec4dna.distributions.IdealSolitonDistribution import IdealSolitonDistribution
+from norec4dna.distributions.OnlineDistribution import OnlineDistribution
+from norec4dna.distributions.RobustSolitonDistribution import RobustSolitonDistribution
 from norec4dna.LTBPDecoder import LTBPDecoder
 from norec4dna.LTDecoder import LTDecoder
-from norec4dna.distributions.IdealSolitonDistribution import IdealSolitonDistribution
-from norec4dna.distributions.RobustSolitonDistribution import RobustSolitonDistribution
-from norec4dna.distributions.OnlineDistribution import OnlineDistribution
+from norec4dna.LTEncoder import LTEncoder
+from norec4dna.OnlineBPDecoder import OnlineBPDecoder
+from norec4dna.OnlineEncoder import OnlineEncoder
 
 
 def main(file):
@@ -192,9 +193,7 @@ def main(file):
     # infer number_of_chunks form Distribution:
     number_of_chunks = dist.get_size()
     pseudo = OnlineBPDecoder.pseudo_decoder()
-    encoder = OnlineEncoder(
-        file, number_of_chunks, dist, epsilon, quality, pseudo_decoder=pseudo
-    )
+    encoder = OnlineEncoder(file, number_of_chunks, dist, epsilon, quality, pseudo_decoder=pseudo)
     encoder.encode_to_packets()
     end = time.time() - start
     print(
@@ -236,9 +235,7 @@ def blackboxTest(file, number_of_chunks=800, droprate=0.02, seed=2):
     encoder = LTEncoder(file, number_of_chunks, dist, pseudo_decoder=pseudo)
     decoder = LTDecoder.pseudo_decoder(number_of_chunks)
 
-    result, numberOfEncodedPackets, dropedCount = blackbox(
-        encoder, decoder, droprate=droprate
-    )
+    result, numberOfEncodedPackets, dropedCount = blackbox(encoder, decoder, droprate=droprate)
     end = time.time() - start
     print(
         "Blackbox-Decode "
@@ -273,44 +270,44 @@ if __name__ == "__main__":
                     file, number_of_chunks=_number_of_chunks, droprate=droprate, seed=rnd
                 )
                 line = (
-                        str(file)
-                        + ", "
-                        + str(name)
-                        + ", "
-                        + str(_number_of_chunks)
-                        + ", "
-                        + str(numberOfEncodedPackets)
-                        + ", "
-                        + str(droprate)
-                        + ", "
-                        + str(dropedCount)
-                        + ", "
-                        + str(rnd)
-                        + ", "
-                        + str(result)
-                        + ", "
-                        + str(timeNeeded)
+                    str(file)
+                    + ", "
+                    + str(name)
+                    + ", "
+                    + str(_number_of_chunks)
+                    + ", "
+                    + str(numberOfEncodedPackets)
+                    + ", "
+                    + str(droprate)
+                    + ", "
+                    + str(dropedCount)
+                    + ", "
+                    + str(rnd)
+                    + ", "
+                    + str(result)
+                    + ", "
+                    + str(timeNeeded)
                 )
-            except (Exception):
+            except Exception:
                 print("Error...")
                 line = (
-                        str(file)
-                        + ", "
-                        + str(name)
-                        + ", "
-                        + str(_number_of_chunks)
-                        + ", "
-                        + "ERROR"
-                        + ", "
-                        + str(droprate)
-                        + ", "
-                        + "ERROR"
-                        + ", "
-                        + str(rnd)
-                        + ", "
-                        + "ERROR"
-                        + ", "
-                        + "ERROR"
+                    str(file)
+                    + ", "
+                    + str(name)
+                    + ", "
+                    + str(_number_of_chunks)
+                    + ", "
+                    + "ERROR"
+                    + ", "
+                    + str(droprate)
+                    + ", "
+                    + "ERROR"
+                    + ", "
+                    + str(rnd)
+                    + ", "
+                    + "ERROR"
+                    + ", "
+                    + "ERROR"
                 )
             print(line)
             csv.append(line)

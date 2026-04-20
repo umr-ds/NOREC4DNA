@@ -2,7 +2,7 @@ import pandas
 
 csv = pandas.read_csv("/home/michael/Code/norec4dna/unilogo/results/finalData/filtered_table.csv")
 
-is_bigger_th = csv #[csv["UniLogo_A"] < 100]
+is_bigger_th = csv  # [csv["UniLogo_A"] < 100]
 print(is_bigger_th)
 res = is_bigger_th[is_bigger_th["sequences"].str.len() == 164]
 print(res["sequences"])

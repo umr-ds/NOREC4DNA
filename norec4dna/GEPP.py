@@ -3,8 +3,9 @@ import typing
 from typing import List, Optional
 
 import numpy as np
-from .helper import xor_numpy
 from numpy.typing import NDArray
+
+from .helper import xor_numpy
 
 debug = False
 

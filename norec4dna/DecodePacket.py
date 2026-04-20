@@ -1,19 +1,26 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
 import typing
+
 import numpy as np
 from numpy.typing import NDArray
+
 from .ErrorCorrection import nocode
-from .Packet import Packet
 from .helper import xor_numpy
+from .Packet import Packet
 
 
 class DecodePacket(Packet):
-    def __init__(self, data: typing.Union[bytes, NDArray[np.uint8]], used_packets: typing.Set[int], error_correction: typing.Callable[[bytes], bytes] = nocode,
-                 number_of_chunks: int = -1):
+    def __init__(
+        self,
+        data: typing.Union[bytes, NDArray[np.uint8]],
+        used_packets: typing.Set[int],
+        error_correction: typing.Callable[[bytes], bytes] = nocode,
+        number_of_chunks: int = -1,
+    ):
         self.set_used_packets(used_packets)
-        self.data: typing.Union[bytes, NDArray[np.uint8]]= data
-        self.error_correction: typing.Callable[[bytes], bytes]  = error_correction
+        self.data: typing.Union[bytes, NDArray[np.uint8]] = data
+        self.error_correction: typing.Callable[[bytes], bytes] = error_correction
         self.did_change: bool = False
         self.internal_hash: typing.Optional[int] = None
         self.update_degree()
@@ -30,8 +37,12 @@ class DecodePacket(Packet):
             data = b""
         used_packets = packet.get_used_packets()
         error_correction = packet.get_error_correction()
-        res = cls(data, used_packets, number_of_chunks=packet.total_number_of_chunks,
-                  error_correction=error_correction)
+        res = cls(
+            data,
+            used_packets,
+            number_of_chunks=packet.total_number_of_chunks,
+            error_correction=error_correction,
+        )
         res.total_number_of_chunks = packet.get_total_number_of_chunks()
         return res
 

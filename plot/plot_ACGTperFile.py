@@ -1,8 +1,9 @@
 import typing
+
 import matplotlib
-import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
+import numpy as np
 
 font = {"family": "normal", "size": 15}
 axis_font = {"size": "20"}
@@ -30,7 +31,7 @@ def main(text, out_filename, group: int = 32):
     T = np.zeros(leng, dtype=np.float64)
     error = 0
     for i in range(0, len(text), group):
-        tx = text[i: i + group]
+        tx = text[i : i + group]
         for t in tx:
             if t == "A":
                 A[j] += 1
@@ -104,7 +105,10 @@ def main(text, out_filename, group: int = 32):
         plt.legend()
         plt.show(block=False)
         print(out_filename + "_average_" + str(group) + ".pdf")
-        plt.savefig(out_filename + "_average_" + str(group) + ".pdf", bbox_inches="tight", )
+        plt.savefig(
+            out_filename + "_average_" + str(group) + ".pdf",
+            bbox_inches="tight",
+        )
         plt.savefig(out_filename + "_average_" + str(group) + ".svg")
         plt.close()
 

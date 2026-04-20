@@ -2,21 +2,21 @@
 # -*- coding: latin-1 -*-
 import math
 import time
-import numpy as np
 from random import random
 
-from norec4dna.OnlineEncoder import OnlineEncoder
-from norec4dna.OnlineBPDecoder import OnlineBPDecoder
-from norec4dna.LTEncoder import LTEncoder
-from norec4dna.LTBPDecoder import LTBPDecoder
-from norec4dna.LTDecoder import LTDecoder
+import numpy as np
 from norec4dna.distributions.IdealSolitonDistribution import IdealSolitonDistribution
-from norec4dna.RU10Decoder import RU10Decoder
-from norec4dna.RU10Encoder import RU10Encoder
+from norec4dna.distributions.OnlineDistribution import OnlineDistribution
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.distributions.RobustSolitonDistribution import RobustSolitonDistribution
-from norec4dna.distributions.OnlineDistribution import OnlineDistribution
+from norec4dna.LTBPDecoder import LTBPDecoder
+from norec4dna.LTDecoder import LTDecoder
+from norec4dna.LTEncoder import LTEncoder
+from norec4dna.OnlineBPDecoder import OnlineBPDecoder
 from norec4dna.OnlineDecoder import OnlineDecoder
+from norec4dna.OnlineEncoder import OnlineEncoder
+from norec4dna.RU10Decoder import RU10Decoder
+from norec4dna.RU10Encoder import RU10Encoder
 
 
 def main(file):
@@ -160,8 +160,13 @@ def main(file):
     )
     encoder.encode_to_packets()
     end = time.time() - start
-    print("Finished encoding after " + str(round(end, 4)) + " sec. " + str(
-        len(encoder.get_encoded_packets())) + " Packets encoded.\n")
+    print(
+        "Finished encoding after "
+        + str(round(end, 4))
+        + " sec. "
+        + str(len(encoder.get_encoded_packets()))
+        + " Packets encoded.\n"
+    )
     print("###### Online Codec - number_of_chunks = 2500, eps=0.01, quality=3 ######")
     print("### Online without pseudo_decoder ###")
     start = time.time()
@@ -192,9 +197,7 @@ def main(file):
     # infer number_of_chunks form Distribution:
     number_of_chunks = dist.get_size()
     pseudo = OnlineBPDecoder.pseudo_decoder()
-    encoder = OnlineEncoder(
-        file, number_of_chunks, dist, epsilon, quality, pseudo_decoder=pseudo
-    )
+    encoder = OnlineEncoder(file, number_of_chunks, dist, epsilon, quality, pseudo_decoder=pseudo)
     encoder.encode_to_packets()
     end = time.time() - start
     print(
@@ -218,7 +221,7 @@ def blackbox(encoder, decoder, droprate=0.02):
     packets = list(encoder.get_encoded_packets())[i:]
     for packet in packets:
         decoder.input_new_packet(packet)
-    """ # OR choose fairly between all packets:    
+    """ # OR choose fairly between all packets:
     for packet in encoder.get_encoded_packets():
         if np.random.rand() > droprate:
             decoder.input_new_packet(packet)
@@ -315,7 +318,7 @@ def blackboxTest(file, number_of_chunks=800, droprate=0.02, seed=2, overhead=0.0
 
 
 def blackboxRU10Test(
-        file, number_of_chunks=800, droprate=0.02, seed=2, chunk_size=200, overhead=0.05
+    file, number_of_chunks=800, droprate=0.02, seed=2, chunk_size=200, overhead=0.05
 ):
     print("Starting Blackbox Test with " + str(number_of_chunks) + " Chunks")
     start = time.time()
@@ -361,29 +364,37 @@ if __name__ == "__main__":
             # try:
             rnd = get_random_int(math.pow(2, 31) - 1)
             number_of_chunks = 700
-            name, result, numberOfEncodedPackets, dropedCount, solvedCount, timeNeeded, number_of_chunks = blackboxRU10Test(
+            (
+                name,
+                result,
+                numberOfEncodedPackets,
+                dropedCount,
+                solvedCount,
+                timeNeeded,
+                number_of_chunks,
+            ) = blackboxRU10Test(
                 file, number_of_chunks=number_of_chunks, droprate=droprate, seed=rnd
             )
             line = (
-                    str(file)
-                    + ", "
-                    + str(name)
-                    + ", "
-                    + str(number_of_chunks)
-                    + ", "
-                    + str(numberOfEncodedPackets)
-                    + ", "
-                    + str(droprate)
-                    + ", "
-                    + str(dropedCount)
-                    + ", "
-                    + str(solvedCount)
-                    + ", "
-                    + str(rnd)
-                    + ", "
-                    + str(result)
-                    + ", "
-                    + str(timeNeeded)
+                str(file)
+                + ", "
+                + str(name)
+                + ", "
+                + str(number_of_chunks)
+                + ", "
+                + str(numberOfEncodedPackets)
+                + ", "
+                + str(droprate)
+                + ", "
+                + str(dropedCount)
+                + ", "
+                + str(solvedCount)
+                + ", "
+                + str(rnd)
+                + ", "
+                + str(result)
+                + ", "
+                + str(timeNeeded)
             )
             print(line)
             csv.append(line)

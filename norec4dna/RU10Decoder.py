@@ -2,6 +2,7 @@
 # -*- coding: latin-1 -*-
 import argparse
 import io
+import logging
 import os
 import struct
 import typing
@@ -12,6 +13,9 @@ from zipfile import ZipFile
 
 import numpy as np
 from numpy.typing import NDArray
+from PIL import Image
+from typing_extensions import Callable
+
 from .Decoder import Decoder
 from .distributions.Distribution import Distribution
 from .distributions.RaptorDistribution import RaptorDistribution
@@ -33,16 +37,16 @@ from .helper.RU10Helper import (
 from .Packet import Packet
 from .RU10IntermediatePacket import RU10IntermediatePacket
 from .RU10Packet import RU10Packet
-from PIL import Image
 
 DEBUG = False
+logger = logging.getLogger(__name__)
 
 
 class RU10Decoder(Decoder):
     def __init__(
         self,
         file: typing.Optional[str] = None,
-        error_correction=nocode,
+        error_correction: Callable[[bytes], bytes] = nocode,
         use_headerchunk: bool = True,
         static_number_of_chunks: typing.Optional[int] = None,
         use_method: bool = False,
@@ -57,7 +61,7 @@ class RU10Decoder(Decoder):
         if checksum_len_str is None:
             self.checksum_len_str = ""
         if not use_headerchunk and (checksum_len_str != "" and checksum_len_str is not None):
-            print(
+            logger.warning(
                 "[Warning] Header-checksums are only supported with headerchunks! Checksum from config file will be ignored!"
             )
         self.checksum_len_str = checksum_len_str
@@ -79,13 +83,13 @@ class RU10Decoder(Decoder):
         self.headerChunk: typing.Optional[HeaderChunk] = None
         self.GEPP: typing.Optional[GEPP_intern] = None
         self.pseudoCount: int = 0
-        self.ldpcANDhalf: typing.Dict[int, RU10IntermediatePacket] = dict()
-        self.repairBlockNumbers: dict = dict()
+        self.ldpcANDhalf: typing.Dict[int, RU10IntermediatePacket] = {}
+        self.repairBlockNumbers: dict = {}
         self.s: int = -1
         self.h: int = -1
         self.distribution: typing.Optional[Distribution] = None
         self.EOF: bool = False
-        self.counter: dict = dict()
+        self.counter: typing.Dict[int, int] = {}
         self.count: bool = True
         self.error_correction: typing.Callable[[bytes], bytes] = error_correction
         self.use_headerchunk: bool = use_headerchunk
@@ -95,7 +99,7 @@ class RU10Decoder(Decoder):
         self.config_map = config_map
 
     @staticmethod
-    def from_config_map(config_map: SectionProxy):
+    def from_config_map(config_map: SectionProxy) -> "RU10Decoder":
         """
         missing (set elsewhere :
         id_len_format = decode_conf.get("id_len_format")
@@ -161,23 +165,23 @@ class RU10Decoder(Decoder):
                 self.f.close()
             if new_pack is None:
                 break
-            # koennte durch input_new_packet ersetzt werden:
-            # self.addPacket(new_pack)
-            if new_pack != "CORRUPT":
-                decoded = self.input_new_packet(new_pack)
-            else:
-                if DEBUG:
-                    print(f"Packet with name={name} corrupt.")
+                # koennte durch input_new_packet ersetzt werden:
+                # self.addPacket(new_pack)
+                if new_pack != "CORRUPT":
+                    decoded = self.input_new_packet(new_pack)
+                else:
+                    if DEBUG:
+                        logger.debug("Packet with name=%s corrupt.", name)
             if decoded:
                 break
             if self.progress_bar is not None:
                 self.progress_bar.update(self.correct, Corrupt=self.corrupt)
             ##
-        print("Decoded Packets: " + str(self.correct))
-        print("Corrupt Packets: " + str(self.corrupt))
+        logger.info("Decoded Packets: %s", self.correct)
+        logger.info("Corrupt Packets: %s", self.corrupt)
 
         if self.GEPP is None:
-            print("No Packet was correctly decoded. Check your configuration.")
+            logger.warning("No Packet was correctly decoded. Check your configuration.")
             return -1
         if (
             self.GEPP is not None
@@ -186,7 +190,7 @@ class RU10Decoder(Decoder):
         ):
             decoded = self.GEPP.solve()
         if not decoded and self.EOF:
-            print("Unable to retrieve File from Chunks. Too many errors?")
+            logger.warning("Unable to retrieve File from Chunks. Too many errors?")
             return -1
         return decoded
 
@@ -226,14 +230,14 @@ class RU10Decoder(Decoder):
                         try:
                             self.f = quad_file_to_bytes(self.file + "/" + file_in_folder)
                         except TypeError:
-                            print("skipping CORRUPT file - contains illegal character(s)")
+                            logger.warning("skipping CORRUPT file - contains illegal character(s)")
                             self.corrupt += 1
                             continue
                     else:
                         try:
                             self.f = quat_file_to_bin(self.file + "/" + file_in_folder)
                         except TypeError:
-                            print("skipping CORRUPT file - contains illegal character(s)")
+                            logger.warning("skipping CORRUPT file - contains illegal character(s)")
                             self.corrupt += 1
                             continue
                 else:
@@ -254,12 +258,12 @@ class RU10Decoder(Decoder):
             if self.progress_bar is not None:
                 self.progress_bar.update(self.correct, Corrupt=self.corrupt)
             ##
-        print("Decoded Packets: " + str(self.correct))
-        print("Corrupt Packets: " + str(self.corrupt))
+        logger.info("Decoded Packets: %s", self.correct)
+        logger.info("Corrupt Packets: %s", self.corrupt)
         if hasattr(self, "f"):
             self.f.close()
         if self.GEPP is None:
-            print("No Packet was correctly decoded. Check your configuration.")
+            logger.warning("No Packet was correctly decoded. Check your configuration.")
             return -1
         if (
             self.GEPP is not None
@@ -268,7 +272,7 @@ class RU10Decoder(Decoder):
         ):
             decoded = self.GEPP.solve()
         if not decoded and self.EOF:
-            print("Unable to retrieve File from Chunks. Too many errors?")
+            logger.warning("Unable to retrieve File from Chunks. Too many errors?")
             return -1
         return decoded
 
@@ -315,7 +319,7 @@ class RU10Decoder(Decoder):
                 self.f.close()
                 self.f = quat_file_to_bin(self.file)
             except TypeError:
-                print("skipping CORRUPT file - contains illegal character(s)")
+                logger.warning("skipping CORRUPT file - contains illegal character(s)")
                 self.corrupt += 1
         if self.static_number_of_chunks is not None:
             self.number_of_chunks = self.static_number_of_chunks
@@ -384,8 +388,8 @@ class RU10Decoder(Decoder):
                     self.packets.append(new_pack)
                     decoded = self.input_new_packet(new_pack)
                 #
-        print("Decoded Packets: " + str(self.correct))
-        print("Corrupt Packets : " + str(self.corrupt))
+        logger.info("Decoded Packets: %s", self.correct)
+        logger.info("Corrupt Packets : %s", self.corrupt)
         if (
             self.GEPP is not None
             and self.GEPP.isPotentionallySolvable()
@@ -393,7 +397,7 @@ class RU10Decoder(Decoder):
         ):
             decoded = self.GEPP.solve()
         if not decoded and self.EOF and not self.read_all_before_decode:
-            print("Unable to retrieve file from chunks. Too many errors??")
+            logger.warning("Unable to retrieve file from chunks. Too many errors??")
             return -1
         return decoded
         # self.f.close()
@@ -407,13 +411,13 @@ class RU10Decoder(Decoder):
     def getNumberOfRepairBlocks(self):
         return self.getNumberOfHalfBlocks() + self.getNumberOfLDPCBlocks()
 
-    def input_new_packet(self, packet: RU10Packet):
+    def input_new_packet(self, packet: RU10Packet) -> bool:
         """
         Removes auxpackets (LDPC and Half) and adds the remaining data to the GEPP matrix.
         :param packet: A Packet to add to the GEPP matrix
         :return: True: If solved. False: Else.
         """
-        if self.ldpcANDhalf == dict() and self.distribution is None:  # self.isPseudo and
+        if len(self.ldpcANDhalf) == 0 and self.distribution is None:  # self.isPseudo and
             self.distribution = RaptorDistribution(self.number_of_chunks)
             self.number_of_chunks = packet.get_total_number_of_chunks()
             _, self.s, self.h = intermediate_symbols(self.number_of_chunks, self.distribution)
@@ -423,14 +427,14 @@ class RU10Decoder(Decoder):
             )
         # we need to do it twice sine half symbols may contain ldpc symbols (which by definition are repair codes.)
         if self.debug:
-            print("----")
-            print("Id = " + str(packet.id))
-            print(packet.used_packets)
+            logger.debug("----")
+            logger.debug("Id = %s", packet.id)
+            logger.debug("%s", packet.used_packets)
         removed = self.removeAndXorAuxPackets(packet)
         if self.debug:
-            print(from_true_false_list(removed))
-            print(packet.get_error_correction())
-            print("----")
+            logger.debug("%s", from_true_false_list(removed))
+            logger.debug("%s", packet.get_error_correction())
+            logger.debug("----")
         if self.count:
             for i in range(len(removed)):
                 if i in self.counter.keys():
@@ -453,7 +457,7 @@ class RU10Decoder(Decoder):
         ) and self.GEPP.isPotentionallySolvable():
             # and self.GEPP.n % 5 == 0:  # Nur alle 5 Packete versuch starten
             if self.debug:
-                print("current size: " + str(self.GEPP.n))
+                logger.debug("current size: %s", self.GEPP.n)
             return self.GEPP.solve(partial=False)
         return False
 
@@ -470,16 +474,20 @@ class RU10Decoder(Decoder):
         del aux_mapping
         tmp = from_true_false_list(xored_list)  # Nur noch Data + LDPC sind vorhanden
         if self.debug:
-            print(tmp)
+            logger.debug("%s", tmp)
         tmp = RU10Packet("", tmp, self.number_of_chunks, packet.id, packet.dist, read_only=True)
         aux_mapping = self.getAuxPacketListFromPacket(tmp)
-        aux_mapping.append(tmp.get_bool_array_used_packets())  # [-len(self.auxBlocks):])
+        bool_used = tmp.get_bool_array_used_packets()
+        if bool_used is not None:
+            aux_mapping.append(bool_used)  # [-len(self.auxBlocks):])
+        else:
+            logger.warning("Aux packets for current packet returned None!")
         res = logical_xor(aux_mapping)
         del tmp, aux_mapping
         return res
 
     def removeAndXorAuxPackets_from_indices(
-        self, packet_indices: typing.Union[typing.Set[int], typing.List[int], np.ndarray]
+        self, packet_indices: typing.Union[typing.Set[int], typing.List[int]]
     ) -> np.ndarray:
         """
         Removes auxpackets (LDPC and Half) from a list/set of packet indices to get the chunk composition.
@@ -500,6 +508,7 @@ class RU10Decoder(Decoder):
             Boolean numpy array where index i=True means chunk i is in the result after aux removal
         """
         import numpy as np
+
         from .helper.helper import logical_xor
         from .helper.RU10Helper import from_true_false_list
 
@@ -623,7 +632,7 @@ class RU10Decoder(Decoder):
             self.number_of_chunks is not None
         ), "createAuxBlocks can only be called AFTER first Packet"
         if self.debug:
-            print(
+            logger.debug(
                 "We should have "
                 + str(self.getNumberOfLDPCBlocks())
                 + " LDPC-Blocks, "
@@ -649,20 +658,24 @@ class RU10Decoder(Decoder):
                 dist=self.distribution,
             )
             if self.debug:
-                print(str(aux_number) + " : " + str(self.ldpcANDhalf[aux_number].used_packets))
+                logger.debug("%s : %s", aux_number, self.ldpcANDhalf[aux_number].used_packets)
 
     # Correct
-    def getAuxPacketListFromPacket(self, packet: RU10Packet):
+    def getAuxPacketListFromPacket(self, packet: RU10Packet) -> typing.List[typing.List[bool]]:
         """
         Creates a list for a packet with information about whether auxpackets have been used for that packet.
         :param packet: The packet to check.
         :return: Information about used auxpackets.
         """
-        res = []
+        res: typing.List[typing.List[bool]] = []
         aux_used_packets = packet.get_bool_array_repair_packets()
         for i in range(len(aux_used_packets)):
             if aux_used_packets[i]:
-                res.append((self.ldpcANDhalf[i].get_bool_array_used_packets()))
+                tmp = self.ldpcANDhalf[i].get_bool_array_used_packets()
+                if tmp is not None:
+                    res.append(tmp)
+                else:
+                    logger.warning("Aux-List was None!")
         return res
 
     def getHalfPacketListFromPacket(self, packet: RU10Packet) -> typing.List[typing.List[bool]]:
@@ -740,6 +753,9 @@ class RU10Decoder(Decoder):
             except:
                 return None
             return None
+        # cast to bytes if packet is of type str:
+        if isinstance(packet, str):
+            packet = packet.encode("utf-8")
         res = self.parse_raw_packet(
             packet,
             crc_len_format=crc_len_format,
@@ -759,7 +775,7 @@ class RU10Decoder(Decoder):
 
     def parse_raw_packet(
         self,
-        packet_input,
+        packet_input: bytes,
         crc_len_format: str = "L",
         number_of_chunks_len_format: str = "L",
         packet_len_format: str = "I",
@@ -771,6 +787,7 @@ class RU10Decoder(Decoder):
         create packets from specific chunks, set self.use_method = True. This will treat the last byte of the raw packet
         data as the byte that contains the information about the used method ("even", "odd", "window_30 + window" or
         "window_40 + window". See RU10Encoder.create_new_packet_from_chunks for further information.
+        :param dna_str: dna string for reference in the packet object
         :param packet_input: A raw packet
         :param packet_len_format: Format of the packet length
         :param crc_len_format:  Format of the crc length
@@ -885,18 +902,20 @@ class RU10Decoder(Decoder):
         for i in range(0, self.h):
             hcomposition = []
             for j in range(0, number_of_chunks + self.s):
-                if bitSet(np.uint32(m[j]), np.uint32(i)):
+                if bitSet(int(m[j]), int(i)):
                     hcomposition.append(j)
             hcompositions[i] = hcomposition
         res = [compositions, hcompositions]
         return res
 
-    def populate_header_chunk(self, last_chunk_len_str=None):
+    def populate_header_chunk(self, last_chunk_len_str: typing.Optional[str] = None):
         if last_chunk_len_str is None:
             if self.config_map is None:
                 last_chunk_len_str = "I"
             else:
                 last_chunk_len_str = self.config_map.get("last_chunk_len_str", "I")
+        assert last_chunk_len_str is not None
+        assert self.GEPP is not None, "GEPP must be set before populating Header!"
         if self.use_headerchunk:
             header_row = self.GEPP.result_mapping[0]
             if header_row >= 0:
@@ -943,7 +962,7 @@ class RU10Decoder(Decoder):
             try:
                 file_name = self.headerChunk.get_file_name().decode("utf-8")
             except Exception as ex:
-                print("Warning:", ex)
+                logger.warning("%s", ex)
         file_name = file_name.split("\x00")[0]
         with open(file_name, "wb") as f:
             for x in self.GEPP.result_mapping:
@@ -974,19 +993,21 @@ class RU10Decoder(Decoder):
                             else:
                                 output_concat += output.tobytes()
                             f.write(output)
-        print("Saved file as '" + str(file_name) + "'")
+        logger.info("Saved file as '%s'", file_name)
         if self.checksum_len_str is not None and self.checksum_len_str != "":
             decoded_crc = calc_file_crc(file_name, self.checksum_len_str)
             if self.headerChunk.checksum != decoded_crc:
-                print("[WARN] Decoded CRC:", decoded_crc)
-                print("[WARN] Header CRC:", self.headerChunk.checksum)
+                logger.warning("Decoded CRC: %s", decoded_crc)
+                logger.warning("Header CRC: %s", self.headerChunk.checksum)
                 if not ignore_crc:
                     raise ValueError(
                         "Checksum of decoded file does not match checksum in header chunk!",
                         file_name,
                     )
         if dirty:
-            print("Some parts could not be restored, file WILL contain sections with \\x00 !")
+            logger.warning(
+                "Some parts could not be restored, file WILL contain sections with \\x00 !"
+            )
         if print_to_output:
             print("Result:")
             print(output_concat.decode("utf-8"))
@@ -1043,7 +1064,7 @@ def main(
     xor_by_seed=False,
     _id_spacing=0,
 ):
-    print("Pure Gauss-Mode")
+    logger.info("Pure Gauss-Mode")
     x = RU10Decoder(
         file,
         use_headerchunk=insert_header,
@@ -1058,6 +1079,7 @@ def main(
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
     parser = argparse.ArgumentParser()
     parser.add_argument("filename", metavar="file", type=str, help="the file / folder to Decode")
     parser.add_argument(
@@ -1100,7 +1122,7 @@ if __name__ == "__main__":
     _header_crc_str = args.header_crc_str
     _xor_by_seed = args.xor_by_seed
     _id_spacing = args.id_spacing
-    print("File / Folder to decode: " + str(_file))
+    logger.info("File / Folder to decode: %s", _file)
     main(
         _file,
         _number_of_chunks,
@@ -1111,4 +1133,4 @@ if __name__ == "__main__":
         _xor_by_seed,
         _id_spacing,
     )
-    print("Decoding finished.")
+    logger.info("Decoding finished.")

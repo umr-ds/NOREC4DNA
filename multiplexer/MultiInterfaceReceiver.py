@@ -35,8 +35,10 @@ def listen(sock, queue, signals):
         try:
             data, sender = sock.recvfrom(1024)
             a, b = struct.unpack("<II", data[0:8])
-            print("Packet from: %s:%s to %s - #Chunks: %s - Id: %s" % (
-                sender[0], sender[1], sock.getsockname()[0], xor_mask(a), xor_mask(b)))
+            print(
+                "Packet from: %s:%s to %s - #Chunks: %s - Id: %s"
+                % (sender[0], sender[1], sock.getsockname()[0], xor_mask(a), xor_mask(b))
+            )
             queue.put(data)
         except socket.error as ex:
             # queue.put(e)
@@ -48,8 +50,12 @@ if __name__ == "__main__":
     BROADCAST = False  # TODO fix broadcast not working for Windows / socket receiving broadcast on bound normal ip
     USE_HEADER_CHUNK = True
     error_correction = reed_solomon_decode
-    decoder = RU10Decoder(None, use_headerchunk=USE_HEADER_CHUNK, error_correction=error_correction,
-                          static_number_of_chunks=None)
+    decoder = RU10Decoder(
+        None,
+        use_headerchunk=USE_HEADER_CHUNK,
+        error_correction=error_correction,
+        static_number_of_chunks=None,
+    )
     decoder.read_all_before_decode = True
     ifaces = m_r.list_interfaces()
     clean_ifaces = m_r.filter_interfaces(m_r.list_interfaces())
@@ -58,7 +64,7 @@ if __name__ == "__main__":
         try:
             socks.append(m_r.create_listen_socket(x, BROADCAST))
         except Exception as e:
-            if hasattr(x, 'decode'):
+            if hasattr(x, "decode"):
                 x = x.decode()
             print("<%s>: %s" % (x, e))
             raise e
@@ -66,7 +72,14 @@ if __name__ == "__main__":
     signals = {"shutdown": False}
     for sock in socks:
         try:
-            thread = threading.Thread(target=listen, args=(sock, pqueue, signals,))
+            thread = threading.Thread(
+                target=listen,
+                args=(
+                    sock,
+                    pqueue,
+                    signals,
+                ),
+            )
             thread.start()
         except socket.error as e:
             print(e)
@@ -84,8 +97,13 @@ if __name__ == "__main__":
                     print(ex)
                     break  # ... or if a timeout occurs
             for packet_str in packet_strs:
-                pack = decoder.parse_raw_packet(packet_str, crc_len_format="L", number_of_chunks_len_format="I",
-                                                packet_len_format="I", id_len_format="I")
+                pack = decoder.parse_raw_packet(
+                    packet_str,
+                    crc_len_format="L",
+                    number_of_chunks_len_format="I",
+                    packet_len_format="I",
+                    id_len_format="I",
+                )
                 decoder.input_new_packet(pack)
             if decoder.GEPP is not None and decoder.solve():
                 print("Success!")

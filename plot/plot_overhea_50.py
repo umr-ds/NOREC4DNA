@@ -1,9 +1,10 @@
 import os
-import matplotlib
-import pandas as pd
 from math import floor
-from cycler import cycler
+
+import matplotlib
 import matplotlib.pyplot as plt
+import pandas as pd
+from cycler import cycler
 
 
 def custom_round(x, base=5):
@@ -28,17 +29,23 @@ days = str(floor(df["timeNeeded"].sum() / 60 / 60 / 24))
 hours = str(floor(df["timeNeeded"].sum() % (60 * 60 * 24) / 60 / 60))
 minutes = floor(df["timeNeeded"].sum() % (60 * 60 * 24) % (60 * 60) / 60)
 secs = floor(df["timeNeeded"].sum() % (60 * 60 * 24) % (60 * 60) % 60)
-df.sort_values(by=["codecName", "numberOfEncodedPackets", "number_of_chunks"], inplace=True)  # , 'droprate'
+df.sort_values(
+    by=["codecName", "numberOfEncodedPackets", "number_of_chunks"], inplace=True
+)  # , 'droprate'
 
 df["result"] = df["result"].astype(int)  # ([' result'])) #.cast('int')
 df["codecName"] = df["codecName"].astype(str)
-df["Overhead"] = ((df["numberOfEncodedPackets"] - df["number_of_chunks"]) - df["droppedCount"]).apply(
-    lambda x: custom_round(x, base=50))
-df_einzeln.sort_values(by=["codecName", "numberOfEncodedPackets", "number_of_chunks"], inplace=True)  # , 'droprate'
+df["Overhead"] = (
+    (df["numberOfEncodedPackets"] - df["number_of_chunks"]) - df["droppedCount"]
+).apply(lambda x: custom_round(x, base=50))
+df_einzeln.sort_values(
+    by=["codecName", "numberOfEncodedPackets", "number_of_chunks"], inplace=True
+)  # , 'droprate'
 df_einzeln["result"] = df_einzeln["result"].astype(int)
 df_einzeln["codecName"] = df_einzeln["codecName"].astype(str)
 df_einzeln["Overhead"] = (
-        (df_einzeln["numberOfEncodedPackets"] - df_einzeln["number_of_chunks"]) - df_einzeln["droppedCount"]
+    (df_einzeln["numberOfEncodedPackets"] - df_einzeln["number_of_chunks"])
+    - df_einzeln["droppedCount"]
 ).apply(lambda x: custom_round(x, base=50))
 
 if not os.path.isdir("pdfs"):
@@ -48,25 +55,135 @@ axis_font = {"size": "14"}
 matplotlib.rc("font", **font)
 
 ##### Nach codecName und number_of_chunks Gruppiert #####
-plt.rc("axes",
-       prop_cycle=(cycler("color", ["m", "m", "r", "r", "r", "r", "g", "g", "g", "g", "b", "b", "b", "b", "y", "y", "y",
-                                    "y", "k", "k", "k", "k", ], ) + cycler("linestyle",
-                                                                           ["-", "--", "-", "--", ":", "-.", "-", "--",
-                                                                            ":", "-.", "-", "--", ":", "-.", "-", "--",
-                                                                            ":", "-.", "-", "--", ":", "-.", ], )), )
+plt.rc(
+    "axes",
+    prop_cycle=(
+        cycler(
+            "color",
+            [
+                "m",
+                "m",
+                "r",
+                "r",
+                "r",
+                "r",
+                "g",
+                "g",
+                "g",
+                "g",
+                "b",
+                "b",
+                "b",
+                "b",
+                "y",
+                "y",
+                "y",
+                "y",
+                "k",
+                "k",
+                "k",
+                "k",
+            ],
+        )
+        + cycler(
+            "linestyle",
+            [
+                "-",
+                "--",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+            ],
+        )
+    ),
+)
 plt.rc("grid", c="0.5", ls=":", lw=1)
 
 ##### Nur nach codecName Gruppiert #####
-tmp1 = (df.groupby(["droprate", "codecName"]).mean().unstack().plot(y="result",
-                                                                    title="success rate compared to the drop rate"))
+tmp1 = (
+    df.groupby(["droprate", "codecName"])
+    .mean()
+    .unstack()
+    .plot(y="result", title="success rate compared to the drop rate")
+)
 plt.show(block=False)
 
-plt.rc("axes", prop_cycle=(
-        cycler("color",
-               ["m", "m", "r", "r", "r", "r", "g", "g", "g", "g", "b", "b", "b", "b", "y", "y", "y", "y", "k", "k", "k",
-                "k", ], ) + cycler("linestyle",
-                                   ["-", "--", "-", "--", ":", "-.", "-", "--", ":", "-.", "-", "--", ":", "-.", "-",
-                                    "--", ":", "-.", "-", "--", ":", "-.", ], )), )
+plt.rc(
+    "axes",
+    prop_cycle=(
+        cycler(
+            "color",
+            [
+                "m",
+                "m",
+                "r",
+                "r",
+                "r",
+                "r",
+                "g",
+                "g",
+                "g",
+                "g",
+                "b",
+                "b",
+                "b",
+                "b",
+                "y",
+                "y",
+                "y",
+                "y",
+                "k",
+                "k",
+                "k",
+                "k",
+            ],
+        )
+        + cycler(
+            "linestyle",
+            [
+                "-",
+                "--",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+            ],
+        )
+    ),
+)
 
 fig, axs = plt.subplots(1, 1)
 axs.set_xlim(-50, 1000)

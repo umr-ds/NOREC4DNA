@@ -1,14 +1,20 @@
+import argparse
+import multiprocessing
 import os
 import time
-import argparse
-import numpy as np
-import multiprocessing
 
-from optimization_helper import init_population, compute_population_fitness, select_dist, generate_log, \
-    generate_plot, compute_cost
+import numpy as np
+from optimization_helper import (
+    compute_cost,
+    compute_population_fitness,
+    generate_log,
+    generate_plot,
+    init_population,
+    select_dist,
+)
 
 """if self.merge == 'diff':
-    
+
     """
 
 
@@ -22,8 +28,18 @@ class DifferentialOptimizer:
         self.fast = fast
         if log:
             self.pid = os.getpid()
-            self.dir = "DEOpt_" + str(pop_size) + "_" + str(max_gen) + "_" + str(cr) + "_" + str(f) + "_" + str(
-                self.pid)
+            self.dir = (
+                "DEOpt_"
+                + str(pop_size)
+                + "_"
+                + str(max_gen)
+                + "_"
+                + str(cr)
+                + "_"
+                + str(f)
+                + "_"
+                + str(self.pid)
+            )
             os.mkdir(self.dir)
             self.file = self.dir + "/"
             self.file_con = []
@@ -37,11 +53,15 @@ class DifferentialOptimizer:
             population = self.compute_population_diff(pop_fitness)
             if self.log:
                 avg_par_err = sum(x[2] for x in population) / len(population)
-                self.file_con.append([gen, avg_par_err, time.time(), [[x[0], x[2]] for x in population]])
+                self.file_con.append(
+                    [gen, avg_par_err, time.time(), [[x[0], x[2]] for x in population]]
+                )
             fittest_dist = select_dist(population)[0]
             population = [x[0] for x in population]
         if self.log:
-            self.file_con.append([self.max_gen, fittest_dist[2], time.time(), [fittest_dist[0], fittest_dist[2]]])
+            self.file_con.append(
+                [self.max_gen, fittest_dist[2], time.time(), [fittest_dist[0], fittest_dist[2]]]
+            )
             generate_log(self.file_con, self.file + "log")
             generate_plot(self.file_con, self.file + "plot", self.max_gen)
         return fittest_dist
@@ -85,16 +105,36 @@ def main(params, fast=True):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("filename", metavar="file", type=str, help="the file to Encode")
-    parser.add_argument("--pop_size", metavar="pop_size", required=False, type=int, action="append",
-                        help="list of population sizes for each generation")
-    parser.add_argument("--max_gen", metavar="max_gen", required=False, type=int, action="append",
-                        help="list of numbers of generations to compute")
-    parser.add_argument("--cr", metavar="mut_rate", required=False, type=float, action="append",
-                        help="crossover rate")
-    parser.add_argument("--f", metavar="f", required=False, type=float, action="append",
-                        help="differential weight")
-    parser.add_argument("--log", metavar="log", required=False, type=bool, default=False,
-                        help="log results as csv")
+    parser.add_argument(
+        "--pop_size",
+        metavar="pop_size",
+        required=False,
+        type=int,
+        action="append",
+        help="list of population sizes for each generation",
+    )
+    parser.add_argument(
+        "--max_gen",
+        metavar="max_gen",
+        required=False,
+        type=int,
+        action="append",
+        help="list of numbers of generations to compute",
+    )
+    parser.add_argument(
+        "--cr",
+        metavar="mut_rate",
+        required=False,
+        type=float,
+        action="append",
+        help="crossover rate",
+    )
+    parser.add_argument(
+        "--f", metavar="f", required=False, type=float, action="append", help="differential weight"
+    )
+    parser.add_argument(
+        "--log", metavar="log", required=False, type=bool, default=False, help="log results as csv"
+    )
     parser.add_argument("--spare1core", required=False, default=False, action="store_true")
     parser.add_argument("--cores", required=False, type=int)
     args = parser.parse_args()

@@ -1,8 +1,9 @@
-import random
 import argparse
+import random
+
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats
-import matplotlib.pyplot as plt
 
 from . import norec4dna.rules.DNARules
 

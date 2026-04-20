@@ -1,18 +1,18 @@
-import string
-import random
-import pickle
 import argparse
-import numpy as np
 import multiprocessing
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
+import pickle
+import random
+import string
 
-from norec4dna.helper.RU10Helper import intermediate_symbols
-from norec4dna import Encoder, nocode, RU10Encoder, RU10Decoder
+import matplotlib.animation as animation
+import matplotlib.pyplot as plt
+import numpy as np
+from norec4dna import Encoder, RU10Decoder, RU10Encoder, nocode
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.rules.FastDNARules import FastDNARules
 from norec4dna.helper import should_drop_packet
-from optimization_helper import list_to_diff_list, scale_to, diff_list_to_list
+from norec4dna.helper.RU10Helper import intermediate_symbols
+from norec4dna.rules.FastDNARules import FastDNARules
+from optimization_helper import diff_list_to_list, list_to_diff_list, scale_to
 
 DO_PLOT = False
 DO_MOVIE = True
@@ -20,7 +20,7 @@ FPS = 30
 
 
 class GradientDescentOptimizer:
-    def __init__(self, runs, x, d, f_name='Dorn'):
+    def __init__(self, runs, x, d, f_name="Dorn"):
         self.runs = runs
         self.X = x
         self.d = d
@@ -28,8 +28,16 @@ class GradientDescentOptimizer:
         self.FILENAME = f_name
         self.current_min = 100000.42
 
-    def encode(self, file, asdna=True, error_correction=nocode, insert_header=False,
-               save_number_of_chunks_in_packet=False, mode_1_bmp=False, chunk_size=50):
+    def encode(
+        self,
+        file,
+        asdna=True,
+        error_correction=nocode,
+        insert_header=False,
+        save_number_of_chunks_in_packet=False,
+        mode_1_bmp=False,
+        chunk_size=50,
+    ):
         packets_needed = 0
         packets = dict()
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
@@ -41,9 +49,19 @@ class GradientDescentOptimizer:
             rules = dna_rules
         else:
             rules = None
-        x = RU10Encoder(file, number_of_chunks, dist, chunk_size=chunk_size, insert_header=insert_header, rules=rules,
-                        error_correction=error_correction, id_len_format="H", number_of_chunks_len_format="B",
-                        save_number_of_chunks_in_packet=save_number_of_chunks_in_packet, mode_1_bmp=mode_1_bmp)
+        x = RU10Encoder(
+            file,
+            number_of_chunks,
+            dist,
+            chunk_size=chunk_size,
+            insert_header=insert_header,
+            rules=rules,
+            error_correction=error_correction,
+            id_len_format="H",
+            number_of_chunks_len_format="B",
+            save_number_of_chunks_in_packet=save_number_of_chunks_in_packet,
+            mode_1_bmp=mode_1_bmp,
+        )
         x.prepare()
         y = RU10Decoder.pseudo_decoder(x.number_of_chunks, False)
         if y.distribution is None:  # self.isPseudo and
@@ -77,14 +95,16 @@ class GradientDescentOptimizer:
         if c_size_list is None:
             c_size_list = [50, 75, 100]
         if file_list is None:
-            file_list = ['Dorn', 'Dorn.tar.gz', 'umr_logo_sw_scaled.png']
+            file_list = ["Dorn", "Dorn.tar.gz", "umr_logo_sw_scaled.png"]
         degree_packet_costs = dict()
         n = 0
         for p_tmp in range(45):
             degree_packet_costs[p_tmp] = list()
         for enc_file in file_list:
             for c_size in c_size_list:
-                degree_packet_costs1, n1 = self.encode(enc_file, True, nocode, False, False, False, chunk_size=c_size)
+                degree_packet_costs1, n1 = self.encode(
+                    enc_file, True, nocode, False, False, False, chunk_size=c_size
+                )
                 [y.extend(degree_packet_costs1[x]) for x, y in degree_packet_costs.items()]
                 n += n1
         n = 1.0 * n / (len(c_size_list) + 1)
@@ -93,7 +113,9 @@ class GradientDescentOptimizer:
         used_degrees = 0
         for deg in degree_packet_costs.keys():
             if len(degree_packet_costs[deg]) > 0:
-                avg_err_per_degree[deg] = sum(degree_packet_costs[deg]) / len(degree_packet_costs[deg])
+                avg_err_per_degree[deg] = sum(degree_packet_costs[deg]) / len(
+                    degree_packet_costs[deg]
+                )
                 used_degrees += 1
         avg_err_per_degree[0] -= n
         summed_error = sum(avg_err_per_degree + n) / used_degrees
@@ -104,7 +126,12 @@ class GradientDescentOptimizer:
             # plt.show(block=True)
             tmp_list = np.insert(list_to_diff_list(self.X), 0, 0)
             print(
-                "Created packet (" + str(summed_error) + ") is BETTER than old minimum (" + str(self.current_min) + ")")
+                "Created packet ("
+                + str(summed_error)
+                + ") is BETTER than old minimum ("
+                + str(self.current_min)
+                + ")"
+            )
             print("Distribution:")
             print(self.X)
             if DO_PLOT:
@@ -115,7 +142,12 @@ class GradientDescentOptimizer:
             self.current_min = summed_error
         else:
             print(
-                "Created packet (" + str(summed_error) + ") is worse than old minimum (" + str(self.current_min) + ")")
+                "Created packet ("
+                + str(summed_error)
+                + ") is worse than old minimum ("
+                + str(self.current_min)
+                + ")"
+            )
         return avg_err_per_degree + n - summed_error, summed_error
 
     def gradient_descent(self, X, y, alpha):
@@ -128,8 +160,9 @@ class GradientDescentOptimizer:
             # gradient = np.dot(X.T, loss) / (i + 1)  # self.runs
             # theta = theta - alpha * gradient
             # theta = theta - (alpha / len(X)) * np.sum(X * (X @ theta.T - y), axis=0)
-            theta = alpha * (self.runs - i) * (
-                    y - (1.0 - (self.runs - i) / self.runs))  # decrease the stepsize with each run
+            theta = (
+                alpha * (self.runs - i) * (y - (1.0 - (self.runs - i) / self.runs))
+            )  # decrease the stepsize with each run
             X = np.absolute(X - theta)  # / sum(self.X)
             X = np.array(X) / sum(X)
             self.X = np.round(scale_to(diff_list_to_list(X), self.x_sum))
@@ -147,12 +180,92 @@ class GradientDescentOptimizer:
 def main(gd_runs=100):
     # if __name__ == "__main__":
     # f = [0, 10241, 491582, 712794, 831695, 948446, 1032189, 1048576]
-    d = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
-         30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]
-    X = [0, 10241, 491582, 712794, 831695, 831695, 831695, 831695, 831695, 831695, 948446, 1032189, 1032189, 1032189,
-         1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189,
-         1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189,
-         1032189, 1032189, 1048576]
+    d = [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+    ]
+    X = [
+        0,
+        10241,
+        491582,
+        712794,
+        831695,
+        831695,
+        831695,
+        831695,
+        831695,
+        831695,
+        948446,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1032189,
+        1048576,
+    ]
     opt = GradientDescentOptimizer(gd_runs, X, d)  # , f_name)
     X = np.array(X) / sum(X)
     """
@@ -188,15 +301,17 @@ def main(gd_runs=100):
             plt.title("Error per GD-RUN:")
         res.append((new_x, tmp))
         if DO_MOVIE:
-            writer = animation.FFMpegWriter(fps=2 * FPS, metadata=dict(artist='Michael Schwarz'), bitrate=3600)
+            writer = animation.FFMpegWriter(
+                fps=2 * FPS, metadata=dict(artist="Michael Schwarz"), bitrate=3600
+            )
             fig = plt.figure()
-            l, = plt.plot([], [])  # , 'k-o')
+            (l,) = plt.plot([], [])  # , 'k-o')
 
             plt.xlim(0, len(X) + 1)
             plt.ylim(0, 1.5)
-            with open('reses', 'wb') as picke_out:
+            with open("reses", "wb") as picke_out:
                 pickle.dump(res, picke_out)
-            rand_str = ''.join(random.choice(string.ascii_lowercase) for _ in range(12))
+            rand_str = "".join(random.choice(string.ascii_lowercase) for _ in range(12))
             with writer.saving(fig, "tmp/dist_development_gd_" + rand_str + ".mp4", 500):
                 for xx in res:
                     for x in xx[0]:
@@ -213,8 +328,14 @@ if __name__ == "__main__":
     # parser.add_argument("--error_correction", metavar="error_correction", required=False, type=str, default="nocode",
     #                    help="Error Correction Method to use; possible values: \
     #                    nocode, crc, reedsolomon (default=nocode)")
-    parser.add_argument("--runs", metavar="runs", required=False, type=int, default=100,
-                        help="number of runs for GradientDecent")
+    parser.add_argument(
+        "--runs",
+        metavar="runs",
+        required=False,
+        type=int,
+        default=100,
+        help="number of runs for GradientDecent",
+    )
     parser.add_argument("--spare1core", required=False, default=False, action="store_true")
     parser.add_argument("--plot", required=False, default=False, action="store_true")
     args = parser.parse_args()
@@ -240,14 +361,14 @@ if __name__ == "__main__":
         plt.plot(X[min_pos])
         plt.title("x with min:")
         plt.show(block=False)
-        plt.plot([0.] + list_to_diff_list(tmp[min_pos][0]))
+        plt.plot([0.0] + list_to_diff_list(tmp[min_pos][0]))
         plt.title("tmp:")
         plt.show(block=True)
-    with open('tmp/aes', 'wb') as picke_out:
+    with open("tmp/aes", "wb") as picke_out:
         pickle.dump(a, picke_out)
-    with open('tmp/Xes', 'wb') as picke_out:
+    with open("tmp/Xes", "wb") as picke_out:
         pickle.dump(X, picke_out)
-    with open('tmp/tmpes', 'wb') as picke_out:
+    with open("tmp/tmpes", "wb") as picke_out:
         pickle.dump(tmp, picke_out)
 
 # current config: 100 * 3 * 3 * #cores

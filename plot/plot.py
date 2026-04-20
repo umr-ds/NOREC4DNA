@@ -1,9 +1,10 @@
 import os
-import matplotlib
-import pandas as pd
 from math import floor
-from cycler import cycler
+
+import matplotlib
 import matplotlib.pyplot as plt
+import pandas as pd
+from cycler import cycler
 
 # Get current size
 fig_size = plt.rcParams["figure.figsize"]
@@ -51,7 +52,7 @@ df.sort_values(
 df["result"] = df["result"].astype(int)  # ([' result'])) #.cast('int')
 df["codecName"] = df["codecName"].astype(str)
 df["Overhead"] = (
-        (df["numberOfEncodedPackets"] - df["number_of_chunks"]) - df["droppedCount"]
+    (df["numberOfEncodedPackets"] - df["number_of_chunks"]) - df["droppedCount"]
 ).apply(lambda x: custom_round(x, base=20))
 df_einzeln.sort_values(
     by=["codecName", "numberOfEncodedPackets", "number_of_chunks"], inplace=True
@@ -59,8 +60,8 @@ df_einzeln.sort_values(
 df_einzeln["result"] = df_einzeln["result"].astype(int)  # ([' result'])) #.cast('int')
 df_einzeln["codecName"] = df_einzeln["codecName"].astype(str)
 df_einzeln["Overhead"] = (
-        (df_einzeln["numberOfEncodedPackets"] - df_einzeln["number_of_chunks"])
-        - df_einzeln["droppedCount"]
+    (df_einzeln["numberOfEncodedPackets"] - df_einzeln["number_of_chunks"])
+    - df_einzeln["droppedCount"]
 ).apply(lambda x: custom_round(x, base=20))
 
 if not os.path.isdir("pdfs"):
@@ -72,11 +73,64 @@ matplotlib.rc("font", **font)
 # Nach codecName und number_of_chunks gruppiert
 plt.rc(
     "axes",
-    prop_cycle=(cycler("color",
-                       ["m", "m", "r", "r", "r", "c", "c", "g", "g", "g", "g", "b", "b", "b", "b", "y", "y", "y", "y",
-                        "k", "k", "k", "k", ], )
-                + cycler("linestyle", ["-", "--", "-", "--", ":", "-", "--", "-", "--", ":", "-.", "-", "--", ":", "-.",
-                                       "-", "--", ":", "-.", "-", "--", ":", "-.", ], )),
+    prop_cycle=(
+        cycler(
+            "color",
+            [
+                "m",
+                "m",
+                "r",
+                "r",
+                "r",
+                "c",
+                "c",
+                "g",
+                "g",
+                "g",
+                "g",
+                "b",
+                "b",
+                "b",
+                "b",
+                "y",
+                "y",
+                "y",
+                "y",
+                "k",
+                "k",
+                "k",
+                "k",
+            ],
+        )
+        + cycler(
+            "linestyle",
+            [
+                "-",
+                "--",
+                "-",
+                "--",
+                ":",
+                "-",
+                "--",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+            ],
+        )
+    ),
 )
 
 plt.rc("grid", c="0.5", ls=":", lw=1)
@@ -84,7 +138,11 @@ plt.grid(True)
 plt.show(block=False)
 
 tmp1 = (
-    df_einzeln.groupby(["droprate", "codecName"]).mean().unstack().plot(y="result", title="Erfolgsrate bzgl. droprate"))
+    df_einzeln.groupby(["droprate", "codecName"])
+    .mean()
+    .unstack()
+    .plot(y="result", title="Erfolgsrate bzgl. droprate")
+)
 
 manager = plt.get_current_fig_manager()
 print(manager.window.maxsize())
@@ -101,14 +159,68 @@ plt.savefig("../pdfs/all_numchunks_" + ".svg")
 plt.close()
 
 # Nur nach codecName Gruppiert
-plt.rc("axes",
-       prop_cycle=(cycler("color", ["r", "r", "r", "r", "g", "g", "g", "g", "b", "b", "b", "b", "y", "y", "y", "y",
-                                    "k", "k", "k", "k", ], ) + cycler("linestyle",
-                                                                      ["-", "--", ":", "-.", "-", "--", ":", "-.",
-                                                                       "-", "--", ":", "-.", "-", "--", ":", "-.",
-                                                                       "-", "--", ":", "-.", ], )), )
+plt.rc(
+    "axes",
+    prop_cycle=(
+        cycler(
+            "color",
+            [
+                "r",
+                "r",
+                "r",
+                "r",
+                "g",
+                "g",
+                "g",
+                "g",
+                "b",
+                "b",
+                "b",
+                "b",
+                "y",
+                "y",
+                "y",
+                "y",
+                "k",
+                "k",
+                "k",
+                "k",
+            ],
+        )
+        + cycler(
+            "linestyle",
+            [
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+            ],
+        )
+    ),
+)
 
-tmp1 = (df.groupby(["droprate", "codecName"]).mean().unstack().plot(y="result", title="Erfolgsrate bzgl. droprate"))
+tmp1 = (
+    df.groupby(["droprate", "codecName"])
+    .mean()
+    .unstack()
+    .plot(y="result", title="Erfolgsrate bzgl. droprate")
+)
 
 manager = plt.get_current_fig_manager()
 manager.resize(*(3840, 2160))  # manager.resize(*manager.window.maxsize())
@@ -121,8 +233,12 @@ plt.savefig("../pdfs/all_" + ".pdf", bbox_inches="tight")
 plt.savefig("../pdfs/all_" + ".svg")
 plt.close()
 
-plt.rc("axes",
-       prop_cycle=(cycler("color", ["b", "k", "r", "g", "y"]) + cycler("linestyle", ["-", "-", "-", "-", "-"])), )
+plt.rc(
+    "axes",
+    prop_cycle=(
+        cycler("color", ["b", "k", "r", "g", "y"]) + cycler("linestyle", ["-", "-", "-", "-", "-"])
+    ),
+)
 
 for name, group in df.groupby(["codecName", "number_of_chunks"]):
     name, noChu = name
@@ -152,8 +268,13 @@ for name, group in df.groupby(["codecName", "number_of_chunks"]):
     plt.close()
 
     col = ["g" if res else "r" for res in tmp["result"]]
-    tmp1 = tmp.plot(kind="scatter", x="numberOfEncodedPackets", y="droprate", color=col,
-                    title=name.replace("_", " ") + " ( " + str(len(tmp)) + " Elemente )", )
+    tmp1 = tmp.plot(
+        kind="scatter",
+        x="numberOfEncodedPackets",
+        y="droprate",
+        color=col,
+        title=name.replace("_", " ") + " ( " + str(len(tmp)) + " Elemente )",
+    )
     manager = plt.get_current_fig_manager()
     manager.resize(*(3840, 2160))  # manager.resize(*manager.window.maxsize())
     plt.grid(True)
@@ -165,8 +286,13 @@ for name, group in df.groupby(["codecName", "number_of_chunks"]):
     plt.close()
 
     col = ["g" if res else "r" for res in tmp["result"]]
-    tmp1 = tmp.plot(kind="scatter", x="numberOfEncodedPackets", y="droppedCount", color=col,
-                    title=name.replace("_", " ") + " ( " + str(len(tmp)) + " Elemente )", )
+    tmp1 = tmp.plot(
+        kind="scatter",
+        x="numberOfEncodedPackets",
+        y="droppedCount",
+        color=col,
+        title=name.replace("_", " ") + " ( " + str(len(tmp)) + " Elemente )",
+    )
     manager = plt.get_current_fig_manager()
     manager.resize(*(3840, 2160))  # manager.resize(*manager.window.maxsize())
     plt.grid(True)
@@ -176,8 +302,11 @@ for name, group in df.groupby(["codecName", "number_of_chunks"]):
     plt.savefig("../pdfs/scatter_droppedCount_" + name + ".svg")
     plt.close()
 
-    tmp1 = df2.reset_index().plot(x="Overhead", y="result",
-                                  title=name.replace("_", " ") + " ( " + str(len(tmp)) + " Elemente )", )
+    tmp1 = df2.reset_index().plot(
+        x="Overhead",
+        y="result",
+        title=name.replace("_", " ") + " ( " + str(len(tmp)) + " Elemente )",
+    )
     manager = plt.get_current_fig_manager()
     manager.resize(*(3840, 2160))  # manager.resize(*manager.window.maxsize())
     plt.grid(True)
@@ -187,8 +316,12 @@ for name, group in df.groupby(["codecName", "number_of_chunks"]):
     plt.savefig("../pdfs/overhead_vs_res_" + name + ".svg")
     plt.close()
 
-    tmp1 = df1.reset_index().plot(x="droprate", y="result",
-                                  title=name.replace("_", " ") + " ( " + str(len(tmp)) + " Elemente )", legend=False, )
+    tmp1 = df1.reset_index().plot(
+        x="droprate",
+        y="result",
+        title=name.replace("_", " ") + " ( " + str(len(tmp)) + " Elemente )",
+        legend=False,
+    )
     tmp1.set_ylabel("result")
     manager = plt.get_current_fig_manager()
     manager.resize(*(3840, 2160))  # manager.resize(*manager.window.maxsize())
@@ -202,7 +335,13 @@ for name, group in df.groupby(["codecName", "number_of_chunks"]):
     m = df1["number_of_chunks"].mean()
     df1 = df1.drop("number_of_chunks", 1)
     df1 = df1.drop("seed", 1)
-    tmp = df1.plot(subplots=True, grid=True, use_index="number_of_chunks", title=name.replace("_", " "), legend=True, )
+    tmp = df1.plot(
+        subplots=True,
+        grid=True,
+        use_index="number_of_chunks",
+        title=name.replace("_", " "),
+        legend=True,
+    )
     manager = plt.get_current_fig_manager()
     manager.resize(*(3840, 2160))  # manager.resize(*manager.window.maxsize())
     plt.grid(True)
@@ -211,8 +350,13 @@ for name, group in df.groupby(["codecName", "number_of_chunks"]):
     plt.savefig("../pdfs/multi_" + name + ".svg")
     plt.close()
 
-    tmp = df1.plot(subplots=True, grid=True, kind="box", by="numberOfEncodedPackets",
-                   title=name.replace("_", " "), )  # + " ( " + str(len(tmp)) + " Elemente )")
+    tmp = df1.plot(
+        subplots=True,
+        grid=True,
+        kind="box",
+        by="numberOfEncodedPackets",
+        title=name.replace("_", " "),
+    )  # + " ( " + str(len(tmp)) + " Elemente )")
     manager = plt.get_current_fig_manager()
     manager.resize(*(3840, 2160))  # manager.resize(*manager.window.maxsize())
     plt.grid(True)

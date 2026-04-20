@@ -1,18 +1,19 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
+import os
+import zlib
+from functools import reduce
 from random import random
 
+import numpy
 from numba import jit, vectorize
-import zlib, numpy
-from functools import reduce
-import os
 
-os.environ[
-    "NUMBAPRO_NVVM"
-] = r"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.1\nvvm\bin\nvvm64_32_0.dll"
-os.environ[
-    "NUMBAPRO_LIBDEVICE"
-] = r"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.1\nvvm\libdevice"
+os.environ["NUMBAPRO_NVVM"] = (
+    r"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.1\nvvm\bin\nvvm64_32_0.dll"
+)
+os.environ["NUMBAPRO_LIBDEVICE"] = (
+    r"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.1\nvvm\libdevice"
+)
 
 
 @jit(nogil=True)

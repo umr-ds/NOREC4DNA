@@ -2,16 +2,24 @@ import functools
 import io
 
 import numpy as np
-
+from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import (
+    ErlichZielinskiRobustSolitonDistribution,
+)
 from norec4dna.HeaderChunk import HeaderChunk
 from norec4dna.Packet import Packet
+
+from . import (
+    Encoder,
+    IdealSolitonDistribution,
+    LTBPDecoder,
+    LTDecoder,
+    LTEncoder,
+    RobustSolitonDistribution,
+    get_error_correction_decode,
+    get_error_correction_encode,
+)
 from .helper.quaternary2Bin import tranlate_quat_to_byte
 from .rules.DNARules_ErlichZielinski import DNARules_ErlichZielinski
-
-from . import Encoder, RobustSolitonDistribution, IdealSolitonDistribution, get_error_correction_encode, \
-    LTEncoder, LTDecoder, LTBPDecoder, get_error_correction_decode
-
-from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import ErlichZielinskiRobustSolitonDistribution
 
 # INPUT_FILE = "data_2mb.test"
 OVERHEAD = 0.9
@@ -65,14 +73,24 @@ def encode(string_file_name, numpy_boolean_array):
     # we operate on files, not raw bits, thus we only use the file name and load the data from disk,
     # if required we could change this...
     if NUMBER_OF_CHUNKS is None:
-        NUMBER_OF_CHUNKS = Encoder.get_number_of_chunks_for_file_with_chunk_size(string_file_name,
-                                                                                 chunk_size=CHUNK_SIZE,
-                                                                                 insert_header=INSERT_HEADER)
-    encoder = LTEncoder(string_file_name, NUMBER_OF_CHUNKS, dist_func(NUMBER_OF_CHUNKS), insert_header=INSERT_HEADER,
-                        rules=DNA_RULES, error_correction=error_correction_func,
-                        number_of_chunks_len_format=NUM_CHUNK_LEN_FORMAT, id_len_format=ID_LEN_STR,
-                        used_packets_len_format="H", save_number_of_chunks_in_packet=NUMBER_OF_CHUNKS_IN_PACKET,
-                        implicit_mode=IMPLICIT_MODE, drop_upper_bound=DROP_UPPER_BOUND, pseudo_decoder=None)  # ,
+        NUMBER_OF_CHUNKS = Encoder.get_number_of_chunks_for_file_with_chunk_size(
+            string_file_name, chunk_size=CHUNK_SIZE, insert_header=INSERT_HEADER
+        )
+    encoder = LTEncoder(
+        string_file_name,
+        NUMBER_OF_CHUNKS,
+        dist_func(NUMBER_OF_CHUNKS),
+        insert_header=INSERT_HEADER,
+        rules=DNA_RULES,
+        error_correction=error_correction_func,
+        number_of_chunks_len_format=NUM_CHUNK_LEN_FORMAT,
+        id_len_format=ID_LEN_STR,
+        used_packets_len_format="H",
+        save_number_of_chunks_in_packet=NUMBER_OF_CHUNKS_IN_PACKET,
+        implicit_mode=IMPLICIT_MODE,
+        drop_upper_bound=DROP_UPPER_BOUND,
+        pseudo_decoder=None,
+    )  # ,
     # checksum_len_str=CHECKSUM_LEN_STR)
     encoder.set_overhead_limit(OVERHEAD)
     encoder.encode_to_packets()
@@ -81,23 +99,32 @@ def encode(string_file_name, numpy_boolean_array):
 
 def decode(string_file_name, list_of_dna_strings):
     # make sure that the dist is freshly initialized...
-    decoder = DECODER_CLASS(string_file_name, error_correction=error_correction_func_dec, use_headerchunk=INSERT_HEADER,
-                            static_number_of_chunks=NUMBER_OF_CHUNKS, implicit_mode=IMPLICIT_MODE,
-                            dist=dist_func(NUMBER_OF_CHUNKS))
+    decoder = DECODER_CLASS(
+        string_file_name,
+        error_correction=error_correction_func_dec,
+        use_headerchunk=INSERT_HEADER,
+        static_number_of_chunks=NUMBER_OF_CHUNKS,
+        implicit_mode=IMPLICIT_MODE,
+        dist=dist_func(NUMBER_OF_CHUNKS),
+    )
     decoder.read_all_before_decode = READ_ALL
 
     for dna_str in list_of_dna_strings:
-        new_pack = decoder.parse_raw_packet(io.BytesIO(tranlate_quat_to_byte(dna_str)).read(),
-                                            crc_len_format=CHECKSUM_LEN_STR,
-                                            number_of_chunks_len_format=NUM_CHUNK_LEN_FORMAT,
-                                            degree_len_format=DEGREE_LEN_STR,
-                                            seed_len_format=ID_LEN_STR)
+        new_pack = decoder.parse_raw_packet(
+            io.BytesIO(tranlate_quat_to_byte(dna_str)).read(),
+            crc_len_format=CHECKSUM_LEN_STR,
+            number_of_chunks_len_format=NUM_CHUNK_LEN_FORMAT,
+            degree_len_format=DEGREE_LEN_STR,
+            seed_len_format=ID_LEN_STR,
+        )
         if new_pack is not None and new_pack != "CORRUPT":
             decoder.input_new_packet(new_pack)
 
     solved = decoder.solve()
     if RAISE_ON_UNSOLVED and not solved:
-        raise RuntimeError("Could not solve the system of equations. A partial recovery might be possible!")
+        raise RuntimeError(
+            "Could not solve the system of equations. A partial recovery might be possible!"
+        )
     if not solved:
         print("Could not solve the system of equations. A partial recovery will be performed:")
     __byte_io = io.BytesIO()
@@ -108,10 +135,11 @@ def decode(string_file_name, list_of_dna_strings):
                 continue
             if INSERT_HEADER and decoder.headerChunk is None:
                 decoder.headerChunk = HeaderChunk(
-                    Packet(decoder.GEPP.b[0], {0}, decoder.number_of_chunks, read_only=True))
+                    Packet(decoder.GEPP.b[0], {0}, decoder.number_of_chunks, read_only=True)
+                )
             if 0 != x or not INSERT_HEADER:
                 if decoder.number_of_chunks - 1 == x and INSERT_HEADER:
-                    output = decoder.GEPP.b[x][0][0: decoder.headerChunk.get_last_chunk_length()]
+                    output = decoder.GEPP.b[x][0][0 : decoder.headerChunk.get_last_chunk_length()]
                     f.write(output)
                 else:
                     if NULL_IS_TERMINATOR:
@@ -129,7 +157,14 @@ def decode(string_file_name, list_of_dna_strings):
 
 
 if __name__ == "__main__":
-    for INPUT_FILE in ["Dorn", "sleeping_beauty", "README.md", "logo.jpg", "data_1mb.test", "data_2mb.test"]:
+    for INPUT_FILE in [
+        "Dorn",
+        "sleeping_beauty",
+        "README.md",
+        "logo.jpg",
+        "data_1mb.test",
+        "data_2mb.test",
+    ]:
         NUMBER_OF_CHUNKS = None
         res, encoder = encode(INPUT_FILE, None)
         try:

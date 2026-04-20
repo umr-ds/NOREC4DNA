@@ -1,7 +1,7 @@
 import copy
 import math
 
-from .RuleParser import longestSequenceOfChar, gc_content
+from .RuleParser import gc_content, longestSequenceOfChar
 
 
 class DNARules_ErlichZielinski:
@@ -24,7 +24,7 @@ class DNARules_ErlichZielinski:
 
     @staticmethod
     def windowed_gc_content(data, window_size=50):
-        chunks = [gc_content(data[i:i + window_size]) for i in range(0, len(data), window_size)]
+        chunks = [gc_content(data[i : i + window_size]) for i in range(0, len(data), window_size)]
         m = min(chunks)
         ma = max(chunks)
         res = math.pow(ma - m, 2) / 100 * 0.05
@@ -50,39 +50,52 @@ class DNARules_ErlichZielinski:
 
     @staticmethod
     def simple_motif_search(data):
-        return 1.0 if any(
-            [x in data for x in DNARules_ErlichZielinski.add_complementary(
-                DNARules_ErlichZielinski.add_reverse(["ATAACTTCGTATAGCATACATTATACGAAGTTAT",
-                                                      "ATAACTTCGTATAGCATACATTATACGAACGGTA",
-                                                      "TACCGTTCGTATAGCATACATTATACGAAGTTAT",
-                                                      "TACCGTTCGTATAGCATACATTATACGAACGGTA",
-                                                      "TACCGTTCGTATATGGTATTATATACGAAGTTAT",
-                                                      "TACCGTTCGTATATTCTATCTTATACGAAGTTAT",
-                                                      "TACCGTTCGTATAGGATACTTTATACGAAGTTAT",
-                                                      "TACCGTTCGTATATACTATACTATACGAAGTTAT",
-                                                      "TACCGTTCGTATACTATAGCCTATACGAAGTTAT",
-                                                      "ATAACTTCGTATATGGTATTATATACGAACGGTA",
-                                                      "ATAACTTCGTATAGTATACCTTATACGAAGTTAT",
-                                                      "ATAACTTCGTATAGTATACATTATACGAAGTTAT",
-                                                      "ATAACTTCGTATAGTACACATTATACGAAGTTAT",
-                                                      "GCATACAT",
-                                                      "TGGTATTA",
-                                                      "TTCTATCT",
-                                                      "GGATACTT",
-                                                      "TACTATAC",
-                                                      "CTATAGCC",
-                                                      "AGGTATGC",
-                                                      "TTGTATGG",
-                                                      "GGATAGTA",
-                                                      "GTGTATTT",
-                                                      "GGTTACGG",
-                                                      "TTTTAGGT",
-                                                      "GTATACCT",
-                                                      "GTACACAT",
-                                                      "GAAGAC",
-                                                      "CTTCTG",
-                                                      "GGTCTC",
-                                                      "CCAGAG"]))]) else 0.0
+        return (
+            1.0
+            if any(
+                [
+                    x in data
+                    for x in DNARules_ErlichZielinski.add_complementary(
+                        DNARules_ErlichZielinski.add_reverse(
+                            [
+                                "ATAACTTCGTATAGCATACATTATACGAAGTTAT",
+                                "ATAACTTCGTATAGCATACATTATACGAACGGTA",
+                                "TACCGTTCGTATAGCATACATTATACGAAGTTAT",
+                                "TACCGTTCGTATAGCATACATTATACGAACGGTA",
+                                "TACCGTTCGTATATGGTATTATATACGAAGTTAT",
+                                "TACCGTTCGTATATTCTATCTTATACGAAGTTAT",
+                                "TACCGTTCGTATAGGATACTTTATACGAAGTTAT",
+                                "TACCGTTCGTATATACTATACTATACGAAGTTAT",
+                                "TACCGTTCGTATACTATAGCCTATACGAAGTTAT",
+                                "ATAACTTCGTATATGGTATTATATACGAACGGTA",
+                                "ATAACTTCGTATAGTATACCTTATACGAAGTTAT",
+                                "ATAACTTCGTATAGTATACATTATACGAAGTTAT",
+                                "ATAACTTCGTATAGTACACATTATACGAAGTTAT",
+                                "GCATACAT",
+                                "TGGTATTA",
+                                "TTCTATCT",
+                                "GGATACTT",
+                                "TACTATAC",
+                                "CTATAGCC",
+                                "AGGTATGC",
+                                "TTGTATGG",
+                                "GGATAGTA",
+                                "GTGTATTT",
+                                "GGTTACGG",
+                                "TTTTAGGT",
+                                "GTATACCT",
+                                "GTACACAT",
+                                "GAAGAC",
+                                "CTTCTG",
+                                "GGTCTC",
+                                "CCAGAG",
+                            ]
+                        )
+                    )
+                ]
+            )
+            else 0.0
+        )
 
     @staticmethod
     def apply_all_rules(packet):
@@ -119,5 +132,8 @@ def apply_all_rules_with_data(packet):
 if __name__ == "__main__":
     print(DNARules_ErlichZielinski.homopolymers("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"))
     print(DNARules_ErlichZielinski.gc_content("A" * 1000))
-    print(DNARules_ErlichZielinski.windowed_gc_content(
-        "ATTAGCGTATCCAATCAGCTGACACCAAAAAAAAAAAATTAGCGTATCCAATCAGCTGACACCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGCAAGCAAAAAAAAAAAAAAAAAAAAAAATTAGCGTATCCAATCAGCTGACACCAAAAAAAAAAAAAAAAAAAAAAAAAAGCAAGCAAAAAACCATGGTCGAAAAAAAAAAAAAAAAAAGCAAGCAAAAAAAAAAAAAAAAAAAAAAAGCAAGCAAAAAACCATGGTCG"))
+    print(
+        DNARules_ErlichZielinski.windowed_gc_content(
+            "ATTAGCGTATCCAATCAGCTGACACCAAAAAAAAAAAATTAGCGTATCCAATCAGCTGACACCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGCAAGCAAAAAAAAAAAAAAAAAAAAAAATTAGCGTATCCAATCAGCTGACACCAAAAAAAAAAAAAAAAAAAAAAAAAAGCAAGCAAAAAACCATGGTCGAAAAAAAAAAAAAAAAAAGCAAGCAAAAAAAAAAAAAAAAAAAAAAAGCAAGCAAAAAACCATGGTCG"
+        )
+    )

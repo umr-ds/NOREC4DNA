@@ -1,6 +1,6 @@
 import copy
 
-from .RuleParser import shouldDropMax, shouldDrop, gc_content
+from .RuleParser import gc_content, shouldDrop, shouldDropMax
 
 try:
     from cdnarules import repeatRegion as rRegion
@@ -257,8 +257,13 @@ class DNARules:
         :return: The Dropchance based on the GC-content.
         """
         gc_con = gc_content(data)
-        dropchance = (100 + (175 * gc_con) / 6 - (121 * gc_con ** 2) / 72 + (gc_con ** 3) / 36 - (
-                gc_con ** 4) / 7200) / 100
+        dropchance = (
+            100
+            + (175 * gc_con) / 6
+            - (121 * gc_con**2) / 72
+            + (gc_con**3) / 36
+            - (gc_con**4) / 7200
+        ) / 100
         return max(0.0, min(1.0, dropchance))
 
     @staticmethod
@@ -269,7 +274,10 @@ class DNARules:
         :param window_size:
         :return:
         """
-        chunks = [DNARules.overall_gc_content(data[i:i + window_size]) for i in range(0, len(data), window_size)]
+        chunks = [
+            DNARules.overall_gc_content(data[i : i + window_size])
+            for i in range(0, len(data), window_size)
+        ]
         res = max(chunks)
         return min(1.0, res)
 
@@ -320,7 +328,6 @@ class DNARules:
                 ("strContainsSub(GGTCTC)", 1.01),
                 # inverse BsaI
                 ("strContainsSub(CCAGAG)", 1.01),
-
                 ("strContainsSub(CGTCTC)", 0.01),
                 ("strContainsSub(GCGATG)", 0.01),
                 ("strContainsSub(GCTCTTC)", 0.01),
@@ -334,8 +341,7 @@ class DNARules:
                 # Twister Adapters:
                 ("strContainsSub(GAAGTGCCATTCCGCCTGACCT)", 1.0),  # Twister 5' Adapter
                 ("strContainsSub(AGGCTAGGTGGAGGCTCAGTG)", 1.0),  # Twister 3' Adapter
-
-            ]
+            ],
         )
 
     @staticmethod
@@ -361,7 +367,7 @@ class DNARules:
                 ("strContainsSubRegex(AGGAGGACAGCTAUG)", 0.05),
                 # Lox sites.
                 ("strContainsSubRegex(ATAACTTCGTATAGTAYACATTATACGAAGTTAT)", 0.01),
-            ]
+            ],
         )
 
     @staticmethod
@@ -377,37 +383,50 @@ class DNARules:
 
     @staticmethod
     def simple_motif_search(data):
-        return 1.0 if any([x in data for x in DNARules.add_complementary(["ATAACTTCGTATAGCATACATTATACGAAGTTAT",
-                                                                          "ATAACTTCGTATAGCATACATTATACGAACGGTA",
-                                                                          "TACCGTTCGTATAGCATACATTATACGAAGTTAT",
-                                                                          "TACCGTTCGTATAGCATACATTATACGAACGGTA",
-                                                                          "TACCGTTCGTATATGGTATTATATACGAAGTTAT",
-                                                                          "TACCGTTCGTATATTCTATCTTATACGAAGTTAT",
-                                                                          "TACCGTTCGTATAGGATACTTTATACGAAGTTAT",
-                                                                          "TACCGTTCGTATATACTATACTATACGAAGTTAT",
-                                                                          "TACCGTTCGTATACTATAGCCTATACGAAGTTAT",
-                                                                          "ATAACTTCGTATATGGTATTATATACGAACGGTA",
-                                                                          "ATAACTTCGTATAGTATACCTTATACGAAGTTAT",
-                                                                          "ATAACTTCGTATAGTATACATTATACGAAGTTAT",
-                                                                          "ATAACTTCGTATAGTACACATTATACGAAGTTAT",
-                                                                          "GCATACAT",
-                                                                          "TGGTATTA",
-                                                                          "TTCTATCT",
-                                                                          "GGATACTT",
-                                                                          "TACTATAC",
-                                                                          "CTATAGCC",
-                                                                          "AGGTATGC",
-                                                                          "TTGTATGG",
-                                                                          "GGATAGTA",
-                                                                          "GTGTATTT",
-                                                                          "GGTTACGG",
-                                                                          "TTTTAGGT",
-                                                                          "GTATACCT",
-                                                                          "GTACACAT",
-                                                                          "GAAGAC",
-                                                                          "CTTCTG",
-                                                                          "GGTCTC",
-                                                                          "CCAGAG"])]) else 0.0
+        return (
+            1.0
+            if any(
+                [
+                    x in data
+                    for x in DNARules.add_complementary(
+                        [
+                            "ATAACTTCGTATAGCATACATTATACGAAGTTAT",
+                            "ATAACTTCGTATAGCATACATTATACGAACGGTA",
+                            "TACCGTTCGTATAGCATACATTATACGAAGTTAT",
+                            "TACCGTTCGTATAGCATACATTATACGAACGGTA",
+                            "TACCGTTCGTATATGGTATTATATACGAAGTTAT",
+                            "TACCGTTCGTATATTCTATCTTATACGAAGTTAT",
+                            "TACCGTTCGTATAGGATACTTTATACGAAGTTAT",
+                            "TACCGTTCGTATATACTATACTATACGAAGTTAT",
+                            "TACCGTTCGTATACTATAGCCTATACGAAGTTAT",
+                            "ATAACTTCGTATATGGTATTATATACGAACGGTA",
+                            "ATAACTTCGTATAGTATACCTTATACGAAGTTAT",
+                            "ATAACTTCGTATAGTATACATTATACGAAGTTAT",
+                            "ATAACTTCGTATAGTACACATTATACGAAGTTAT",
+                            "GCATACAT",
+                            "TGGTATTA",
+                            "TTCTATCT",
+                            "GGATACTT",
+                            "TACTATAC",
+                            "CTATAGCC",
+                            "AGGTATGC",
+                            "TTGTATGG",
+                            "GGATAGTA",
+                            "GTGTATTT",
+                            "GGTTACGG",
+                            "TTTTAGGT",
+                            "GTATACCT",
+                            "GTACACAT",
+                            "GAAGAC",
+                            "CTTCTG",
+                            "GGTCTC",
+                            "CCAGAG",
+                        ]
+                    )
+                ]
+            )
+            else 0.0
+        )
 
     @staticmethod
     def apply_all_rules(packet):
@@ -446,7 +465,7 @@ class DNARules:
                 DNARules.motif_regex_search,
                 DNARules.windowed_gc_content,
                 DNARules.repeatRegion,
-                DNARules.smallRepeatRegion
+                DNARules.smallRepeatRegion,
             ]
         ]
         return sum(res_arr), res_arr, packet

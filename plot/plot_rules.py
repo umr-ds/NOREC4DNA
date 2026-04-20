@@ -1,8 +1,9 @@
 import os
+
 import matplotlib
+import matplotlib.pyplot as plt
 import pandas as pd
 from cycler import cycler
-import matplotlib.pyplot as plt
 
 # Get current size
 fig_size = plt.rcParams["figure.figsize"]
@@ -33,9 +34,24 @@ def custom_round(x, base=5):
 """
 
 fname = "D:/Users/thejanky/Desktop/Uni/WS 17-18/CSV/recent/ALL_DNA_SINGLE_0906/ALL_DNA_SIMPLE_025_schritte/dna_abc.csv"
-df = pd.read_csv(fname, delimiter=",", engine="python", index_col=False,
-                 usecols=["Algorithm", "A_Permutation", "T_Permutation", "C_Permutation", "G_Permutation",
-                          "dinucleotid_Runs", "Homopolymers", "GC_Content", "Trinucleotid_Runs", "Did_Drop", ], )
+df = pd.read_csv(
+    fname,
+    delimiter=",",
+    engine="python",
+    index_col=False,
+    usecols=[
+        "Algorithm",
+        "A_Permutation",
+        "T_Permutation",
+        "C_Permutation",
+        "G_Permutation",
+        "dinucleotid_Runs",
+        "Homopolymers",
+        "GC_Content",
+        "Trinucleotid_Runs",
+        "Did_Drop",
+    ],
+)
 
 if not os.path.isdir("pdfs"):
     os.makedirs("pdfs")
@@ -43,13 +59,67 @@ font = {"family": "normal", "size": 14}
 axis_font = {"size": "14"}
 matplotlib.rc("font", **font)
 
-plt.rc("axes",
-       prop_cycle=(cycler("color",
-                          ["m", "m", "r", "r", "r", "c", "c", "g", "g", "g", "g", "b", "b", "b", "b", "y", "y", "y",
-                           "y", "k", "k", "k", "k", ], ) + cycler("linestyle",
-                                                                  ["-", "--", "-", "--", ":", "-", "--", "-", "--", ":",
-                                                                   "-.", "-", "--", ":", "-.", "-", "--", ":", "-.",
-                                                                   "-", "--", ":", "-.", ], )), )
+plt.rc(
+    "axes",
+    prop_cycle=(
+        cycler(
+            "color",
+            [
+                "m",
+                "m",
+                "r",
+                "r",
+                "r",
+                "c",
+                "c",
+                "g",
+                "g",
+                "g",
+                "g",
+                "b",
+                "b",
+                "b",
+                "b",
+                "y",
+                "y",
+                "y",
+                "y",
+                "k",
+                "k",
+                "k",
+                "k",
+            ],
+        )
+        + cycler(
+            "linestyle",
+            [
+                "-",
+                "--",
+                "-",
+                "--",
+                ":",
+                "-",
+                "--",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+            ],
+        )
+    ),
+)
 
 plt.rc("grid", c="0.5", ls=":", lw=1)
 plt.grid(True)

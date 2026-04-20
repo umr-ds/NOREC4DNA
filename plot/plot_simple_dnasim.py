@@ -1,7 +1,8 @@
 import itertools
-import pandas as pd
+
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
+import pandas as pd
 
 # Get current size
 fig_size = plt.rcParams["figure.figsize"]
@@ -28,9 +29,23 @@ def custom_round(x, base=5):
 def plot():
     name6 = "ALL_DNA_SINGLE_0906/o_out_simple.csv"
 
-    df6 = pd.read_csv(name6, delimiter=",", engine="python",
-                      usecols=["filename", "overhead", "number_of_chunks", "dec_input", "invalid_drop", "seed",
-                               "result", "timeNeeded", "Kodierung", ], index_col=False, )
+    df6 = pd.read_csv(
+        name6,
+        delimiter=",",
+        engine="python",
+        usecols=[
+            "filename",
+            "overhead",
+            "number_of_chunks",
+            "dec_input",
+            "invalid_drop",
+            "seed",
+            "result",
+            "timeNeeded",
+            "Kodierung",
+        ],
+        index_col=False,
+    )
 
     fig, axs = plt.subplots(1, 1)
     axs.set_ylabel("Time to Decode")
@@ -47,13 +62,13 @@ def plot():
     plt.grid(True)
     plt.tight_layout()
     plt.show(block=False)
-    plt.savefig("simplednarules/box_result_overhead_kodierung_neu.pdf",
-                bbox_inches="tight", )
+    plt.savefig(
+        "simplednarules/box_result_overhead_kodierung_neu.pdf",
+        bbox_inches="tight",
+    )
     plt.savefig("simplednarules/box_result_overhead_kodierung_neu.svg")
 
-    df6["invalid_dropPercent"] = df6["invalid_drop"] / (
-            df6["dec_input"] + df6["invalid_drop"]
-    )
+    df6["invalid_dropPercent"] = df6["invalid_drop"] / (df6["dec_input"] + df6["invalid_drop"])
     df6["encodedPackets"] = (df6["overhead"] + 1.0) * df6["number_of_chunks"]
     print((df6["dec_input"] + df6["invalid_drop"]))
     print(df6["encodedPackets"])
@@ -69,7 +84,10 @@ def plot():
     plt.grid(True)
     plt.tight_layout()
     plt.show(block=False)
-    plt.savefig("simplednarules/box_fehlerwkeit_kodierung_neu.pdf", bbox_inches="tight", )
+    plt.savefig(
+        "simplednarules/box_fehlerwkeit_kodierung_neu.pdf",
+        bbox_inches="tight",
+    )
     plt.savefig("simplednarules/box_fehlerwkeit_kodierung_neu.svg")
     plt.close()
 
@@ -132,7 +150,10 @@ def plot():
     plt.grid(True)
     plt.tight_layout()
     plt.show(block=False)
-    plt.savefig("simplednarules/density.pdf", bbox_inches="tight", )
+    plt.savefig(
+        "simplednarules/density.pdf",
+        bbox_inches="tight",
+    )
     plt.savefig("simplednarules/density.svg")
     plt.close()
 
@@ -164,7 +185,10 @@ def plot():
     plt.grid(True)
     plt.tight_layout()
     plt.show(block=False)
-    plt.savefig("simplednarules/densitsdfsafy.pdf", bbox_inches="tight", )
+    plt.savefig(
+        "simplednarules/densitsdfsafy.pdf",
+        bbox_inches="tight",
+    )
     plt.savefig("simplednarules/densitsadfafy.svg")
     plt.close()
 

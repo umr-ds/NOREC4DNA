@@ -1,16 +1,16 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
+import filecmp
 import os
 import shutil
-import filecmp
-import pytest
 
+import pytest
+from norec4dna.distributions.OnlineDistribution import OnlineDistribution
 from norec4dna.Encoder import Encoder
+from norec4dna.OnlineBPDecoder import OnlineBPDecoder
 from norec4dna.OnlineDecoder import OnlineDecoder
 from norec4dna.OnlineEncoder import OnlineEncoder
-from norec4dna.OnlineBPDecoder import OnlineBPDecoder
 from norec4dna.rules.FastDNARules import FastDNARules
-from norec4dna.distributions.OnlineDistribution import OnlineDistribution
 
 file = "logo.jpg"
 out_dir = "ONLINE_logo.jpg"
@@ -35,17 +35,36 @@ def test_suite(as_dna, decoder_instance, use_header):
     dist = OnlineDistribution(epsilon)
     pseudo_decoder = decoder_instance.pseudo_decoder(number_of_chunks=number_of_chunks)
     rules = FastDNARules() if as_dna else None
-    encoder = OnlineEncoder(file, number_of_chunks, dist, epsilon, quality, number_of_chunks_len_format="H",
-                            check_block_number_len_format="H", quality_len_format="B", pseudo_decoder=pseudo_decoder,
-                            rules=rules, insert_header=use_header)
+    encoder = OnlineEncoder(
+        file,
+        number_of_chunks,
+        dist,
+        epsilon,
+        quality,
+        number_of_chunks_len_format="H",
+        check_block_number_len_format="H",
+        quality_len_format="B",
+        pseudo_decoder=pseudo_decoder,
+        rules=rules,
+        insert_header=use_header,
+    )
     encoder.encode_to_packets()
     encoder.save_packets(split_to_multiple_files=True, save_as_dna=as_dna)
-    assert (pseudo_decoder.is_decoded() and pseudo_decoder.getSolvedCount() == pseudo_decoder.number_of_chunks)
+    assert (
+        pseudo_decoder.is_decoded()
+        and pseudo_decoder.getSolvedCount() == pseudo_decoder.number_of_chunks
+    )
     assert os.path.exists(out_dir)
     decoder = decoder_instance(out_dir, use_headerchunk=use_header)
-    decoder.decodeFolder(number_of_chunks_len_format="H", check_block_number_len_format="H", quality_len_format="B")
+    decoder.decodeFolder(
+        number_of_chunks_len_format="H", check_block_number_len_format="H", quality_len_format="B"
+    )
     if decoder_instance == OnlineBPDecoder:
-        decoder.decodeFolder(number_of_chunks_len_format="H", check_block_number_len_format="H", quality_len_format="B")
+        decoder.decodeFolder(
+            number_of_chunks_len_format="H",
+            check_block_number_len_format="H",
+            quality_len_format="B",
+        )
     decoder.solve()
     assert decoder.is_decoded() and decoder.getSolvedCount() == encoder.number_of_chunks
     if not use_header:
@@ -61,9 +80,11 @@ def test_suite(as_dna, decoder_instance, use_header):
     if decoder_instance == OnlineBPDecoder:
         # since ApproxDecoder defines an upper bound Gauss-Decoder MUST be able to decode!
         decoder = OnlineDecoder(out_dir, use_headerchunk=use_header)
-        decoder.decodeFolder(number_of_chunks_len_format="H",
-                             check_block_number_len_format="H",
-                             quality_len_format="B")
+        decoder.decodeFolder(
+            number_of_chunks_len_format="H",
+            check_block_number_len_format="H",
+            quality_len_format="B",
+        )
         assert decoder.is_decoded() and decoder.getSolvedCount() == encoder.number_of_chunks
         os.remove(out_file)
         decoder.saveDecodedFile(print_to_output=False)

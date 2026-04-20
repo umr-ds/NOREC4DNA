@@ -1,7 +1,8 @@
 import os
+
 import matplotlib
-import pandas as pd
 import matplotlib.pyplot as plt
+import pandas as pd
 
 # Get current size
 fig_size = plt.rcParams["figure.figsize"]
@@ -62,7 +63,10 @@ def plot(fname):
     plt.tight_layout()
     plt.grid(True)
     plt.show(block=False)
-    plt.savefig("pdfs1/box_amount_per_chunk_" + fname.split(".")[0] + ".pdf", bbox_inches="tight", )
+    plt.savefig(
+        "pdfs1/box_amount_per_chunk_" + fname.split(".")[0] + ".pdf",
+        bbox_inches="tight",
+    )
     plt.savefig("pdfs1/box_amount_per_chunk_" + fname.split(".")[0] + ".svg")
     plt.close()
 

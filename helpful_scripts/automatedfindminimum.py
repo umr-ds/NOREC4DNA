@@ -1,13 +1,14 @@
 import math
-import numpy as np
+
 import matplotlib.pyplot as plt
-from norec4dna.RU10Decoder import RU10Decoder
-from norec4dna.OnlineDecoder import OnlineDecoder
-from norec4dna.RU10Packet import RU10Packet
-from norec4dna.Packet import Packet
-from norec4dna.OnlinePacket import OnlinePacket
+import numpy as np
 from norec4dna.helper.RU10Helper import from_true_false_list
 from norec4dna.LTDecoder import LTDecoder
+from norec4dna.OnlineDecoder import OnlineDecoder
+from norec4dna.OnlinePacket import OnlinePacket
+from norec4dna.Packet import Packet
+from norec4dna.RU10Decoder import RU10Decoder
+from norec4dna.RU10Packet import RU10Packet
 
 
 class AutomatedFindMinimum:
@@ -17,7 +18,9 @@ class AutomatedFindMinimum:
         self.error_correction = error_correction
         self.dist = dist
         self.use_headerchunk = use_headerchunk
-        self.org_normal_packets = [self.parallel_to_normal(packet, error_correction, dist) for packet in self.packets]
+        self.org_normal_packets = [
+            self.parallel_to_normal(packet, error_correction, dist) for packet in self.packets
+        ]
         self.normal_packets = self.org_normal_packets
         self.decoder = self.init_dec()
         self.underrep_chunks = []
@@ -36,29 +39,46 @@ class AutomatedFindMinimum:
         :return: Converted packet
         """
         if par_packet.get_org_class() == "RU10Packet":
-            packet = RU10Packet(data=par_packet.data, used_packets=par_packet.used_packets,
-                                total_number_of_chunks=par_packet.total_number_of_chunks, id=par_packet.id, dist=dist,
-                                error_correction=error_correction, packet_len_format=par_packet.packet_len_format,
-                                crc_len_format=par_packet.crc_len_format,
-                                number_of_chunks_len_format=par_packet.number_of_chunks_len_format,
-                                id_len_format=par_packet.id_len_format,
-                                save_number_of_chunks_in_packet=par_packet.safe_number_of_chunks_in_packet)
+            packet = RU10Packet(
+                data=par_packet.data,
+                used_packets=par_packet.used_packets,
+                total_number_of_chunks=par_packet.total_number_of_chunks,
+                id=par_packet.id,
+                dist=dist,
+                error_correction=error_correction,
+                packet_len_format=par_packet.packet_len_format,
+                crc_len_format=par_packet.crc_len_format,
+                number_of_chunks_len_format=par_packet.number_of_chunks_len_format,
+                id_len_format=par_packet.id_len_format,
+                save_number_of_chunks_in_packet=par_packet.safe_number_of_chunks_in_packet,
+            )
             packet.error_prob = par_packet.error_prob
         elif par_packet.get_org_class() == "Packet":
-            packet = Packet(data=par_packet.data, used_packets=par_packet.used_packets,
-                            total_number_of_chunks=par_packet.total_number_of_chunks, error_correction=error_correction,
-                            packet_len_format=par_packet.packet_len_format, crc_len_format=par_packet.crc_len_format,
-                            number_of_chunks_len_format=par_packet.number_of_chunks_len_format,
-                            id_len_format=par_packet.id_len_format)
+            packet = Packet(
+                data=par_packet.data,
+                used_packets=par_packet.used_packets,
+                total_number_of_chunks=par_packet.total_number_of_chunks,
+                error_correction=error_correction,
+                packet_len_format=par_packet.packet_len_format,
+                crc_len_format=par_packet.crc_len_format,
+                number_of_chunks_len_format=par_packet.number_of_chunks_len_format,
+                id_len_format=par_packet.id_len_format,
+            )
             packet.error_prob = par_packet.error_prob
         elif par_packet.get_org_class() == "OnlinePacket":
-            packet = OnlinePacket(data=par_packet.data, used_packets=par_packet.used_packets,
-                                  check_block_number=par_packet.id,
-                                  total_number_of_chunks=par_packet.total_number_of_chunks,
-                                  error_correction=error_correction,
-                                  dist=dist, quality=quality, epsilon=epsilon, crc_len_format=par_packet.crc_len_format,
-                                  number_of_chunks_len_format=par_packet.number_of_chunks_len_format,
-                                  check_block_number_len_format=par_packet.id_len_format)
+            packet = OnlinePacket(
+                data=par_packet.data,
+                used_packets=par_packet.used_packets,
+                check_block_number=par_packet.id,
+                total_number_of_chunks=par_packet.total_number_of_chunks,
+                error_correction=error_correction,
+                dist=dist,
+                quality=quality,
+                epsilon=epsilon,
+                crc_len_format=par_packet.crc_len_format,
+                number_of_chunks_len_format=par_packet.number_of_chunks_len_format,
+                check_block_number_len_format=par_packet.id_len_format,
+            )
             packet.error_prob = par_packet.error_prob
         else:
             raise RuntimeError("Unsupported packet type")
@@ -102,7 +122,9 @@ class AutomatedFindMinimum:
         for packet in self.normal_packets:
             self.decoder.input_new_packet(packet)
         self.decoder.solve()
-        decoding_packet_indices = self.decoder.GEPP.packet_mapping[:self.decoder.GEPP.result_mapping.size]
+        decoding_packet_indices = self.decoder.GEPP.packet_mapping[
+            : self.decoder.GEPP.result_mapping.size
+        ]
         decoding_packets = []
         for x in decoding_packet_indices:
             packet = self.normal_packets[x[0]]
@@ -187,8 +209,16 @@ class AutomatedFindMinimum:
             possible_packets.update(self.get_packets_for_chunk(chunk[0]))
         return possible_packets
 
-    def get_optimal_packets(self, decoding_packets, used_packets_boolarr, number_of_chunks, no_new_packets,
-                            err_prob_fac, pack_min_occ, prio_chunks=None):
+    def get_optimal_packets(
+        self,
+        decoding_packets,
+        used_packets_boolarr,
+        number_of_chunks,
+        no_new_packets,
+        err_prob_fac,
+        pack_min_occ,
+        prio_chunks=None,
+    ):
         """
         Computes the optimal packets to add to the decoding packets with all given parameters. See automated_optimization
         for further information about the parameters. Also checks the possible packets for their error_prob and similar
@@ -220,9 +250,13 @@ class AutomatedFindMinimum:
         tmp = []
         for packet in packets:
             if isinstance(packet, RU10Packet):
-                if self.packet_already_exists(self.decoder.removeAndXorAuxPackets(packet), used_packets_boolarr):
+                if self.packet_already_exists(
+                    self.decoder.removeAndXorAuxPackets(packet), used_packets_boolarr
+                ):
                     tmp.append(packet)
-            elif self.packet_already_exists(packet.get_bool_array_used_packets(), used_packets_boolarr):
+            elif self.packet_already_exists(
+                packet.get_bool_array_used_packets(), used_packets_boolarr
+            ):
                 tmp.append(packet)
         if len(tmp) > 0:
             print("-> Packets discarded since similar packets are being used: ")
@@ -244,7 +278,9 @@ class AutomatedFindMinimum:
         """
         if len(underrep_chunks) > 0:
             underrep_chunks.sort(key=lambda x: x[1], reverse=True)
-            new_possible_packets = [x for x in possible_packets if underrep_chunks[0][0] in self.get_used_packets(x)]
+            new_possible_packets = [
+                x for x in possible_packets if underrep_chunks[0][0] in self.get_used_packets(x)
+            ]
             if len(new_possible_packets) == 0:
                 return possible_packets
             else:
@@ -273,8 +309,11 @@ class AutomatedFindMinimum:
             if pack.error_prob > avg_err_prob * err_prob_fac:
                 tmp.append(pack)
         if len(tmp) > 0:
-            print("-> Packets discarded due to high error_prob (above " + str(
-                err_prob_fac) + " times higher than the avg): ")
+            print(
+                "-> Packets discarded due to high error_prob (above "
+                + str(err_prob_fac)
+                + " times higher than the avg): "
+            )
             ids = ""
             for pack in tmp:
                 possible_packets.remove(pack)
@@ -310,7 +349,8 @@ class AutomatedFindMinimum:
                 else:
                     print(
                         "-> There are no more packets to add, but the minimum occurence for each chunk may not be reached. "
-                        "Please check your limitations")
+                        "Please check your limitations"
+                    )
                     break
             else:
                 # print("Every chunk has rechead the occurence minimum without the use of the complete overhead limit.")
@@ -378,20 +418,20 @@ class AutomatedFindMinimum:
         """
         fig, ax1 = plt.subplots()
         fig.suptitle(title, y=1.1)
-        ax1.set_xlabel('Chunk')
-        ax1.set_ylabel('Occurence', color='r')
-        ax1.plot(used_chunks, color='r')
-        ax1.tick_params(axis='y', labelcolor='r')
-        ax1.tick_params(axis='x', labelrotation=45)
+        ax1.set_xlabel("Chunk")
+        ax1.set_ylabel("Occurence", color="r")
+        ax1.plot(used_chunks, color="r")
+        ax1.tick_params(axis="y", labelcolor="r")
+        ax1.tick_params(axis="x", labelrotation=45)
         ax2 = ax1.twinx()
-        ax2.set_ylabel('Avg err_prob')
+        ax2.set_ylabel("Avg err_prob")
         avg_err = []
         for err_prob in err_probs:
             avg_err.append(sum(err_prob) / len(err_prob))
-        ax2.plot(avg_err, '--k')
+        ax2.plot(avg_err, "--k")
         plt.grid()
         plt.xticks(rotation=45)
-        plt.savefig(title + '.png', dpi=1000)
+        plt.savefig(title + ".png", dpi=1000)
         plt.show()
 
     @staticmethod
@@ -407,18 +447,18 @@ class AutomatedFindMinimum:
         plt.xticks(rotation=90)
         color_graph = "chocolate"
         color_boxplot = "lightgrey"
-        ax1.set_xlabel('Chunk')
-        ax1.set_ylabel('Occurence', color=color_graph)
+        ax1.set_xlabel("Chunk")
+        ax1.set_ylabel("Occurence", color=color_graph)
         ax2 = ax1.twinx()
         ax1.plot(used_chunks, color=color_graph)
         bp = ax2.boxplot(err_probs, patch_artist=True, vert=True, positions=range(len(used_chunks)))
-        ax1.tick_params(axis='y', labelcolor=color_graph)
-        ax2.set_ylabel('Error probability')
-        plt.setp(bp['medians'], color="firebrick")
-        for patch in bp['boxes']:
+        ax1.tick_params(axis="y", labelcolor=color_graph)
+        ax2.set_ylabel("Error probability")
+        plt.setp(bp["medians"], color="firebrick")
+        for patch in bp["boxes"]:
             patch.set_facecolor(color_boxplot)
         plt.grid()
-        plt.savefig(title + '.png', dpi=1000)
+        plt.savefig(title + ".png", dpi=1000)
         ax1.set_zorder(ax2.get_zorder() + 1)
         ax1.patch.set_visible(False)
         plt.show()
@@ -434,8 +474,8 @@ class AutomatedFindMinimum:
         """
         fig, ax = plt.subplots()
         fig.suptitle(title, y=1.1)
-        ax.set_xlabel('Chunk')
-        ax.set_ylabel('Occurence')
+        ax.set_xlabel("Chunk")
+        ax.set_ylabel("Occurence")
         for ent in bool_arrs:
             used_chunks = AutomatedFindMinimum.calc_used_chunks(number_of_chunks, ent[0])
             ax.plot(used_chunks, color=ent[1])
@@ -443,11 +483,19 @@ class AutomatedFindMinimum:
                 print("Chunk occurence in packets:" + str(used_chunks))
         plt.grid()
         plt.xticks(rotation=45)
-        plt.savefig(title + '.png', dpi=1000)
+        plt.savefig(title + ".png", dpi=1000)
         plt.show()
 
-    def automated_optimization(self, overhead_lim, overhead_fac, err_prob_fac, chunk_min_occ=None, plot=False,
-                               plot_avg=False, prio_chunks=None):
+    def automated_optimization(
+        self,
+        overhead_lim,
+        overhead_fac,
+        err_prob_fac,
+        chunk_min_occ=None,
+        plot=False,
+        plot_avg=False,
+        prio_chunks=None,
+    ):
         """
         Calculates and adds the optimal packets to meet the limitations given. The number of new packets is calculated
         with the overhead_lim. If these new packets are not enough, the overhead_fac is the maximum overhead of the
@@ -472,7 +520,7 @@ class AutomatedFindMinimum:
         number_of_chunks = decoding_packets[0].total_number_of_chunks
         decoding_packets_bool_arrays = self.get_bool_arrays(decoding_packets)
         if plot:
-            plotting = [(decoding_packets_bool_arrays, 'firebrick')]
+            plotting = [(decoding_packets_bool_arrays, "firebrick")]
             used_chunks = self.calc_used_chunks(number_of_chunks, decoding_packets_bool_arrays)
             decoding_err_probs = self.get_chunk_err_probs(decoding_packets, number_of_chunks)
             if plot_avg:
@@ -486,12 +534,21 @@ class AutomatedFindMinimum:
             for occ in packet_dist:
                 _sum += occ
             chunk_min_occ = math.floor((_sum / len(packet_dist)) * 0.9)
-            print("-> No minimum chunk occurence set. The calculated values is " + str(
-                chunk_min_occ) + " (90% of the average occurence).")
+            print(
+                "-> No minimum chunk occurence set. The calculated values is "
+                + str(chunk_min_occ)
+                + " (90% of the average occurence)."
+            )
         no_new_packets = math.floor(number_of_chunks * overhead_lim)
-        add_packets = self.get_optimal_packets(decoding_packets, decoding_packets_bool_arrays,
-                                               number_of_chunks,
-                                               no_new_packets, err_prob_fac, chunk_min_occ, prio_chunks)
+        add_packets = self.get_optimal_packets(
+            decoding_packets,
+            decoding_packets_bool_arrays,
+            number_of_chunks,
+            no_new_packets,
+            err_prob_fac,
+            chunk_min_occ,
+            prio_chunks,
+        )
         print("-> Number of packets needed to decode: " + str(len(decoding_packets)))
         for pack in add_packets:
             decoding_packets.append(pack)
@@ -499,7 +556,7 @@ class AutomatedFindMinimum:
         # Check if any chunks are still underrepresented and use the overhead_factor to fix it if possible
         new_decoding_packets_bool_arrays = self.get_bool_arrays(decoding_packets)
         if plot:
-            plotting.append((new_decoding_packets_bool_arrays, 'orange'))
+            plotting.append((new_decoding_packets_bool_arrays, "orange"))
             new_decoding_err_probs = self.get_chunk_err_probs(decoding_packets, number_of_chunks)
             used_chunks = self.calc_used_chunks(number_of_chunks, new_decoding_packets_bool_arrays)
             if plot_avg:
@@ -510,26 +567,41 @@ class AutomatedFindMinimum:
             print("-> Some chunks are still underrepresented. Using the overhead factor now.")
             overhead_ex = math.floor(no_new_packets * overhead_fac)
             if overhead_ex == 0:
-                print("-> The overhead factor doesn't allow additional packets. Please check your parameters.")
+                print(
+                    "-> The overhead factor doesn't allow additional packets. Please check your parameters."
+                )
             else:
-                exceeding_packets = self.get_optimal_packets(decoding_packets, new_decoding_packets_bool_arrays,
-                                                             number_of_chunks, overhead_ex, err_prob_fac, chunk_min_occ)
+                exceeding_packets = self.get_optimal_packets(
+                    decoding_packets,
+                    new_decoding_packets_bool_arrays,
+                    number_of_chunks,
+                    overhead_ex,
+                    err_prob_fac,
+                    chunk_min_occ,
+                )
                 for pack in exceeding_packets:
                     decoding_packets.append(pack)
-                print("-> Number of packets exceeding the overhead limit based on the overhead_fac: " + str(
-                    len(decoding_packets)))
+                print(
+                    "-> Number of packets exceeding the overhead limit based on the overhead_fac: "
+                    + str(len(decoding_packets))
+                )
                 exceeding_packets_bool_arrays = self.get_bool_arrays(decoding_packets)
                 if plot:
-                    plotting.append((exceeding_packets_bool_arrays, 'forestgreen'))
-                    used_chunks = self.calc_used_chunks(number_of_chunks, exceeding_packets_bool_arrays)
-                    exceeding_err_probs = self.get_chunk_err_probs(decoding_packets, number_of_chunks)
+                    plotting.append((exceeding_packets_bool_arrays, "forestgreen"))
+                    used_chunks = self.calc_used_chunks(
+                        number_of_chunks, exceeding_packets_bool_arrays
+                    )
+                    exceeding_err_probs = self.get_chunk_err_probs(
+                        decoding_packets, number_of_chunks
+                    )
                     if plot_avg:
                         self.plot_with_average(used_chunks, exceeding_err_probs, "opt_exceeding")
                     else:
                         self.plot_err_probs(used_chunks, exceeding_err_probs, "opt_exceeding")
                 if len(self.underrep_chunks) > 0:
                     print(
-                        "-> There are still underrepresented chunks, but no more packets can be added with the given limitations.")
+                        "-> There are still underrepresented chunks, but no more packets can be added with the given limitations."
+                    )
         if plot:
             self.plot_chunk_usage(plotting, number_of_chunks, "opt_all")
         print("----- Finished automated optimization -----")
@@ -542,17 +614,24 @@ class AutomatedFindMinimum:
         """
         print("----- Entered interactive optimization -----")
         overhead_lim = float(input("-> Set an overhead limit (0.1 = 10%): "))
-        overhead_fac = float(input(
-            "-> If you want to allow exceeding these limit if necessary to optimize the chunk occurence set a factor, otherwise type 0: "))
+        overhead_fac = float(
+            input(
+                "-> If you want to allow exceeding these limit if necessary to optimize the chunk occurence set a factor, otherwise type 0: "
+            )
+        )
         err_prob_fac = float(
-            input("-> How far above the average may the err_prob of the new packets be? (0.1 = 10%): "))
+            input(
+                "-> How far above the average may the err_prob of the new packets be? (0.1 = 10%): "
+            )
+        )
         chunk_min_occ = int(input("-> Chunk min occurence? (0 means 90% of the average): "))
         if chunk_min_occ == 0:
             chunk_min_occ = None
-        optimal_packets = self.automated_optimization(overhead_lim, overhead_fac, err_prob_fac, chunk_min_occ,
-                                                      plot=True)
+        optimal_packets = self.automated_optimization(
+            overhead_lim, overhead_fac, err_prob_fac, chunk_min_occ, plot=True
+        )
         repeat = input("-> Do you want to repeat the calculation with new params? (y/n): ")
-        if repeat == 'y':
+        if repeat == "y":
             optimal_packets = self.interactive_optimization()
         print("----- Exited interactive optimization -----")
         return optimal_packets

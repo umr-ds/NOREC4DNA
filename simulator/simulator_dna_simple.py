@@ -1,27 +1,28 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
+import argparse
+import math
 import os
 import time
-import math
-import bcolors
-import colorama
-import argparse
 from random import random
 
-from norec4dna.Encoder import Encoder
-from .rules.DNARules import DNARules
-from norec4dna.RU10Decoder import RU10Decoder
-from norec4dna.OnlineEncoder import OnlineEncoder
-from norec4dna.OnlineBPDecoder import OnlineBPDecoder
-from norec4dna.LTEncoder import LTEncoder
-from norec4dna.LTBPDecoder import LTBPDecoder
-from norec4dna.LTDecoder import LTDecoder
+import bcolors
+import colorama
 from norec4dna.distributions.IdealSolitonDistribution import IdealSolitonDistribution
-from norec4dna.RU10Encoder import RU10Encoder
+from norec4dna.distributions.OnlineDistribution import OnlineDistribution
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.distributions.RobustSolitonDistribution import RobustSolitonDistribution
-from norec4dna.distributions.OnlineDistribution import OnlineDistribution
+from norec4dna.Encoder import Encoder
+from norec4dna.LTBPDecoder import LTBPDecoder
+from norec4dna.LTDecoder import LTDecoder
+from norec4dna.LTEncoder import LTEncoder
+from norec4dna.OnlineBPDecoder import OnlineBPDecoder
 from norec4dna.OnlineDecoder import OnlineDecoder
+from norec4dna.OnlineEncoder import OnlineEncoder
+from norec4dna.RU10Decoder import RU10Decoder
+from norec4dna.RU10Encoder import RU10Encoder
+
+from .rules.DNARules import DNARules
 
 if os.name == "nt" and "PYCHARM_HOSTED" not in os.environ:
     colorama.init()
@@ -37,17 +38,9 @@ def blackbox(encoder, decoder, scale=1.0):
     encoded_packets = encoder.get_encoded_packets()
     dec_input = 0
     invalid_drop = 0
-    print(
-        bcolors.BOLD
-        + "[+] Created "
-        + str(len(encoded_packets))
-        + " Packets"
-        + bcolors.ENDC
-    )
+    print(bcolors.BOLD + "[+] Created " + str(len(encoded_packets)) + " Packets" + bcolors.ENDC)
     for packet in encoded_packets:
-        if isinstance(decoder, LTBPDecoder) or isinstance(
-                decoder, OnlineBPDecoder
-        ):
+        if isinstance(decoder, LTBPDecoder) or isinstance(decoder, OnlineBPDecoder):
             if not should_drop_packet(packet, scale=scale):
                 # first stage: we detect error and generate new packet (simulates encoding)
                 if decoder.input_new_packet(packet):
@@ -72,9 +65,7 @@ def blackbox(encoder, decoder, scale=1.0):
                 decoder.input_new_packet(packet)
             else:
                 invalid_drop += 1
-            if (
-                    packet.total_number_of_chunks <= dec_input - invalid_drop
-            ) and decoder.solve():
+            if (packet.total_number_of_chunks <= dec_input - invalid_drop) and decoder.solve():
                 print(
                     bcolors.OK
                     + "DNA-Simulator dropped "
@@ -97,17 +88,17 @@ def should_drop_packet(packet, add_line=True, scale=1.0):
     drop_chance = scale * drop_chance
     if add_line:
         line = (
-                algo_type[0]
-                + ","
-                + str(hex(packet.getCRC()))
-                + ","
-                + ",".join([str(round(x, 4)) for x in data])
-                + ","
-                + str(drop_chance)
-                + ","
-                + str(rand)
-                + ","
-                + str(drop_chance > rand)
+            algo_type[0]
+            + ","
+            + str(hex(packet.getCRC()))
+            + ","
+            + ",".join([str(round(x, 4)) for x in data])
+            + ","
+            + str(drop_chance)
+            + ","
+            + str(rand)
+            + ","
+            + str(drop_chance > rand)
         )
         lines.append(line)
     return drop_chance > rand
@@ -115,16 +106,12 @@ def should_drop_packet(packet, add_line=True, scale=1.0):
 
 def blackboxOnlineTest(file, number_of_chunks=800, seed=2, overhead=0.20, scale=1.0):
     start = time.time()
-    epsilon = (
-        0.024343
-    )  # pruefOrdnung: 0.007084 # according to filesize this should make a length of 200...
+    epsilon = 0.024343  # pruefOrdnung: 0.007084 # according to filesize this should make a length of 200...
     quality = 5
     dist = OnlineDistribution(epsilon, seed)
     number_of_chunks = dist.get_size()
     algo_type.clear()
-    algo_type.append(
-        "Online_" + str(number_of_chunks) + "_" + str(dist.get_config_string())
-    )
+    algo_type.append("Online_" + str(number_of_chunks) + "_" + str(dist.get_config_string()))
     print(
         bcolors.OK
         + "Starting Blackbox Test with "
@@ -160,9 +147,7 @@ def blackboxOnlineTest(file, number_of_chunks=800, seed=2, overhead=0.20, scale=
     ]
 
 
-def blackboxLTTest(
-        file, number_of_chunks=800, seed=2, chunk_size=0, overhead=0.20, scale=1.0
-):
+def blackboxLTTest(file, number_of_chunks=800, seed=2, chunk_size=0, overhead=0.20, scale=1.0):
     print(
         bcolors.OK
         + "Starting Blackbox Test with "
@@ -202,9 +187,7 @@ def blackboxLTTest(
     ]
 
 
-def blackboxLTIdealTest(
-        file, number_of_chunks=800, seed=2, chunk_size=0, overhead=0.20, scale=1.0
-):
+def blackboxLTIdealTest(file, number_of_chunks=800, seed=2, chunk_size=0, overhead=0.20, scale=1.0):
     print(
         bcolors.OK
         + "Starting Blackbox Test with "
@@ -244,9 +227,7 @@ def blackboxLTIdealTest(
     ]
 
 
-def blackboxRU10Test(
-        file, number_of_chunks=800, seed=2, chunk_size=200, overhead=0.20, scale=1.0
-):
+def blackboxRU10Test(file, number_of_chunks=800, seed=2, chunk_size=200, overhead=0.20, scale=1.0):
     print(
         bcolors.OK
         + "Starting Blackbox Test with "
@@ -324,84 +305,97 @@ def main(file="logo.jpg", repeats=5):
 
                 try:
                     if mode == "Online":
-                        name, result, number_of_chunks, dec_input, invalid_drop, time_needed = blackboxOnlineTest(
-                            file,
-                            number_of_chunks=number_of_chunks,
-                            seed=rnd,
-                            overhead=overhead,
-                            scale=scale,
+                        name, result, number_of_chunks, dec_input, invalid_drop, time_needed = (
+                            blackboxOnlineTest(
+                                file,
+                                number_of_chunks=number_of_chunks,
+                                seed=rnd,
+                                overhead=overhead,
+                                scale=scale,
+                            )
                         )
                     # chunk_size=chunk_size)
                     elif mode == "LT":
-                        name, result, number_of_chunks, dec_input, invalid_drop, time_needed = blackboxLTTest(
-                            file,
-                            number_of_chunks=number_of_chunks,
-                            seed=rnd,
-                            chunk_size=chunk_size,
-                            overhead=overhead,
-                            scale=scale,
+                        name, result, number_of_chunks, dec_input, invalid_drop, time_needed = (
+                            blackboxLTTest(
+                                file,
+                                number_of_chunks=number_of_chunks,
+                                seed=rnd,
+                                chunk_size=chunk_size,
+                                overhead=overhead,
+                                scale=scale,
+                            )
                         )
                     elif mode == "LTIdeal":
-                        name, result, number_of_chunks, dec_input, invalid_drop, time_needed = blackboxLTIdealTest(
-                            file,
-                            number_of_chunks=number_of_chunks,
-                            seed=rnd,
-                            chunk_size=chunk_size,
-                            overhead=overhead,
-                            scale=scale,
+                        name, result, number_of_chunks, dec_input, invalid_drop, time_needed = (
+                            blackboxLTIdealTest(
+                                file,
+                                number_of_chunks=number_of_chunks,
+                                seed=rnd,
+                                chunk_size=chunk_size,
+                                overhead=overhead,
+                                scale=scale,
+                            )
                         )
                     else:
-                        name, result, number_of_chunks, dec_input, invalid_drop, time_needed = blackboxRU10Test(
-                            file, number_of_chunks=number_of_chunks, seed=rnd, chunk_size=chunk_size,
-                            overhead=overhead, scale=scale, )
+                        name, result, number_of_chunks, dec_input, invalid_drop, time_needed = (
+                            blackboxRU10Test(
+                                file,
+                                number_of_chunks=number_of_chunks,
+                                seed=rnd,
+                                chunk_size=chunk_size,
+                                overhead=overhead,
+                                scale=scale,
+                            )
+                        )
                     line = (
-                            str(file)
-                            + ","
-                            + str(overhead)
-                            + ","
-                            + str(name)
-                            + ","
-                            + str(number_of_chunks)
-                            + ","
-                            + str(dec_input)
-                            + ","
-                            + str(invalid_drop)
-                            + ","
-                            + str(rnd)
-                            + ","
-                            + str(result)
-                            + ","
-                            + str(time_needed)
+                        str(file)
+                        + ","
+                        + str(overhead)
+                        + ","
+                        + str(name)
+                        + ","
+                        + str(number_of_chunks)
+                        + ","
+                        + str(dec_input)
+                        + ","
+                        + str(invalid_drop)
+                        + ","
+                        + str(rnd)
+                        + ","
+                        + str(result)
+                        + ","
+                        + str(time_needed)
                     )
                 except Exception as ex:
                     line = (
-                            str(file)
-                            + ","
-                            + str(overhead)
-                            + ","
-                            + str(name)
-                            + ","
-                            + str(number_of_chunks)
-                            + ","
-                            + "ERROR"
-                            + ","
-                            + "ERROR"
-                            + ","
-                            + str(rnd)
-                            + ","
-                            + "ERROR"
-                            + ","
-                            + "ERROR"
+                        str(file)
+                        + ","
+                        + str(overhead)
+                        + ","
+                        + str(name)
+                        + ","
+                        + str(number_of_chunks)
+                        + ","
+                        + "ERROR"
+                        + ","
+                        + "ERROR"
+                        + ","
+                        + str(rnd)
+                        + ","
+                        + "ERROR"
+                        + ","
+                        + "ERROR"
                     )
                 print(line)
                 csv.append(line)
             dtimeno = (
-                    mode
-                    + "_"
-                    + str(overhead)
-                    + "_sim"
-                    + str(time.strftime("%Y-%m-%d_%H-%M", time.localtime()))
-                    + ".csv"
+                mode
+                + "_"
+                + str(overhead)
+                + "_sim"
+                + str(time.strftime("%Y-%m-%d_%H-%M", time.localtime()))
+                + ".csv"
             )
 
             with open("DNA_" + dtimeno, "w") as f:
@@ -423,9 +417,7 @@ def main(file="logo.jpg", repeats=5):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze network traffic")
-    parser.add_argument(
-        "-f", "--file", help="File to use for Simulation", required=True
-    )
+    parser.add_argument("-f", "--file", help="File to use for Simulation", required=True)
     parser.add_argument(
         "-p",
         "--profile",
@@ -458,11 +450,7 @@ if __name__ == "__main__":
         )
         with PyCallGraph(output=GraphvizOutput()):
             main(filename, repreats)
-        print(
-            bcolors.BLUE
-            + '[*] profiling Graph saved as "pycallgraph.png"'
-            + bcolors.ENDC
-        )
+        print(bcolors.BLUE + '[*] profiling Graph saved as "pycallgraph.png"' + bcolors.ENDC)
     else:
         main(filename, repreats)
 else:

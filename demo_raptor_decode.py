@@ -1,15 +1,18 @@
 #!/usr/bin/python
 import argparse
+import os
 import typing
 from configparser import SectionProxy
 
 import numpy as np
-import os
-
+from norec4dna.ErrorCorrection import get_error_correction_decode, nocode
+from norec4dna.helper import (
+    cluster_and_remove_index,
+    fasta_cluster_and_remove_index,
+    find_ceil_power_of_four,
+    merge_parts,
+)
 from norec4dna.RU10Decoder import RU10Decoder
-from norec4dna.ErrorCorrection import nocode, get_error_correction_decode
-from norec4dna.helper import find_ceil_power_of_four, cluster_and_remove_index, merge_parts, \
-    fasta_cluster_and_remove_index
 
 STATIC_NUM_CHUNKS = None  # 149
 ID_LEN_FORMAT = "I"
@@ -21,20 +24,49 @@ READ_ALL_BEFORE_DECODER = True
 
 class demo_decode:
     @staticmethod
-    def decode(file:str, error_correction:typing.Callable[[bytes], bytes]=nocode, null_is_terminator:bool=False, mode_1_bmp:bool=False,
-               number_of_chunks:typing.Optional[int]=STATIC_NUM_CHUNKS, use_header_chunk:bool=False, id_len_format:str=ID_LEN_FORMAT,
-               number_of_chunks_len_format:str=NUMBER_OF_CHUNKS_LEN_FORMAT, packet_len_format:str=PACKET_LEN_FORMAT,
-               crc_len_format:str=CRC_LEN_FORMAT, read_all:bool=READ_ALL_BEFORE_DECODER, distribution_cfg_str:str="",
-               return_decoder:bool=False, checksum_len_str:typing.Optional[str]=None, skip_solve:bool=False, failed_repeats:int=1000, xor_by_seed:bool=False,
-               id_spacing:int=0, mask_id:bool=True, store_parsed_packets:bool=False, config_map:typing.Optional[SectionProxy]=None):
+    def decode(
+        file: str,
+        error_correction: typing.Callable[[bytes], bytes] = nocode,
+        null_is_terminator: bool = False,
+        mode_1_bmp: bool = False,
+        number_of_chunks: typing.Optional[int] = STATIC_NUM_CHUNKS,
+        use_header_chunk: bool = False,
+        id_len_format: str = ID_LEN_FORMAT,
+        number_of_chunks_len_format: str = NUMBER_OF_CHUNKS_LEN_FORMAT,
+        packet_len_format: str = PACKET_LEN_FORMAT,
+        crc_len_format: str = CRC_LEN_FORMAT,
+        read_all: bool = READ_ALL_BEFORE_DECODER,
+        distribution_cfg_str: str = "",
+        return_decoder: bool = False,
+        checksum_len_str: typing.Optional[str] = None,
+        skip_solve: bool = False,
+        failed_repeats: int = 1000,
+        xor_by_seed: bool = False,
+        id_spacing: int = 0,
+        mask_id: bool = True,
+        store_parsed_packets: bool = False,
+        config_map: typing.Optional[SectionProxy] = None,
+    ) -> typing.Union[RU10Decoder, bool, bytes, str]:
         print("Pure Gauss-Mode")
-        x = RU10Decoder(file, use_headerchunk=use_header_chunk, error_correction=error_correction,
-                        static_number_of_chunks=number_of_chunks, checksum_len_str=checksum_len_str,
-                        xor_by_seed=xor_by_seed, mask_id=mask_id, id_spacing=id_spacing, config_map=config_map)
+        x = RU10Decoder(
+            file,
+            use_headerchunk=use_header_chunk,
+            error_correction=error_correction,
+            static_number_of_chunks=number_of_chunks,
+            checksum_len_str=checksum_len_str,
+            xor_by_seed=xor_by_seed,
+            mask_id=mask_id,
+            id_spacing=id_spacing,
+            config_map=config_map,
+        )
         x.read_all_before_decode = read_all
-        x.decode(id_len_format=id_len_format,
-                 number_of_chunks_len_format=number_of_chunks_len_format, packet_len_format=packet_len_format,
-                 crc_len_format=crc_len_format, store_parsed_packets=store_parsed_packets)
+        x.decode(
+            id_len_format=id_len_format,
+            number_of_chunks_len_format=number_of_chunks_len_format,
+            packet_len_format=packet_len_format,
+            crc_len_format=crc_len_format,
+            store_parsed_packets=store_parsed_packets,
+        )
         assert x.GEPP is not None, "GEPP must not be None at this point"
         x.GEPP.insert_tmp()
         tmp_A = np.copy(x.GEPP.A)
@@ -47,12 +79,17 @@ class demo_decode:
             return x
         else:
             try:
-                res = x.saveDecodedFile(null_is_terminator=null_is_terminator, print_to_output=False,
-                                        return_file_name=True, partial_decoding=True)
+                return x.saveDecodedFile(
+                    null_is_terminator=null_is_terminator,
+                    print_to_output=False,
+                    return_file_name=True,
+                    partial_decoding=True,
+                )
+
             except:  # FileNotFoundError: #ValueError
                 if x.headerChunk is not None:
                     try:
-                        file_name:str = x.headerChunk.get_file_name().decode("utf-8")
+                        file_name: str = x.headerChunk.get_file_name().decode("utf-8")
                         file_name = file_name.split("\x00")[0]
                         os.remove(file_name)
                     except:
@@ -68,8 +105,12 @@ class demo_decode:
                     x.solve(partial=True)
                     i += 1
                     try:
-                        res = x.saveDecodedFile(null_is_terminator=null_is_terminator, print_to_output=False,
-                                                return_file_name=True, partial_decoding=True)
+                        res = x.saveDecodedFile(
+                            null_is_terminator=null_is_terminator,
+                            print_to_output=False,
+                            return_file_name=True,
+                            partial_decoding=True,
+                        )
                     except ValueError:
                         if x.headerChunk is not None:
                             try:
@@ -88,31 +129,82 @@ class demo_decode:
 if __name__ == "__main__":
     try:
         parser = argparse.ArgumentParser()
-        parser.add_argument("filename", metavar="file", type=str, help="the file / folder to Decode")
-        parser.add_argument("--error_correction", metavar="error_correction", type=str, required=False,
-                            default="nocode", help="Error Correction Method to use; possible values: \
-                                                    nocode, crc, reedsolomon, dna_reedsolomon (default=nocode)")
-        parser.add_argument("--repair_symbols", metavar="repair_symbols", type=int, required=False, default=2,
-                            help="number of repair_symbols for ReedSolomon (default=2)")
+        parser.add_argument(
+            "filename", metavar="file", type=str, help="the file / folder to Decode"
+        )
+        parser.add_argument(
+            "--error_correction",
+            metavar="error_correction",
+            type=str,
+            required=False,
+            default="nocode",
+            help="Error Correction Method to use; possible values: \
+                                                    nocode, crc, reedsolomon, dna_reedsolomon (default=nocode)",
+        )
+        parser.add_argument(
+            "--repair_symbols",
+            metavar="repair_symbols",
+            type=int,
+            required=False,
+            default=2,
+            help="number of repair_symbols for ReedSolomon (default=2)",
+        )
         parser.add_argument("--as_mode_1_bmp", required=False, action="store_true")
-        parser.add_argument("--number_of_splits", metavar="number_of_splits", required=False, type=int, default=0,
-                            help="(optional) number of parts the file has bin split into")
-        parser.add_argument("--split_index_position", metavar="split_index_position", required=False, type=str,
-                            default="end", help="position of the split index. can be 'start' or 'end")
-        parser.add_argument("--split_index_length", metavar="split_index_length", required=False, type=int, default=0,
-                            help="number of bases storing the split index")
-        parser.add_argument("--last_split_smaller", required=False, action="store_true",
-                            help="If set, the number of chunks for the last split will be reduced by 1")
-        parser.add_argument("--number_of_chunks", metavar="number_of_chunks", required=False, type=int,
-                            default=STATIC_NUM_CHUNKS,
-                            help="static number of chunks (only set this if not stored in each packet)")
+        parser.add_argument(
+            "--number_of_splits",
+            metavar="number_of_splits",
+            required=False,
+            type=int,
+            default=0,
+            help="(optional) number of parts the file has bin split into",
+        )
+        parser.add_argument(
+            "--split_index_position",
+            metavar="split_index_position",
+            required=False,
+            type=str,
+            default="end",
+            help="position of the split index. can be 'start' or 'end",
+        )
+        parser.add_argument(
+            "--split_index_length",
+            metavar="split_index_length",
+            required=False,
+            type=int,
+            default=0,
+            help="number of bases storing the split index",
+        )
+        parser.add_argument(
+            "--last_split_smaller",
+            required=False,
+            action="store_true",
+            help="If set, the number of chunks for the last split will be reduced by 1",
+        )
+        parser.add_argument(
+            "--number_of_chunks",
+            metavar="number_of_chunks",
+            required=False,
+            type=int,
+            default=STATIC_NUM_CHUNKS,
+            help="static number of chunks (only set this if not stored in each packet)",
+        )
         parser.add_argument("--is_null_terminated", required=False, action="store_true")
-        parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
+        parser.add_argument(
+            "--header_crc_str", metavar="header_crc_str", required=False, type=str, default=""
+        )
         parser.add_argument("--use_header_chunk", required=False, action="store_true")
-        parser.add_argument("--failed_repeats", metavar="failed_repeats", default=1000,
-                            help="Number of permutations to try if the decoding fails", required=False, type=int)
+        parser.add_argument(
+            "--failed_repeats",
+            metavar="failed_repeats",
+            default=1000,
+            help="Number of permutations to try if the decoding fails",
+            required=False,
+            type=int,
+        )
         parser.add_argument("--xor_by_seed", required=False, action="store_true")
-        parser.add_argument("--id_spacing", metavar="id_spacing", required=False, type=int, default=0)
+        parser.add_argument(
+            "--id_spacing", metavar="id_spacing", required=False, type=int, default=0
+        )
         args = parser.parse_args()
         _file = args.filename
         _repair_symbols = args.repair_symbols
@@ -133,13 +225,17 @@ if __name__ == "__main__":
         _last_split_folder = None
         if _split_index_length != 0:
             if _file.lower().endswith("fasta"):
-                folders, _last_split_folder = fasta_cluster_and_remove_index(_split_index_position, _split_index_length,
-                                                                             _file)
+                folders, _last_split_folder = fasta_cluster_and_remove_index(
+                    _split_index_position, _split_index_length, _file
+                )
             else:
-                folders, _last_split_folder = cluster_and_remove_index(_split_index_position, _split_index_length,
-                                                                       _file)
+                folders, _last_split_folder = cluster_and_remove_index(
+                    _split_index_position, _split_index_length, _file
+                )
             if _number_of_splits > 0 and _number_of_splits != len(folders):
-                print("[WARNING] Number of Splits given by user differs from number of splits found!")
+                print(
+                    "[WARNING] Number of Splits given by user differs from number of splits found!"
+                )
         else:
             folders = [_file]
         _error_correction = get_error_correction_decode(args.error_correction, _repair_symbols)
@@ -149,11 +245,20 @@ if __name__ == "__main__":
             demo = demo_decode()
             try:
                 decoded_files.append(
-                    demo.decode(_file, error_correction=_error_correction, null_is_terminator=_is_null_terminated,
-                                mode_1_bmp=_mode_1_bmp, number_of_chunks=_number_of_chunks + (
-                            -1 if _file == _last_split_folder and _last_split_smaller else 0),
-                                use_header_chunk=_use_header_chunk, checksum_len_str=_header_crc_str,
-                                failed_repeats=_failed_repeats, xor_by_seed=_xor_by_seed, id_spacing=_id_spacing))
+                    demo.decode(
+                        _file,
+                        error_correction=_error_correction,
+                        null_is_terminator=_is_null_terminated,
+                        mode_1_bmp=_mode_1_bmp,
+                        number_of_chunks=_number_of_chunks
+                        + (-1 if _file == _last_split_folder and _last_split_smaller else 0),
+                        use_header_chunk=_use_header_chunk,
+                        checksum_len_str=_header_crc_str,
+                        failed_repeats=_failed_repeats,
+                        xor_by_seed=_xor_by_seed,
+                        id_spacing=_id_spacing,
+                    )
+                )
             except:
                 pass
         if len(folders) > 1:

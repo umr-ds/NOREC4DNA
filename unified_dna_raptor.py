@@ -1,16 +1,28 @@
 import functools
 import io
+import logging
 import struct
+from typing import List, Optional, Tuple
 
 import numpy as np
-
 from invivo_window_decoder import INPUT_FILE
-from . import Encoder, IdealSolitonDistribution, get_error_correction_encode, \
-    RaptorDistribution, RU10Encoder, RU10Decoder, get_error_correction_decode
 from norec4dna.HeaderChunk import HeaderChunk
 from norec4dna.Packet import Packet
+from numpy.typing import NDArray
+
+from . import (
+    Encoder,
+    IdealSolitonDistribution,
+    RaptorDistribution,
+    RU10Decoder,
+    RU10Encoder,
+    get_error_correction_decode,
+    get_error_correction_encode,
+)
 from .helper.quaternary2Bin import tranlate_quat_to_byte
 from .rules.FastDNARules import FastDNARules
+
+logger = logging.getLogger(__name__)
 
 # from norec4dna.RU10InactivationDecoder import RU10RFCInactivationDecoder
 
@@ -19,7 +31,9 @@ from .rules.FastDNARules import FastDNARules
 
 OVERHEAD = 0.07
 INSERT_HEADER = True
-DROP_UPPER_BOUND = 1.0  # decreasing this value will drop more packets but ensure all rules are followed
+DROP_UPPER_BOUND = (
+    1.0  # decreasing this value will drop more packets but ensure all rules are followed
+)
 NUMBER_OF_CHUNKS_IN_PACKET = False
 
 # These additions were introduced in 10.1016/j.csbj.2024.10.038 and are only implemented for the raptor-based code:
@@ -39,8 +53,8 @@ NUMBER_OF_CHUNKS = None
 CHECKSUM_LEN_STR = "I"  # file level checksum stored in the header chunk
 SEED = 2
 
-ERROR_CORRECTION = "reedsolomon" # packet level error correction
-REPAIR_SYMBOLS = 2 # number of symbols / bytes for each packet
+ERROR_CORRECTION = "reedsolomon"  # packet level error correction
+REPAIR_SYMBOLS = 2  # number of symbols / bytes for each packet
 error_correction_func = get_error_correction_encode(ERROR_CORRECTION, REPAIR_SYMBOLS)
 error_correction_func_dec = get_error_correction_decode(ERROR_CORRECTION, REPAIR_SYMBOLS)
 
@@ -48,38 +62,58 @@ DIST = RaptorDistribution  # in general this should be left unchanged
 
 DNA_RULES = FastDNARules()
 
-READ_ALL = True # reads all sequences before decoding (useful in case of high required overhead
-                # setting this to false will trigger a Gaussian elimination for each packet > n
+READ_ALL = True  # reads all sequences before decoding (useful in case of high required overhead
+# setting this to false will trigger a Gaussian elimination for each packet > n
 NULL_IS_TERMINATOR = False  # should only be set for c-string encoded text
-DECODER_NUM_CHUNK_LEN_FORMAT = ""  # should only be set if the number of chunks is stored in each packet
-SEED_LEN_FORMAT = "I"  # use "H" for smaller files / less packets to generate or "I" for larger files
+DECODER_NUM_CHUNK_LEN_FORMAT = (
+    ""  # should only be set if the number of chunks is stored in each packet
+)
+SEED_LEN_FORMAT = (
+    "I"  # use "H" for smaller files / less packets to generate or "I" for larger files
+)
 RAISE_ON_UNSOLVED = True  # if set to false, the decoder will return partial results if a full decode is not possible.
 
 
-def encode(string_file_name):
+def encode(string_file_name: str) -> Tuple[List[str], RU10Encoder]:
     global NUMBER_OF_CHUNKS
     # we operate on files, not raw bits, thus we only use the file name and load the data from disk,
     # if required we could change this...
     if NUMBER_OF_CHUNKS is None:
-        NUMBER_OF_CHUNKS = Encoder.get_number_of_chunks_for_file_with_chunk_size(string_file_name,
-                                                                                 chunk_size=CHUNK_SIZE,
-                                                                                 insert_header=INSERT_HEADER)
-    encoder = RU10Encoder(string_file_name, NUMBER_OF_CHUNKS, DIST(NUMBER_OF_CHUNKS), insert_header=INSERT_HEADER,
-                          rules=DNA_RULES, error_correction=error_correction_func,
-                          number_of_chunks_len_format=DECODER_NUM_CHUNK_LEN_FORMAT, id_len_format=SEED_LEN_FORMAT,
-                          save_number_of_chunks_in_packet=NUMBER_OF_CHUNKS_IN_PACKET, drop_upper_bound=DROP_UPPER_BOUND,
-                          checksum_len_str=CHECKSUM_LEN_STR, xor_by_seed=XOR_BY_SEED, mask_id=False,
-                          id_spacing=SEED_SPACING)
+        NUMBER_OF_CHUNKS = Encoder.get_number_of_chunks_for_file_with_chunk_size(
+            string_file_name, chunk_size=CHUNK_SIZE, insert_header=INSERT_HEADER
+        )
+    encoder = RU10Encoder(
+        string_file_name,
+        NUMBER_OF_CHUNKS,
+        DIST(NUMBER_OF_CHUNKS),
+        insert_header=INSERT_HEADER,
+        rules=DNA_RULES,
+        error_correction=error_correction_func,
+        number_of_chunks_len_format=DECODER_NUM_CHUNK_LEN_FORMAT,
+        id_len_format=SEED_LEN_FORMAT,
+        save_number_of_chunks_in_packet=NUMBER_OF_CHUNKS_IN_PACKET,
+        drop_upper_bound=DROP_UPPER_BOUND,
+        checksum_len_str=CHECKSUM_LEN_STR,
+        xor_by_seed=XOR_BY_SEED,
+        mask_id=False,
+        id_spacing=SEED_SPACING,
+    )
     encoder.set_overhead_limit(OVERHEAD)
     encoder.encode_to_packets()
     return [x.get_dna_struct(True) for x in encoder.encodedPackets], encoder
 
 
-def decode(string_file_name, list_of_dna_strings):
+def decode(string_file_name: Optional[str], list_of_dna_strings: List[str]) -> NDArray[np.uint8]:
     # make sure that the dist is freshly initialized...
-    decoder = RU10Decoder(string_file_name, error_correction=error_correction_func_dec, use_headerchunk=INSERT_HEADER,
-                          static_number_of_chunks=NUMBER_OF_CHUNKS, xor_by_seed=XOR_BY_SEED, mask_id=False,
-                          id_spacing=SEED_SPACING)
+    decoder = RU10Decoder(
+        string_file_name,
+        error_correction=error_correction_func_dec,
+        use_headerchunk=INSERT_HEADER,
+        static_number_of_chunks=NUMBER_OF_CHUNKS,
+        xor_by_seed=XOR_BY_SEED,
+        mask_id=False,
+        id_spacing=SEED_SPACING,
+    )
     """
     decoder = RU10RFCInactivationDecoder(
         string_file_name,
@@ -109,18 +143,25 @@ def decode(string_file_name, list_of_dna_strings):
             res += input_str
             dna_str = res
         # raw_packet_list.append((error_prob, seed, dna_str))
-        new_pack = decoder.parse_raw_packet(io.BytesIO(tranlate_quat_to_byte(dna_str)).read(),
-                                            crc_len_format=CHECKSUM_LEN_STR,
-                                            number_of_chunks_len_format=DECODER_NUM_CHUNK_LEN_FORMAT,
-                                            id_len_format=SEED_LEN_FORMAT)
+        new_pack = decoder.parse_raw_packet(
+            io.BytesIO(tranlate_quat_to_byte(dna_str)).read(),
+            crc_len_format=CHECKSUM_LEN_STR,
+            number_of_chunks_len_format=DECODER_NUM_CHUNK_LEN_FORMAT,
+            id_len_format=SEED_LEN_FORMAT,
+        )
         if new_pack is not None and new_pack != "CORRUPT":
             decoder.input_new_packet(new_pack)
 
     solved = decoder.solve()
     if RAISE_ON_UNSOLVED and not solved:
-        raise RuntimeError("Could not solve the system of equations. A partial recovery might be possible!")
+        raise RuntimeError(
+            "Could not solve the system of equations. A partial recovery might be possible!"
+        )
     if not solved:
-        print("Could not solve the system of equations. A partial recovery will be performed:")
+        logger.warning(
+            "Could not solve the system of equations. A partial recovery will be performed:"
+        )
+    assert decoder.GEPP is not None, "GEPP must be initialized after decoding"
 
     __byte_io = io.BytesIO()
     with __byte_io as f:
@@ -131,16 +172,19 @@ def decode(string_file_name, list_of_dna_strings):
             if INSERT_HEADER and decoder.headerChunk is None:
                 header_row = decoder.GEPP.result_mapping[0]
                 decoder.headerChunk = HeaderChunk(
-                    Packet(decoder.GEPP.b[header_row], {0}, decoder.number_of_chunks, read_only=True),
-                    checksum_len_format=CHECKSUM_LEN_STR)
+                    Packet(
+                        decoder.GEPP.b[header_row], {0}, decoder.number_of_chunks, read_only=True
+                    ),
+                    checksum_len_format=CHECKSUM_LEN_STR,
+                )
             if 0 != x or not INSERT_HEADER:
                 if decoder.number_of_chunks - 1 == x and INSERT_HEADER:
-                    output = decoder.GEPP.b[x][0][0: decoder.headerChunk.get_last_chunk_length()]
+                    output = decoder.GEPP.b[x][0][0 : decoder.headerChunk.get_last_chunk_length()]
                     f.write(output)
                 else:
                     if NULL_IS_TERMINATOR:
-                        splitter: str = decoder.GEPP.b[x].tostring().decode().split("\x00")
-                        output = splitter[0].encode()
+                        splitter = decoder.GEPP.b[x].tobytes().split(b"\x00")
+                        output = splitter[0]
                         f.write(output)
                         if len(splitter) > 1:
                             break  # since we are in null-terminator mode, we exit once we see the first 0-byte
@@ -153,7 +197,14 @@ def decode(string_file_name, list_of_dna_strings):
 
 
 if __name__ == "__main__":
-    for INPUT_FILE in ["Dorn", "sleeping_beauty", "README.md", "logo.jpg", "data_1mb.test", "data_2mb.test"]:
+    for INPUT_FILE in [
+        "Dorn",
+        "sleeping_beauty",
+        "README.md",
+        "logo.jpg",
+        "data_1mb.test",
+        "data_2mb.test",
+    ]:
         NUMBER_OF_CHUNKS = None
         res, encoder = encode(INPUT_FILE)
         try:

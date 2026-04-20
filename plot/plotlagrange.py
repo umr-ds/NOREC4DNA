@@ -1,6 +1,6 @@
 import matplotlib
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from scipy.interpolate import lagrange
 
 fig_size = plt.rcParams["figure.figsize"]
@@ -17,15 +17,18 @@ matplotlib.rc("font", **font)
 
 
 def f(x):
-    return (-(563 * pow(x, 9)) / 362880
-            + (433 * pow(x, 8)) / 5760
-            - (13421 * pow(x, 7)) / 8640
-            + (51473 * pow(x, 6)) / 2880
-            - (433411 * pow(x, 5)) / 3456
-            + (3182497 * pow(x, 4)) / 5760
-            - (8594527 * pow(x, 3)) / 5670
-            + (1187297 * pow(x, 2)) / 480
-            - (775529 * x) / 360 + 754)
+    return (
+        -(563 * pow(x, 9)) / 362880
+        + (433 * pow(x, 8)) / 5760
+        - (13421 * pow(x, 7)) / 8640
+        + (51473 * pow(x, 6)) / 2880
+        - (433411 * pow(x, 5)) / 3456
+        + (3182497 * pow(x, 4)) / 5760
+        - (8594527 * pow(x, 3)) / 5670
+        + (1187297 * pow(x, 2)) / 480
+        - (775529 * x) / 360
+        + 754
+    )
 
 
 xx = np.linspace(1.5, 9.5, 9)

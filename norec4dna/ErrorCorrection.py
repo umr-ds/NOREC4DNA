@@ -88,7 +88,9 @@ def dna_reed_solomon_decode(
 
 # Helper functions.
 def bits_to_bytes(decoded_bytes: Union[bytearray, List[int], bytes]) -> bytes:
-    decoded_bits = dec_to_bits(list(decoded_bytes) if isinstance(decoded_bytes, (bytearray, bytes)) else decoded_bytes)
+    decoded_bits = dec_to_bits(
+        list(decoded_bytes) if isinstance(decoded_bytes, (bytearray, bytes)) else decoded_bytes
+    )
     return bitarray(decoded_bits).tobytes()
 
 
@@ -113,13 +115,13 @@ def bits_to_dec(input_string: bytes) -> List[int]:
 
 def dec_to_bits(decoded_bytes: Union[List[int], bytearray, bytes]) -> str:
     translation = {0: "00", 1: "01", 2: "10", 3: "11"}
-    byte_list = list(decoded_bytes) if isinstance(decoded_bytes, (bytearray, bytes)) else decoded_bytes
+    byte_list = (
+        list(decoded_bytes) if isinstance(decoded_bytes, (bytearray, bytes)) else decoded_bytes
+    )
     return "".join([translation[bits] for bits in byte_list])
 
 
-def get_error_correction_decode(
-    e_correction: str, repair_symbols: int
-) -> Callable[[bytes], bytes]:
+def get_error_correction_decode(e_correction: str, repair_symbols: int) -> Callable[[bytes], bytes]:
     if e_correction == "nocode":
         error_correction: Callable[[bytes], bytes] = nocode
     elif e_correction == "crc":
@@ -141,9 +143,7 @@ def get_error_correction_decode(
     return error_correction
 
 
-def get_error_correction_encode(
-    e_correction: str, repair_symbols: int
-) -> Callable[[bytes], bytes]:
+def get_error_correction_encode(e_correction: str, repair_symbols: int) -> Callable[[bytes], bytes]:
     if e_correction == "nocode":
         error_correction: Callable[[bytes], bytes] = nocode
     elif e_correction == "crc":

@@ -1,17 +1,19 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
 import os
-import zlib, numpy
-from random import random
+import zlib
 from functools import reduce
-from numba import jit, vectorize, cuda
+from random import random
 
-os.environ[
-    "NUMBAPRO_NVVM"
-] = r"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.1\nvvm\bin\nvvm64_32_0.dll"
-os.environ[
-    "NUMBAPRO_LIBDEVICE"
-] = r"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.1\nvvm\libdevice"
+import numpy
+from numba import cuda, jit, vectorize
+
+os.environ["NUMBAPRO_NVVM"] = (
+    r"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.1\nvvm\bin\nvvm64_32_0.dll"
+)
+os.environ["NUMBAPRO_LIBDEVICE"] = (
+    r"D:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.1\nvvm\libdevice"
+)
 
 
 @jit(nogil=True)
@@ -33,9 +35,7 @@ def xor_numpy(p1, p2=None):
         p1 = r
     if len(p1) == 1:
         return numpy.asarray(p1)
-    if (isinstance(p1, numpy.ndarray)) and (
-            (p1.dtype == numpy.uint8) or (p1.dtype == numpy.bool)
-    ):
+    if (isinstance(p1, numpy.ndarray)) and ((p1.dtype == numpy.uint8) or (p1.dtype == numpy.bool)):
         n_p1 = numpy.asarray(p1)
     else:
         if isinstance(p1, str):
@@ -130,7 +130,7 @@ def bitSet(x, b):
 def bitsSet(x):  # x is of type uint64 !
     x -= (x >> numpy.uint64(1)) & numpy.uint64(0x5555555555555555)
     x = (x & numpy.uint64(0x3333333333333333)) + (
-            (x >> numpy.uint64(2)) & numpy.uint64(0x3333333333333333)
+        (x >> numpy.uint64(2)) & numpy.uint64(0x3333333333333333)
     )
     x = (x + (x >> numpy.uint64(4))) & numpy.uint64(0x0F0F0F0F0F0F0F0F)
     res = numpy.int64((x * numpy.uint64(0x0101010101010101)) >> numpy.uint64(56))

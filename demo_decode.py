@@ -1,11 +1,14 @@
 #!/usr/bin/python
 import argparse
+import typing
 
-from norec4dna.LTDecoder import LTDecoder
-from norec4dna.ErrorCorrection import nocode, get_error_correction_decode
+from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import (
+    ErlichZielinskiRobustSolitonDistribution,
+)
 from norec4dna.distributions.IdealSolitonDistribution import IdealSolitonDistribution
 from norec4dna.distributions.RobustSolitonDistribution import RobustSolitonDistribution
-from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import ErlichZielinskiRobustSolitonDistribution
+from norec4dna.ErrorCorrection import get_error_correction_decode, nocode
+from norec4dna.LTDecoder import LTDecoder
 
 STATIC_NUM_CHUNKS = 31
 NULL_IS_TERMINATOR = False
@@ -21,16 +24,33 @@ READ_ALL_BEFORE_DECODER = True
 
 # NUMBER_OF_CHUNKS_IN_PACKET := STATIC_NUM_CHUNKS is None
 
+
 # --error_correction reedsolomon --repairsymbols 2 LT_Dorn.tar.gz (num_chunks == 69)
 # --error_correction reedsolomon --repairsymbols 2 LT_Dorn (num_chunks == 153)
 class demo_decode:
     @staticmethod
-    def decode(file, error_correction=nocode, null_is_terminator=False, mode_1_bmp=False,
-               number_of_chunks=STATIC_NUM_CHUNKS, use_header_chunk=False, id_len_format=ID_LEN_FORMAT,
-               number_of_chunks_len_format=NUMBER_OF_CHUNKS_LEN_FORMAT, packet_len_format=PACKET_LEN_FORMAT,
-               crc_len_format=CRC_LEN_FORMAT, read_all=READ_ALL_BEFORE_DECODER, distribution_cfg_str="",
-               return_decoder=False, checksum_len_str=None, skip_solve=False, xor_by_seed=False,
-               id_spacing=0, mask_id=True, store_parsed_packets=False, config_map=None):
+    def decode(
+        file,
+        error_correction=nocode,
+        null_is_terminator=False,
+        mode_1_bmp=False,
+        number_of_chunks=STATIC_NUM_CHUNKS,
+        use_header_chunk=False,
+        id_len_format=ID_LEN_FORMAT,
+        number_of_chunks_len_format=NUMBER_OF_CHUNKS_LEN_FORMAT,
+        packet_len_format=PACKET_LEN_FORMAT,
+        crc_len_format=CRC_LEN_FORMAT,
+        read_all=READ_ALL_BEFORE_DECODER,
+        distribution_cfg_str="",
+        return_decoder=False,
+        checksum_len_str=None,
+        skip_solve=False,
+        xor_by_seed=False,
+        id_spacing=0,
+        mask_id=True,
+        store_parsed_packets=False,
+        config_map=None,
+    ) -> typing.Union[LTDecoder, None]:
         dist = ErlichZielinskiRobustSolitonDistribution(number_of_chunks, seed=2)
         if distribution_cfg_str != "":
             # parse distribution_cfg_str and create distribution with the defined settings...
@@ -59,14 +79,26 @@ class demo_decode:
         except Exception as e:"""
         print("[X/2] Falling back to Gauss-Mode")
         print("Falling back to Gauss-Mode")
-        decoder = LTDecoder(file, error_correction=error_correction, use_headerchunk=use_header_chunk,
-                            static_number_of_chunks=number_of_chunks, implicit_mode=IMPLICIT_MODE, dist=dist,
-                            checksum_len_str=checksum_len_str, config_map=config_map)
+        decoder = LTDecoder(
+            file,
+            error_correction=error_correction,
+            use_headerchunk=use_header_chunk,
+            static_number_of_chunks=number_of_chunks,
+            implicit_mode=IMPLICIT_MODE,
+            dist=dist,
+            checksum_len_str=checksum_len_str,
+            config_map=config_map,
+        )
         decoder.read_all_before_decode = read_all
-        decoder.decode(number_of_chunks_len_format=number_of_chunks_len_format, seed_len_format=id_len_format,
-                       degree_len_format="H")
+        decoder.decode(
+            number_of_chunks_len_format=number_of_chunks_len_format,
+            seed_len_format=id_len_format,
+            degree_len_format="H",
+        )
         decoder.solve()
-        decoder.saveDecodedFile(null_is_terminator=null_is_terminator, print_to_output=PRINT_TO_OUTPUT)
+        decoder.saveDecodedFile(
+            null_is_terminator=null_is_terminator, print_to_output=PRINT_TO_OUTPUT
+        )
         if return_decoder:
             return decoder
 
@@ -74,14 +106,29 @@ class demo_decode:
 if __name__ == "__main__":
     try:
         parser = argparse.ArgumentParser()
-        parser.add_argument("filename", metavar="file", type=str, help="the file / folder to Decode")
-        parser.add_argument("--error_correction", metavar="error_correction", type=str, required=False,
-                            default="nocode",
-                            help="Error Correction Method to use; possible values: \
-                                nocode, crc, reedsolomon (default=nocode)")
-        parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
-        parser.add_argument("--repair_symbols", metavar="repair_symbols", type=int, required=False, default=2,
-                            help="number of repair symbols for ReedSolomon (default=2)")
+        parser.add_argument(
+            "filename", metavar="file", type=str, help="the file / folder to Decode"
+        )
+        parser.add_argument(
+            "--error_correction",
+            metavar="error_correction",
+            type=str,
+            required=False,
+            default="nocode",
+            help="Error Correction Method to use; possible values: \
+                                nocode, crc, reedsolomon (default=nocode)",
+        )
+        parser.add_argument(
+            "--header_crc_str", metavar="header_crc_str", required=False, type=str, default=""
+        )
+        parser.add_argument(
+            "--repair_symbols",
+            metavar="repair_symbols",
+            type=int,
+            required=False,
+            default=2,
+            help="number of repair symbols for ReedSolomon (default=2)",
+        )
         args = parser.parse_args()
         filename = args.filename
         e_correction_str = args.error_correction

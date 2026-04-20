@@ -1,13 +1,14 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
-from random import random
-import numpy
+import typing
 from functools import reduce
-from typing import Any, Union, TYPE_CHECKING
+from random import random
+from typing import TYPE_CHECKING, Any, Union
 
-from numpy.typing import NDArray, ArrayLike
+import numpy
 from crccheck.crc import Crc8Lte as crc8
-from crccheck.crc import Crc32, Crc16, Crc64
+from crccheck.crc import Crc16, Crc32, Crc64
+from numpy.typing import ArrayLike, NDArray
 
 try:
     from cdnarules import xorArray as xor_numpy_internal
@@ -18,11 +19,14 @@ if TYPE_CHECKING:
     from .Packet import Packet
 
 
-def xor_numpy(p1: Union[bytes, bytearray, NDArray], p2: Union[bytes, bytearray, NDArray]) -> NDArray:
+def xor_numpy(
+    p1: Union[bytes, bytearray, NDArray[numpy.uint8]],
+    p2: Union[bytes, bytearray, NDArray[numpy.uint8]],
+) -> NDArray[numpy.uint8]:
     if (isinstance(p2, numpy.ndarray) and isinstance(p1, numpy.ndarray)) and (
-            (p1.dtype == numpy.uint8 and p2.dtype == numpy.uint8)
-            or (p1.dtype == numpy.int64 and p2.dtype == numpy.int64)
-            or (p1.dtype == bool and p2.dtype == bool)
+        (p1.dtype == numpy.uint8 and p2.dtype == numpy.uint8)
+        or (p1.dtype == numpy.int64 and p2.dtype == numpy.int64)
+        or (p1.dtype == bool and p2.dtype == bool)
     ):
         n_p1 = p1
         n_p2 = p2
@@ -36,8 +40,8 @@ def listXOR(plist: list) -> Any:
     return reduce(xor_numpy, plist)
 
 
-def logical_xor(plist: list) -> Any:
-    return reduce(numpy.logical_xor, plist)
+def logical_xor(plist: typing.List[typing.List[bool]]) -> NDArray[numpy.bool_]:
+    return numpy.logical_xor.reduce(plist)
 
 
 def xor_pakets(packet1: str, packet2: str) -> list:
@@ -46,7 +50,9 @@ def xor_pakets(packet1: str, packet2: str) -> list:
     return a
 
 
-def should_drop_packet(rules: Any, packet: 'Packet', upper_bound: float = 1.0, limit_only: bool = True) -> bool:
+def should_drop_packet(
+    rules: Any, packet: "Packet", upper_bound: float = 1.0, limit_only: bool = True
+) -> bool:
     rand = upper_bound * random()  # create number from [0, upper_bound)
     drop_chance = rules.apply_all_rules(packet)
     if type(drop_chance) == list:
@@ -70,12 +76,15 @@ def calc_crc(data: bytes, crc_len_format: str = "B") -> int:
         raise ValueError("Unknown crc_len_format: " + str(crc_len_format))
 
 
+T = typing.TypeVar("T", int, bytes, typing.Literal[12])
+
+
 def xor_mask(
-    data: Union[int, bytes, ArrayLike],
+    data: T,
     len_format: str = "I",
     mask: int = 0b11111001110000110110111110011100,
-    enabled: bool = True
-) -> Union[int, bytes, NDArray, ArrayLike]:
+    enabled: bool = True,
+) -> T:
     if not enabled:
         return data
     if len_format == "B":
@@ -95,6 +104,7 @@ try:
 
     def bitSet(x: int, b: int) -> bool:
         return bitSet_c(int(x), int(b))
+
 except ImportError:
     print("BitSet - C Module failed to load, falling back to slow mode")
     from .fallback_code import bitSet
@@ -104,6 +114,7 @@ try:
 
     def bitsSet(x: numpy.uint64) -> int:
         return bitsSet_c(int(x))
+
 except ImportError:
     print("BitsSet - C Module failed to load, falling back to slow mode")
     from .fallback_code import bitsSet
@@ -113,6 +124,7 @@ try:
 
     def grayCode(x: int) -> numpy.uint64:
         return numpy.uint64(grayCode_c(int(x)))
+
 except ImportError:
     print("Gray-Code - C Module failed to load, falling back to slow mode")
     from .fallback_code import grayCode

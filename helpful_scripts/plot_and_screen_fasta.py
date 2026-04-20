@@ -1,13 +1,11 @@
 import galois
 import matplotlib
 import matplotlib.pyplot as plt
-from norec4dna.rules.FastDNARules import FastDNARules
-
-from numpy import zeros
 import numpy as np
 import pandas as pd
 import seaborn as sns
-
+from norec4dna.rules.FastDNARules import FastDNARules
+from numpy import zeros
 from plot.plot_error_prob_all import plot_error_prob_for_all
 
 matplotlib.rcParams["figure.dpi"] = 800
@@ -132,6 +130,7 @@ def screen(truth, to_check):
 def matching(wrongs, gt):
     res = []
     import difflib
+
     for wrong in wrongs:
         match = difflib.get_close_matches(wrong, gt)
         res.append((wrong, match))
@@ -147,15 +146,15 @@ def find_dup_ids(inf):
         for line in lines[1::2]:
             _id = line[:8]
             if _id in known_ids:
-                #print(f"Id %s already exists: " % _id)
-                #print(line)
-                #print(ids_to_seq[_id])
+                # print(f"Id %s already exists: " % _id)
+                # print(line)
+                # print(ids_to_seq[_id])
                 dup_ids.add(_id)
             else:
                 known_ids.add(_id)
                 ids_to_seq[_id] = line
     # u_ids = known_ids - dup_ids
-    #for _id in dup_ids:
+    # for _id in dup_ids:
     #    del ids_to_seq[_id]
     print(len(dup_ids))
     return ids_to_seq.values()
@@ -167,7 +166,7 @@ if __name__ == "__main__":
     fix_("DR2503S3_A.dereplicated.fasta", "DR2503S3_A.dereplicated_fixed.fasta")
     fix_("DR2603S4_A.dereplicated.fasta", "DR2603S4_A.dereplicated_fixed.fasta")
 
-    #find_dup_ids("DR1803S1_A.dereplicated_fixed.fasta")
+    # find_dup_ids("DR1803S1_A.dereplicated_fixed.fasta")
 
     wrong, correct = screen("RU10_output_102k.fasta", "DR1803S1_A.dereplicated_fixed.fasta")
     with open("test.fasta", "w") as out_f:

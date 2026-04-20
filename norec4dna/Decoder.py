@@ -1,9 +1,11 @@
 import typing
+from abc import ABC, abstractmethod
 from typing import Any, List, Optional
 
 import progressbar
+
 from .Packet import Packet
-from abc import ABC, abstractmethod
+
 
 class Decoder(ABC):
     def __init__(self, file: Optional[str] = None):
@@ -53,7 +55,7 @@ class Decoder(ABC):
             pseudo.number_of_chunks = number_of_chunks
         pseudo.isPseudo = True
         return pseudo
-    
+
     @abstractmethod
     def input_new_packet(self, packet: Packet) -> bool:
         pass  # implemented in subclasses

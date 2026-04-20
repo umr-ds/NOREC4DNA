@@ -1,9 +1,10 @@
-import numpy
+import glob
 import os
 import struct
-import glob
 import typing
 from math import ceil, floor
+
+import numpy
 from reedsolo import RSCodec
 
 
@@ -27,7 +28,9 @@ class ReedSolomonEncoder:
             self.set_no_chunks_from_chunk_size()
         file_size: int = get_file_size(self.file)
         self.chunk_size = ceil(1.0 * file_size / self.number_of_chunks)
-        self.number_repair_symbols: int = int(floor((file_size // self.number_of_chunks) * self.overhead))
+        self.number_repair_symbols: int = int(
+            floor((file_size // self.number_of_chunks) * self.overhead)
+        )
         self.rscodec: RSCodec = RSCodec(self.number_repair_symbols)
 
     def create_chunks(self) -> typing.List[bytes]:
@@ -35,15 +38,28 @@ class ReedSolomonEncoder:
             data = f.read()
         res = []
         for i in range(0, len(data), int(self.chunk_size)):
-            encoded = self.rscodec.encode(struct.pack("<I" + str(len(data[i: i + self.chunk_size])) + "s", xor_mask(i),
-                                                      data[i: i + self.chunk_size], ))
-            res.append(struct.pack("<I" + str(len(encoded)) + "s", xor_mask(self.number_repair_symbols), encoded, ))
+            encoded = self.rscodec.encode(
+                struct.pack(
+                    "<I" + str(len(data[i : i + self.chunk_size])) + "s",
+                    xor_mask(i),
+                    data[i : i + self.chunk_size],
+                )
+            )
+            res.append(
+                struct.pack(
+                    "<I" + str(len(encoded)) + "s",
+                    xor_mask(self.number_repair_symbols),
+                    encoded,
+                )
+            )
         self.number_of_chunks = len(res)
         return res
 
     def set_no_chunks_from_chunk_size(self):
         file_size: int = get_file_size(self.file)
-        self.number_of_chunks = ceil(1.0 * file_size / self.chunk_size) + 1 if self.insert_header else 0
+        self.number_of_chunks = (
+            ceil(1.0 * file_size / self.chunk_size) + 1 if self.insert_header else 0
+        )
         print("number_of_chunks from chunk_size:" + str(self.number_of_chunks))
 
     def save_packets(self, split_to_multiple_files: bool, out_file: typing.Optional[str] = None):

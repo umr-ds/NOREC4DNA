@@ -1,6 +1,6 @@
 import matplotlib
-import pandas as pd
 import matplotlib.pyplot as plt
+import pandas as pd
 
 # Get current size
 fig_size = plt.rcParams["figure.figsize"]
@@ -31,13 +31,20 @@ def plot():
     axis_font = {"size": "14"}
     matplotlib.rc("font", **font)
 
-    df6 = pd.read_csv(name6, delimiter=",", engine="python",
-                      usecols=["Name", "Anzahl Chunks", "Sekunden", "Datei", "Art"], index_col=False, )
+    df6 = pd.read_csv(
+        name6,
+        delimiter=",",
+        engine="python",
+        usecols=["Name", "Anzahl Chunks", "Sekunden", "Datei", "Art"],
+        index_col=False,
+    )
 
     fig, axs = plt.subplots(1, 1)
     for name, group in df6.groupby(["Art"]):
         print(group.groupby(["Anzahl Chunks"]).mean().reset_index())
-        group.groupby(["Anzahl Chunks"]).mean().reset_index().plot(x="#Chunks", y="Seconds", label=name, ax=axs)
+        group.groupby(["Anzahl Chunks"]).mean().reset_index().plot(
+            x="#Chunks", y="Seconds", label=name, ax=axs
+        )
     plt.title("")
     plt.xlabel("#Chunks", **axis_font)
     plt.ylabel("Seconds", **axis_font)
@@ -47,7 +54,10 @@ def plot():
     plt.grid(True)
     plt.tight_layout()
     plt.show(block=False)
-    plt.savefig("gpu_cpu_xor/in_framework_gpu_cpu.pdf", bbox_inches="tight", )
+    plt.savefig(
+        "gpu_cpu_xor/in_framework_gpu_cpu.pdf",
+        bbox_inches="tight",
+    )
     plt.savefig("gpu_cpu_xor/in_framework_gpu_cpu.svg")
     plt.close()
 

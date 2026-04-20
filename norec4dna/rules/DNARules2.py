@@ -1,13 +1,13 @@
-import os
 import json
+import os
 import random
-import requests
 
+import requests
 from norec4dna.helper.bin2Quaternary import byte2QUATS, string2QUATS
 from norec4dna.helper.quaternary2Bin import quats_to_bytes
 
 # IMPORTANT: if you plan to use this, you should change the MESA_URL to a (local) instance of your own.
-MESA_URL = 'http://pc12291.mathematik.uni-marburg.de:5000/api/all'
+MESA_URL = "http://pc12291.mathematik.uni-marburg.de:5000/api/all"
 
 
 class DNARules2:
@@ -23,13 +23,13 @@ class DNARules2:
         """
         res_seq = []
         for seq in seq:
-            mod_seq = ''
+            mod_seq = ""
             # randint(0, x) <= y defines the chance to mutate: 1 - y/x * 100% chance to mutate
             for x in seq:
                 if random.randint(0, 1000) <= 1000:  # always True
                     mod_seq += x
                 else:
-                    mod_seq += random.choice(('A', 'T', 'G', 'C'))
+                    mod_seq += random.choice(("A", "T", "G", "C"))
             res_seq.append(mod_seq)
         return res_seq
 
@@ -58,15 +58,19 @@ class DNARules2:
             dna_data_bin_enc = b""
             for i in range(0, len(seq), 4):
                 try:
-                    dna_data_bin_enc += quats_to_bytes(seq[i:i + 4])
+                    dna_data_bin_enc += quats_to_bytes(seq[i : i + 4])
                 except:
                     pass
             dna_data_bin_dec = dna_data_bin_enc
-            dna_data_dec = ''
+            dna_data_dec = ""
             for x in dna_data_bin_dec:
                 dna_data_dec += byte2QUATS(x)
-            changes = sum([1 if dna_data_dec[x] != seq_org[x] else 0 for x in
-                           range(min(len(dna_data_dec), len(seq_org)))])
+            changes = sum(
+                [
+                    1 if dna_data_dec[x] != seq_org[x] else 0
+                    for x in range(min(len(dna_data_dec), len(seq_org)))
+                ]
+            )
             if changes < 3 - abs(len(dna_data_dec) - len(seq_org)):
                 dropchance = 10 * changes
                 for i in range(0, len(dna_data_bin_dec)):
@@ -90,13 +94,13 @@ class DNARules2:
         :param json_config: If used, the manually generated json_config
         :return: The response from the website as dictionary
         """
-        header = {'content-type': 'application/json;charset=UTF-8'}
+        header = {"content-type": "application/json;charset=UTF-8"}
         if json_config:
             payload = json_config
         else:
             payload = config
-        payload['sequence'] = seq
-        payload['asHTML'] = False
+        payload["sequence"] = seq
+        payload["asHTML"] = False
         res = requests.post(MESA_URL, data=json.dumps(payload), headers=header)
         try:
             return res.json()
@@ -120,16 +124,16 @@ class DNARules2:
                 res_all = DNARules2.get_mutated_from_web(seq=seq, json=json.dumps(json_config))
             else:
                 try:
-                    file = os.environ['dna_sim_config']
+                    file = os.environ["dna_sim_config"]
                 except:
                     print("Could not find ENV-Var 'dna_sim_config', falling back to 'mosla.json'")
-                    file = 'mosla.json'
+                    file = "mosla.json"
                 with open(file) as json_file:
                     config = json.load(json_file)
                     res_all = DNARules2.get_mutated_from_web(seq=seq, config=config)
             res_seq = []
             for seq in seq:
-                res_seq.append(res_all[seq]['res']['modified_sequence'])
+                res_seq.append(res_all[seq]["res"]["modified_sequence"])
             return res_seq
         else:
             res_seq = DNARules2.sim_mutation(seq)
@@ -137,6 +141,6 @@ class DNARules2:
 
 
 if __name__ == "__main__":
-    sequence = 'AAAACCCCGGGGTTTT'
-    print('Test with the mosla.json file for: ' + sequence)
+    sequence = "AAAACCCCGGGGTTTT"
+    print("Test with the mosla.json file for: " + sequence)
     print(DNARules2.get_mutated(sequence, True))

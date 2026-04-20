@@ -1,8 +1,9 @@
 #!/usr/bin/python
 import argparse
+import typing
 
+from norec4dna.ErrorCorrection import get_error_correction_decode, nocode
 from norec4dna.OnlineDecoder import OnlineDecoder
-from norec4dna.ErrorCorrection import nocode, get_error_correction_decode
 
 STATIC_NUM_CHUNKS = 231
 NULL_IS_TERMINATOR = True
@@ -15,19 +16,45 @@ CRC_LEN_FORMAT = "L"
 
 class demo_decode:
     @staticmethod
-    def decode(file, error_correction=nocode, null_is_terminator=NULL_IS_TERMINATOR, mode_1_bmp=False,
-               number_of_chunks=STATIC_NUM_CHUNKS, use_header_chunk=False, id_len_format=ID_LEN_FORMAT,
-               number_of_chunks_len_format=NUMBER_OF_CHUNKS_LEN_FORMAT, packet_len_format=PACKET_LEN_FORMAT,
-               crc_len_format=CRC_LEN_FORMAT, read_all=False, distribution_cfg_str="", return_decoder=False,
-               checksum_len_str=None, skip_solve=False, xor_by_seed=False, id_spacing=0, mask_id=True,
-               store_parsed_packets=False, config_map=None):
+    def decode(
+        file,
+        error_correction=nocode,
+        null_is_terminator=NULL_IS_TERMINATOR,
+        mode_1_bmp=False,
+        number_of_chunks=STATIC_NUM_CHUNKS,
+        use_header_chunk=False,
+        id_len_format=ID_LEN_FORMAT,
+        number_of_chunks_len_format=NUMBER_OF_CHUNKS_LEN_FORMAT,
+        packet_len_format=PACKET_LEN_FORMAT,
+        crc_len_format=CRC_LEN_FORMAT,
+        read_all=False,
+        distribution_cfg_str="",
+        return_decoder=False,
+        checksum_len_str=None,
+        skip_solve=False,
+        xor_by_seed=False,
+        id_spacing=0,
+        mask_id=True,
+        store_parsed_packets=False,
+        config_map=None,
+    ) -> typing.Union[OnlineDecoder, None]:
         def _internal(decoder):
-            decoder.decode(quality_len_format="B", check_block_number_len_format=id_len_format,
-                           number_of_chunks_len_format=number_of_chunks_len_format, crc_len_format=crc_len_format)
+            decoder.decode(
+                quality_len_format="B",
+                check_block_number_len_format=id_len_format,
+                number_of_chunks_len_format=number_of_chunks_len_format,
+                crc_len_format=crc_len_format,
+            )
 
-        x = OnlineDecoder(file, error_correction=error_correction, use_headerchunk=use_header_chunk,
-                          static_number_of_chunks=number_of_chunks, read_all=read_all,
-                          checksum_len_str=checksum_len_str, config_map=config_map)
+        x = OnlineDecoder(
+            file,
+            error_correction=error_correction,
+            use_headerchunk=use_header_chunk,
+            static_number_of_chunks=number_of_chunks,
+            read_all=read_all,
+            checksum_len_str=checksum_len_str,
+            config_map=config_map,
+        )
         print("[1/2] Approximation Decode")
         _internal(x)
         x.saveDecodedFile(null_is_terminator=null_is_terminator, print_to_output=PRINT_TO_OUTPUT)
@@ -41,14 +68,27 @@ if __name__ == "__main__":
         parser.add_argument(
             "filename", metavar="file", type=str, help="the file / folder to Decode"
         )
-        parser.add_argument("--error_correction", metavar="error_correction", type=str, required=False,
-                            default="nocode",
-                            help="Error Correction Method to use; possible values: \
-                                nocode, crc, reedsolomon (default=nocode)")
-        parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
+        parser.add_argument(
+            "--error_correction",
+            metavar="error_correction",
+            type=str,
+            required=False,
+            default="nocode",
+            help="Error Correction Method to use; possible values: \
+                                nocode, crc, reedsolomon (default=nocode)",
+        )
+        parser.add_argument(
+            "--header_crc_str", metavar="header_crc_str", required=False, type=str, default=""
+        )
 
-        parser.add_argument("--repair_symbols", metavar="repair_symbols", type=int, required=False, default=2,
-                            help="number of repairsymbols for ReedSolomon (default=2)")
+        parser.add_argument(
+            "--repair_symbols",
+            metavar="repair_symbols",
+            type=int,
+            required=False,
+            default=2,
+            help="number of repairsymbols for ReedSolomon (default=2)",
+        )
         args = parser.parse_args()
         _file = args.filename
         _repair_symbols = args.repair_symbols

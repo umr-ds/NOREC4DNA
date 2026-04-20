@@ -1,10 +1,10 @@
-import socket
 import multiprocessing
+import socket
 
+from multiplex_OLD import Multiplexer
 from multiplexer.MultiInterfaceBase import MultiInterfaceBase
 from norec4dna import RU10Encoder, reed_solomon_encode
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from multiplex_OLD import Multiplexer
 
 
 class MultiInterfaceFountain(MultiInterfaceBase):
@@ -42,8 +42,15 @@ class MultiInterfaceFountain(MultiInterfaceBase):
             if sending_socket is None:
                 return res
             for packet in packets:
-                print("Sending packet from %s:%s to %s:%d" % (
-                    sending_socket.getsockname()[0], sending_socket.getsockname()[1], dest, self.__port))
+                print(
+                    "Sending packet from %s:%s to %s:%d"
+                    % (
+                        sending_socket.getsockname()[0],
+                        sending_socket.getsockname()[1],
+                        dest,
+                        self.__port,
+                    )
+                )
                 res.append(sending_socket.sendto(bytearray(packet), (dest, self.__port)))
         except Exception as ex:
             print(ex)
@@ -76,9 +83,11 @@ class MultiInterfaceFountain(MultiInterfaceBase):
         elif isinstance(dest, str):
             dests = [dest] * len(interfaces)
         else:
-            assert (len(dest) == len(interfaces))
+            assert len(dest) == len(interfaces)
             dests = dest
-        sockets = [self.create_ip_socket(interface=iface, broadcast=broadcast) for iface in interfaces]
+        sockets = [
+            self.create_ip_socket(interface=iface, broadcast=broadcast) for iface in interfaces
+        ]
         p = multiprocessing.Pool(len(interfaces))
         res = p.map(self.send_packets_on_interface, [x for x in zip(packets, sockets, dests)])
         """
@@ -112,10 +121,10 @@ if __name__ == "__main__":
     m = MultiInterfaceFountain()
     ifaces = m.list_interfaces()
     clean_ifaces = m.filter_interfaces(ifaces)
-    dests = ['192.168.0.105', '192.168.0.87', '192.168.56.1']
+    dests = ["192.168.0.105", "192.168.0.87", "192.168.56.1"]
     print(clean_ifaces)
     channel_count = min(len(clean_ifaces), len(dests))
-    mltp = Multiplexer('../.INFILES/Dorn', channel_count, factor=0.9, chunk_size=chunk_size)
+    mltp = Multiplexer("../.INFILES/Dorn", channel_count, factor=0.9, chunk_size=chunk_size)
     packet_list_list = mltp.do_multiplex()
     raw_packets_list_list = [[x.get_struct(True) for x in y] for y in packet_list_list]
 

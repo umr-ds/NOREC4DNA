@@ -1,12 +1,12 @@
+import filecmp
 import os
 import shutil
-import pytest
-import filecmp
 from math import ceil
 
+import pytest
 from norec4dna.helper.bin2Quaternary import string2QUATS
 from norec4dna.helper.quaternary2Bin import quats_to_bytes
-from norec4dna.ReedSolomonSuite import get_file_size, ReedSolomonEncoder, ReedSolomonDecoder
+from norec4dna.ReedSolomonSuite import ReedSolomonDecoder, ReedSolomonEncoder, get_file_size
 
 file = "logo.jpg"
 file_dec = "RS_logo.jpg.DECODED"
@@ -31,19 +31,19 @@ def test_suite(overhead, chunksize, headerchunk, flip_bases):
             dna_data = list(dna_data)
             if dna_data:
                 for i in range(16, 16 + flip_bases):
-                    if dna_data[i] == 'A':
-                        dna_data[i] = 'T'
-                    elif dna_data[i] == 'T':
-                        dna_data[i] = 'G'
-                    elif dna_data[i] == 'G':
-                        dna_data[i] = 'C'
-                    elif dna_data[i] == 'C':
-                        dna_data[i] = 'A'
+                    if dna_data[i] == "A":
+                        dna_data[i] = "T"
+                    elif dna_data[i] == "T":
+                        dna_data[i] = "G"
+                    elif dna_data[i] == "G":
+                        dna_data[i] = "C"
+                    elif dna_data[i] == "C":
+                        dna_data[i] = "A"
                 dna_data = "".join(dna_data)
                 dna_data_temp = b""
                 for j in range(0, len(dna_data), 4):
                     try:
-                        dna_data_temp += quats_to_bytes(dna_data[j:j + 4])
+                        dna_data_temp += quats_to_bytes(dna_data[j : j + 4])
                     except:
                         pass
                 f.seek(0)

@@ -2,25 +2,34 @@ import math
 import random
 import secrets
 import struct
+
 from bitarray import bitarray
 from Cryptodome.Protocol.SecretSharing import Shamir
-
-from norec4dna.RU10Encoder import RU10Encoder
-from norec4dna.Encoder import Encoder
-from norec4dna.RU10Decoder import RU10Decoder
-from norec4dna.ErrorCorrection import nocode, reed_solomon_encode, crc32
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.helper.RU10Helper import intermediate_symbols, from_true_false_list
+from norec4dna.Encoder import Encoder
+from norec4dna.ErrorCorrection import crc32, nocode, reed_solomon_encode
+from norec4dna.helper.RU10Helper import from_true_false_list, intermediate_symbols
+from norec4dna.RU10Decoder import RU10Decoder
+from norec4dna.RU10Encoder import RU10Encoder
 
 
 class Multiplex:
-    def __init__(self, file, chunk_size, no_channel, no_secure_channel, error_correction=nocode, header=False,
-                 id_len_format='H'):
+    def __init__(
+        self,
+        file,
+        chunk_size,
+        no_channel,
+        no_secure_channel,
+        error_correction=nocode,
+        header=False,
+        id_len_format="H",
+    ):
         self.file = file
         self.chunk_size = chunk_size
         self.header = header
-        self.no_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(self.file, self.chunk_size,
-                                                                               insert_header=self.header)
+        self.no_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(
+            self.file, self.chunk_size, insert_header=self.header
+        )
         self.error_correction = error_correction
         self.id_len_format = id_len_format
         if no_channel < 3:
@@ -100,12 +109,29 @@ class Multiplex:
         channel = list()
         methods = self.get_channel_methods()
         for x in range(0, self.no_secure_channel):
-            channel.append(MultiplexChannel(self.file, methods[x][0], self.chunk_size, methods[x][1], secure=True,
-                                            id_len_format=self.id_len_format, error_correction=self.error_correction))
+            channel.append(
+                MultiplexChannel(
+                    self.file,
+                    methods[x][0],
+                    self.chunk_size,
+                    methods[x][1],
+                    secure=True,
+                    id_len_format=self.id_len_format,
+                    error_correction=self.error_correction,
+                )
+            )
         for y in range(0, self.no_public_channel):
-            channel.append(MultiplexChannel(self.file, methods[y + self.no_secure_channel][0], self.chunk_size,
-                                            methods[y + self.no_secure_channel][1], secure=False,
-                                            id_len_format=self.id_len_format, error_correction=self.error_correction))
+            channel.append(
+                MultiplexChannel(
+                    self.file,
+                    methods[y + self.no_secure_channel][0],
+                    self.chunk_size,
+                    methods[y + self.no_secure_channel][1],
+                    secure=False,
+                    id_len_format=self.id_len_format,
+                    error_correction=self.error_correction,
+                )
+            )
         return channel, methods
 
     def get_channel_methods(self):
@@ -148,9 +174,16 @@ class Multiplex:
                     break
                 else:
                     window = random.randint(0, max_window)
-        channel = MultiplexChannel(self.file, method, self.chunk_size, window=window, secure=secure,
-                                   id_len_format=self.id_len_format, error_correction=self.error_correction,
-                                   header=self.header)
+        channel = MultiplexChannel(
+            self.file,
+            method,
+            self.chunk_size,
+            window=window,
+            secure=secure,
+            id_len_format=self.id_len_format,
+            error_correction=self.error_correction,
+            header=self.header,
+        )
         self.channel.append(channel)
         self.used_methods.append((method, window))
         return True
@@ -167,8 +200,10 @@ class Multiplex:
             if chan.secure is True:
                 secure_channel += 1
         if self.channel[channel_no].secure is True and secure_channel == 1:
-            print("Channel is not deletable. The receiver would not be able to decode the file anymore if you delete "
-                  "the last secure channel.")
+            print(
+                "Channel is not deletable. The receiver would not be able to decode the file anymore if you delete "
+                "the last secure channel."
+            )
             return False
         else:
             try:
@@ -212,7 +247,7 @@ class Multiplex:
         if self.no_channel < min_shares:
             print("Please decrease the minimum since there are less channel.")
             return None
-        noc = struct.pack('I', self.no_chunks)
+        noc = struct.pack("I", self.no_chunks)
         arr = bitarray()
         arr.append(self.header)
         if self.error_correction is nocode:
@@ -236,7 +271,7 @@ class Multiplex:
         :return:
         """
         byte_str = Shamir.combine(shares)
-        no_chunks = struct.unpack('I', byte_str[:4])[0]
+        no_chunks = struct.unpack("I", byte_str[:4])[0]
         bool_byte = byte_str[4:5]
         header = bool((bool_byte[0] >> 7) & 1)
         err_cor_1 = bool((bool_byte[0] >> 6) & 1)
@@ -253,8 +288,17 @@ class Multiplex:
 
 
 class MultiplexChannel:
-    def __init__(self, file, method, chunk_size, window=0, secure=False, id_len_format='H', error_correction=nocode,
-                 header=False):
+    def __init__(
+        self,
+        file,
+        method,
+        chunk_size,
+        window=0,
+        secure=False,
+        id_len_format="H",
+        error_correction=nocode,
+        header=False,
+    ):
         self.file = file
         self.method = method
         self.window = window
@@ -272,15 +316,24 @@ class MultiplexChannel:
         Initializes the encoder to generate the packets for the channel.
         :return: Encoder instance
         """
-        no_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(self.file, self.chunk_size,
-                                                                          insert_header=self.header)
+        no_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(
+            self.file, self.chunk_size, insert_header=self.header
+        )
         dist = RaptorDistribution(no_chunks)
         rules = None
-        enc = RU10Encoder(self.file, no_chunks, dist, chunk_size=self.chunk_size, insert_header=self.header,
-                          rules=rules,
-                          error_correction=self.error_correction, id_len_format=self.id_len_format,
-                          number_of_chunks_len_format="B",
-                          save_number_of_chunks_in_packet=False, mode_1_bmp=False)
+        enc = RU10Encoder(
+            self.file,
+            no_chunks,
+            dist,
+            chunk_size=self.chunk_size,
+            insert_header=self.header,
+            rules=rules,
+            error_correction=self.error_correction,
+            id_len_format=self.id_len_format,
+            number_of_chunks_len_format="B",
+            save_number_of_chunks_in_packet=False,
+            mode_1_bmp=False,
+        )
         enc.prepare()
         return enc
 
@@ -304,15 +357,26 @@ class MultiplexChannel:
         packets = []
         discarded_packets = 0
         while len(packets) < no_packets:
-            packet = self.encoder.create_new_packet_from_chunks(method=self.method, window=self.window)
+            packet = self.encoder.create_new_packet_from_chunks(
+                method=self.method, window=self.window
+            )
             packet_chunks = from_true_false_list(self.decoder.removeAndXorAuxPackets(packet))
-            if len(packet_chunks) > 1 and self.secure or (not self.secure and len(packet_chunks) % 2 == 0):
+            if (
+                len(packet_chunks) > 1
+                and self.secure
+                or (not self.secure and len(packet_chunks) % 2 == 0)
+            ):
                 packets.append(packet)
                 self.packets.append(packet)
                 self.decoder.input_new_packet(packet)
             else:
                 discarded_packets += 1
-        print("Generated " + str(no_packets + discarded_packets) + " packets and discarded " + str(discarded_packets))
+        print(
+            "Generated "
+            + str(no_packets + discarded_packets)
+            + " packets and discarded "
+            + str(discarded_packets)
+        )
         return packets
 
     def is_decodable(self):
@@ -324,10 +388,9 @@ class MultiplexChannel:
             return self.decoder.is_decoded()
 
 
-if __name__ == '__main__':
-    file = '.INFILES/Dorn'
-    cmp_file = 'tests/cmp_dorn'
-
+if __name__ == "__main__":
+    file = ".INFILES/Dorn"
+    cmp_file = "tests/cmp_dorn"
 
     def do_test_decodable(error_correction=nocode, header=True, no_channel=5):
         mlt = Multiplex(file, 50, no_channel, 1, error_correction=error_correction, header=header)
@@ -336,6 +399,5 @@ if __name__ == '__main__':
         assert mlt.file_potentially_decodable() is True
         for ch in mlt.channel:
             assert ch.is_decodable() is False
-
 
     do_test_decodable()

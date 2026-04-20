@@ -6,6 +6,7 @@ import typing
 
 import numpy as np
 from bitstring import BitArray
+
 from .distributions.RaptorDistribution import RaptorDistribution
 from .ErrorCorrection import nocode
 from .helper import xor_mask
@@ -90,7 +91,7 @@ class RU10Packet(Packet):
         size += struct.calcsize(self.id_len_format)
         return size
 
-    def set_used_packets(self, u_packets:typing.Collection[int]):
+    def set_used_packets(self, u_packets: typing.Collection[int]):
         self.used_packets = u_packets
         tmp_lst = np.zeros(self.total_number_of_chunks, dtype=bool)
         valid_indices = np.array(u_packets)[np.array(u_packets) < self.total_number_of_chunks]
@@ -269,7 +270,7 @@ class RU10Packet(Packet):
     # copy method: create a deep copy of the packet:
     def copy(self) -> "RU10Packet":
         new_packet = RU10Packet(
-            data=self.data,
+            data=np.array(self.data, dtype=np.uint8, copy=True),
             used_packets=list(self.used_packets.copy()) if self.used_packets is not None else [],
             total_number_of_chunks=self.total_number_of_chunks,
             id=self.id,

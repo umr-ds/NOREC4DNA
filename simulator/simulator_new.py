@@ -1,27 +1,28 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
+import argparse
+import math
 import os
 import time
-import math
-import bcolors
-import colorama
-import argparse
 from random import random
 
-from norec4dna.Encoder import Encoder
-from .rules.FastDNARules import FastDNARules
-from norec4dna.RU10Decoder import RU10Decoder
-from norec4dna.OnlineEncoder import OnlineEncoder
-from norec4dna.OnlineBPDecoder import OnlineBPDecoder
-from norec4dna.LTEncoder import LTEncoder
-from norec4dna.LTBPDecoder import LTBPDecoder
-from norec4dna.LTDecoder import LTDecoder
-from norec4dna.RU10Encoder import RU10Encoder
+import bcolors
+import colorama
+from norec4dna.distributions.OnlineDistribution import OnlineDistribution
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.distributions.RobustSolitonDistribution import RobustSolitonDistribution
-from norec4dna.distributions.OnlineDistribution import OnlineDistribution
-from norec4dna.OnlineDecoder import OnlineDecoder
+from norec4dna.Encoder import Encoder
 from norec4dna.helper import should_drop_packet
+from norec4dna.LTBPDecoder import LTBPDecoder
+from norec4dna.LTDecoder import LTDecoder
+from norec4dna.LTEncoder import LTEncoder
+from norec4dna.OnlineBPDecoder import OnlineBPDecoder
+from norec4dna.OnlineDecoder import OnlineDecoder
+from norec4dna.OnlineEncoder import OnlineEncoder
+from norec4dna.RU10Decoder import RU10Decoder
+from norec4dna.RU10Encoder import RU10Encoder
+
+from .rules.FastDNARules import FastDNARules
 
 if os.name == "nt" and "PYCHARM_HOSTED" not in os.environ:
     colorama.init()
@@ -61,7 +62,7 @@ def blackbox(encoder, decoder):
                 invalid_drop += 1
             # only try to solve if we
             if (
-                    packet.total_number_of_chunks <= len(encoded_packets) - i - invalid_drop
+                packet.total_number_of_chunks <= len(encoded_packets) - i - invalid_drop
             ) and decoder.solve():
                 print(
                     bcolors.OK
@@ -77,22 +78,14 @@ def blackbox(encoder, decoder):
         decoder.solve()
 
     j = 0  # Make it terminate hard if we doubled our # of encoded Packets...
-    while (not (decoder.is_decoded() and decoder.solve())) or j >= 2 * len(
-            encoded_packets
-    ):
+    while (not (decoder.is_decoded() and decoder.solve())) or j >= 2 * len(encoded_packets):
         packet = encoder.create_and_add_new_packet()
         if not should_drop_packet(DNARules, packet):
             decoder.input_new_packet(packet)
         else:
             invalid_drop += 1
         j += 1
-    print(
-        bcolors.ITALIC
-        + "[!] Blackbox dropped "
-        + str(i)
-        + " random Packets."
-        + bcolors.ENDC
-    )
+    print(bcolors.ITALIC + "[!] Blackbox dropped " + str(i) + " random Packets." + bcolors.ENDC)
     print(
         bcolors.ITALIC
         + "[!] DNA-Simulator dropped "
@@ -150,9 +143,7 @@ def blackboxLTTest(file, number_of_chunks=800, seed=2, chunk_size=0):
     start = time.time()
     dist = RobustSolitonDistribution(S=number_of_chunks, seed=seed)
     pseudo = LTBPDecoder.pseudo_decoder(number_of_chunks)
-    encoder = LTEncoder(
-        file, number_of_chunks, dist, pseudo_decoder=pseudo, chunk_size=chunk_size
-    )
+    encoder = LTEncoder(file, number_of_chunks, dist, pseudo_decoder=pseudo, chunk_size=chunk_size)
     decoder = LTDecoder.pseudo_decoder(number_of_chunks)
 
     result, numberOfEncodedPackets, dropedCount = blackbox(encoder, decoder)
@@ -234,9 +225,7 @@ def main(file="../../main.pdf", mode="LT", repreats=5):
                     dropped_count,
                     time_needed,
                     number_of_chunks,
-                ) = blackboxOnlineTest(
-                    file, number_of_chunks=number_of_chunks, seed=rnd
-                )
+                ) = blackboxOnlineTest(file, number_of_chunks=number_of_chunks, seed=rnd)
                 # chunk_size=chunk_size)
             elif mode.lower() == "lt":
                 (
@@ -268,40 +257,40 @@ def main(file="../../main.pdf", mode="LT", repreats=5):
                 )
 
             line = (
-                    str(file)
-                    + ","
-                    + str(name)
-                    + ","
-                    + str(number_of_chunks)
-                    + ","
-                    + str(numberOfEncodedPackets)
-                    + ","
-                    + str(dropped_count)
-                    + ","
-                    + str(rnd)
-                    + ","
-                    + str(result)
-                    + ","
-                    + str(time_needed)
+                str(file)
+                + ","
+                + str(name)
+                + ","
+                + str(number_of_chunks)
+                + ","
+                + str(numberOfEncodedPackets)
+                + ","
+                + str(dropped_count)
+                + ","
+                + str(rnd)
+                + ","
+                + str(result)
+                + ","
+                + str(time_needed)
             )
         except Exception as ex:
             print("Error...", ex)
             line = (
-                    str(file)
-                    + ","
-                    + str(name)
-                    + ","
-                    + str(number_of_chunks)
-                    + ","
-                    + "ERROR"
-                    + ","
-                    + "ERROR"
-                    + ","
-                    + str(rnd)
-                    + ","
-                    + "ERROR"
-                    + ","
-                    + "ERROR"
+                str(file)
+                + ","
+                + str(name)
+                + ","
+                + str(number_of_chunks)
+                + ","
+                + "ERROR"
+                + ","
+                + "ERROR"
+                + ","
+                + str(rnd)
+                + ","
+                + "ERROR"
+                + ","
+                + "ERROR"
             )
         print(line)
         csv.append(line)
@@ -313,9 +302,7 @@ def main(file="../../main.pdf", mode="LT", repreats=5):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze network traffic")
-    parser.add_argument(
-        "-f", "--file", help="File to use for Simulation", required=True
-    )
+    parser.add_argument("-f", "--file", help="File to use for Simulation", required=True)
     parser.add_argument(
         "-p",
         "--profile",
@@ -360,11 +347,7 @@ if __name__ == "__main__":
         )
         with PyCallGraph(output=GraphvizOutput()):
             main(filename, mode, repreats)
-        print(
-            bcolors.BLUE
-            + '[*] profiling Graph saved as "pycallgraph.png"'
-            + bcolors.ENDC
-        )
+        print(bcolors.BLUE + '[*] profiling Graph saved as "pycallgraph.png"' + bcolors.ENDC)
     else:
         main(filename, mode, repreats)
 else:

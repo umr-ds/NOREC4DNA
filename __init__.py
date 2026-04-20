@@ -1,4 +1,5 @@
 """NOREC4DNA package initialization."""
+
 import os
 import sys
 

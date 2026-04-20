@@ -1,9 +1,10 @@
 import os
-import matplotlib
-import pandas as pd
 from math import floor
-from cycler import cycler
+
+import matplotlib
 import matplotlib.pyplot as plt
+import pandas as pd
+from cycler import cycler
 
 
 def custom_round(x, base=5):
@@ -20,24 +21,33 @@ def custom_round(x, base=5):
 """
 
 fname = (
-    "../../../../CSV/ALL_DNA_DOUBLE_RU10FAST/ALL_DNA_DOUBLE_RU10FAST/merge.csv"
-)  # union.csv_comb'
-df = pd.read_csv(
-    fname, delimiter=",", engine="python", index_col=False, encoding="utf-16"
+    "../../../../CSV/ALL_DNA_DOUBLE_RU10FAST/ALL_DNA_DOUBLE_RU10FAST/merge.csv"  # union.csv_comb'
 )
+df = pd.read_csv(fname, delimiter=",", engine="python", index_col=False, encoding="utf-16")
 
 days = str(floor(df["timeNeeded"].sum() / 60 / 60 / 24))
 hours = str(floor(df["timeNeeded"].sum() % (60 * 60 * 24) / 60 / 60))
 minutes = floor(df["timeNeeded"].sum() % (60 * 60 * 24) % (60 * 60) / 60)
 secs = floor(df["timeNeeded"].sum() % (60 * 60 * 24) % (60 * 60) % 60)
-df.sort_values(by=["codecName", "overhead", "number_of_chunks", "dec_input", "invalid_drop", "timeNeeded", ],
-               inplace=True, )  # , 'droprate'
+df.sort_values(
+    by=[
+        "codecName",
+        "overhead",
+        "number_of_chunks",
+        "dec_input",
+        "invalid_drop",
+        "timeNeeded",
+    ],
+    inplace=True,
+)  # , 'droprate'
 print(df["number_of_chunks"])
 df["result"] = df["result"].astype(int)
 df["codecName"] = df["codecName"].astype(str)
 df["number_of_chunks"] = df["number_of_chunks"].astype(int)
 df["overhead"] = df["overhead"].astype(float).apply(lambda x: 1.0 + x)
-df["numberOfEncodedPackets"] = (df["overhead"] * df["number_of_chunks"]).apply(lambda x: custom_round(x, base=1))
+df["numberOfEncodedPackets"] = (df["overhead"] * df["number_of_chunks"]).apply(
+    lambda x: custom_round(x, base=1)
+)
 
 if not os.path.isdir("pdfs"):
     os.makedirs("pdfs")
@@ -46,29 +56,139 @@ axis_font = {"size": "14"}
 matplotlib.rc("font", **font)
 
 ##### Nach codecName und number_of_chunks Gruppiert #####
-plt.rc("axes",
-       prop_cycle=(cycler("color", ["m", "m", "r", "r", "r", "r", "g", "g", "g", "g", "b", "b", "b", "b", "y", "y",
-                                    "y", "y", "k", "k", "k", "k", ], ) + cycler("linestyle",
-                                                                                ["-", "--", "-", "--", ":", "-.", "-",
-                                                                                 "--", ":", "-.", "-", "--", ":", "-.",
-                                                                                 "-", "--", ":", "-.", "-", "--", ":",
-                                                                                 "-.", ], )), )
+plt.rc(
+    "axes",
+    prop_cycle=(
+        cycler(
+            "color",
+            [
+                "m",
+                "m",
+                "r",
+                "r",
+                "r",
+                "r",
+                "g",
+                "g",
+                "g",
+                "g",
+                "b",
+                "b",
+                "b",
+                "b",
+                "y",
+                "y",
+                "y",
+                "y",
+                "k",
+                "k",
+                "k",
+                "k",
+            ],
+        )
+        + cycler(
+            "linestyle",
+            [
+                "-",
+                "--",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+            ],
+        )
+    ),
+)
 
 plt.rc("grid", c="0.5", ls=":", lw=1)
 
 ##### Nur nach codecName Gruppiert #####
-tmp1 = (df.groupby(["invalid_drop", "codecName"]).mean().unstack().plot(y="result", title="Success rate per drop rate"))
+tmp1 = (
+    df.groupby(["invalid_drop", "codecName"])
+    .mean()
+    .unstack()
+    .plot(y="result", title="Success rate per drop rate")
+)
 manager = plt.get_current_fig_manager()
 manager.resize(*manager.window.maxsize())
 plt.show(block=False)
 plt.close()
 
-plt.rc("axes", prop_cycle=(cycler("color",
-                                  ["m", "m", "r", "r", "r", "r", "g", "g", "g", "g", "b", "b", "b", "b", "y", "y", "y",
-                                   "y", "k", "k", "k", "k", ], ) + cycler("linestyle",
-                                                                          ["-", "--", "-", "--", ":", "-.", "-", "--",
-                                                                           ":", "-.", "-", "--", ":", "-.", "-", "--",
-                                                                           ":", "-.", "-", "--", ":", "-.", ], )), )
+plt.rc(
+    "axes",
+    prop_cycle=(
+        cycler(
+            "color",
+            [
+                "m",
+                "m",
+                "r",
+                "r",
+                "r",
+                "r",
+                "g",
+                "g",
+                "g",
+                "g",
+                "b",
+                "b",
+                "b",
+                "b",
+                "y",
+                "y",
+                "y",
+                "y",
+                "k",
+                "k",
+                "k",
+                "k",
+            ],
+        )
+        + cycler(
+            "linestyle",
+            [
+                "-",
+                "--",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+                "-",
+                "--",
+                ":",
+                "-.",
+            ],
+        )
+    ),
+)
 fig, axs = plt.subplots(1, 1)
 axs.set_xlim(-0.1, 1)
 df["overhead"] = df["overhead"].astype(float).apply(lambda x: x - 1.0, 0)
@@ -79,8 +199,13 @@ for name, group in df.groupby(["codecName"]):
     m = tmp["number_of_chunks"].mean()
     tmp1 = df2.reset_index()
     print(tmp1["result"])
-    a = tmp1.plot(x="overhead", y="result", label=name.replace("_", " ").replace("eps", r"\epsilon"), ax=axs,
-                  legend=True, )
+    a = tmp1.plot(
+        x="overhead",
+        y="result",
+        label=name.replace("_", " ").replace("eps", r"\epsilon"),
+        ax=axs,
+        legend=True,
+    )
 manager = plt.get_current_fig_manager()
 manager.resize(*manager.window.maxsize())
 plt.grid(True)

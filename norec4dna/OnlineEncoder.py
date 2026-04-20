@@ -3,38 +3,57 @@
 import argparse
 import configparser
 import datetime
+import glob
 import math
+import os
 import struct
 import time
-import numpy
-import os
-import glob
 import typing
 from math import ceil
 
+import numpy
 import numpy as np
-
-from norec4dna.distributions.Distribution import Distribution
-from norec4dna.helper import should_drop_packet, listXOR, calc_file_crc
-from norec4dna.rules.FastDNARules import FastDNARules
 from norec4dna.Decoder import Decoder
-from norec4dna.ErrorCorrection import get_error_correction_encode, nocode, get_error_correction_name
+from norec4dna.distributions.Distribution import Distribution
 from norec4dna.distributions.OnlineDistribution import OnlineDistribution
-from norec4dna.OnlinePacket import OnlinePacket
-from norec4dna.OnlineAuxPacket import OnlineAuxPacket
 from norec4dna.Encoder import Encoder
+from norec4dna.ErrorCorrection import get_error_correction_encode, get_error_correction_name, nocode
+from norec4dna.helper import calc_file_crc, listXOR, should_drop_packet
+from norec4dna.OnlineAuxPacket import OnlineAuxPacket
+from norec4dna.OnlinePacket import OnlinePacket
+from norec4dna.rules.FastDNARules import FastDNARules
 
 
 class OnlineEncoder(Encoder):
-    def __init__(self, file: str, number_of_chunks: int, distribution: Distribution, epsilon: float, quality: int,
-                 insert_header: bool = True, pseudo_decoder: typing.Optional[Decoder] = None, chunk_size: int = 0,
-                 rules=None, from_overhead: bool = True, packet_len_format: str = "I", crc_len_format: str = "L",
-                 number_of_chunks_len_format: str = "I", quality_len_format: str = "I", epsilon_len_format: str = "f",
-                 check_block_number_len_format: str = "I",
-                 error_correction: typing.Callable[[typing.Any], typing.Any] = nocode,
-                 save_number_of_chunks_in_packet=True, drop_upper_bound=1.0, checksum_len_str=None):
-        super().__init__(file, number_of_chunks, distribution, insert_header, pseudo_decoder, chunk_size)
-        assert (number_of_chunks >= distribution.get_size()), "Epsilon too small for desired number_of_chunks"
+    def __init__(
+        self,
+        file: str,
+        number_of_chunks: int,
+        distribution: Distribution,
+        epsilon: float,
+        quality: int,
+        insert_header: bool = True,
+        pseudo_decoder: typing.Optional[Decoder] = None,
+        chunk_size: int = 0,
+        rules=None,
+        from_overhead: bool = True,
+        packet_len_format: str = "I",
+        crc_len_format: str = "L",
+        number_of_chunks_len_format: str = "I",
+        quality_len_format: str = "I",
+        epsilon_len_format: str = "f",
+        check_block_number_len_format: str = "I",
+        error_correction: typing.Callable[[typing.Any], typing.Any] = nocode,
+        save_number_of_chunks_in_packet=True,
+        drop_upper_bound=1.0,
+        checksum_len_str=None,
+    ):
+        super().__init__(
+            file, number_of_chunks, distribution, insert_header, pseudo_decoder, chunk_size
+        )
+        assert (
+            number_of_chunks >= distribution.get_size()
+        ), "Epsilon too small for desired number_of_chunks"
         if checksum_len_str is None:
             checksum_len_str = ""
         self.checksum_len_str = checksum_len_str
@@ -100,8 +119,9 @@ class OnlineEncoder(Encoder):
         self.prepare()
         start = time.time()
         print("Number of Chunks: " + str(self.number_of_chunks))
-        limit = (self.number_of_chunks if self.fromOverhead else self.getEstimatedDecodeBlocksNeeded()) * (
-                1.0 + self.overhead_limit)
+        limit = (
+            self.number_of_chunks if self.fromOverhead else self.getEstimatedDecodeBlocksNeeded()
+        ) * (1.0 + self.overhead_limit)
         if self.pseudo_decoder is not None:
             while (not self.pseudo_decoder.is_decoded()) or len(self.encodedPackets) < limit:
                 # This process continues until the receiver signals that the
@@ -122,7 +142,9 @@ class OnlineEncoder(Encoder):
             self.chunks = self.create_chunks(self.chunk_size)
             # First Chunk is a Header
             self.chunks.insert(0, self.encode_header_info(self.checksum, self.checksum_len_str))
-            self.number_of_chunks += 1  # since we updated number_of_chunks during self.create_chunks...
+            self.number_of_chunks += (
+                1  # since we updated number_of_chunks during self.create_chunks...
+            )
         else:
             self.chunk_size = ceil(1.0 * file_size / self.number_of_chunks)
             self.chunks = self.create_chunks(self.chunk_size)
@@ -130,7 +152,7 @@ class OnlineEncoder(Encoder):
         self.createAuxBlocks()
 
     def createAuxBlocks(self):
-        """ Fuer jeden Chunk eine Anzahl an Aux-Bloecken auswaehlen, in welchen der jeweilige Chunk eingefuegt wird """
+        """Fuer jeden Chunk eine Anzahl an Aux-Bloecken auswaehlen, in welchen der jeweilige Chunk eingefuegt wird"""
         if self.debug:
             print("Using " + str(self.getNumberOfAuxBlocks()) + " Aux-Blocks")
         self.rng.seed(self.number_of_chunks)
@@ -146,14 +168,25 @@ class OnlineEncoder(Encoder):
         # XOR all Chunks into the corresponding AUX-Block
         for aux_number in self.auxBlockNumbers.keys():
             self.auxBlocks[aux_number] = OnlineAuxPacket(
-                listXOR([np.zeros_like(self.chunks[0])] + [self.chunks[i] for i in self.auxBlockNumbers[aux_number]]),
-                self.auxBlockNumbers[aux_number], aux_number=aux_number, )
+                listXOR(
+                    [np.zeros_like(self.chunks[0])]
+                    + [self.chunks[i] for i in self.auxBlockNumbers[aux_number]]
+                ),
+                self.auxBlockNumbers[aux_number],
+                aux_number=aux_number,
+            )
 
     def number_of_packets_encoded_already(self) -> int:
         return len(self.setOfEncodedPackets)
 
-    def save_packets(self, split_to_multiple_files: bool, out_file: typing.Optional[str] = None,
-                     save_as_dna: bool = False, clear_output: bool = True, seed_is_filename: bool = False):
+    def save_packets(
+        self,
+        split_to_multiple_files: bool,
+        out_file: typing.Optional[str] = None,
+        save_as_dna: bool = False,
+        clear_output: bool = True,
+        seed_is_filename: bool = False,
+    ):
         """
         Saves the generated packets either to multiple files or to a single one. It's possible to save the packets
         either as DNA or binary.
@@ -170,8 +203,11 @@ class OnlineEncoder(Encoder):
                 out_file = self.file + file_ending
             with open(out_file, "wb" if not save_as_dna else "w") as f:
                 for packet in self.encodedPackets:
-                    f.write(packet.get_dna_struct(split_to_multiple_files) if save_as_dna else packet.get_struct(
-                        split_to_multiple_files))
+                    f.write(
+                        packet.get_dna_struct(split_to_multiple_files)
+                        if save_as_dna
+                        else packet.get_struct(split_to_multiple_files)
+                    )
         else:
             # Folder:
             if out_file is None:
@@ -189,11 +225,19 @@ class OnlineEncoder(Encoder):
             e_prob = ""
             if not os.path.exists(out_file):
                 os.makedirs(out_file)
-            for packet in sorted(self.encodedPackets, key=lambda elem: (elem.error_prob, elem.__hash__())):
+            for packet in sorted(
+                self.encodedPackets, key=lambda elem: (elem.error_prob, elem.__hash__())
+            ):
                 if seed_is_filename:
                     i = packet.id
-                    e_prob = (str(ceil(packet.error_prob * 100)) + "_") if packet.error_prob is not None else ""
-                with open(out_file + "/" + e_prob + str(i) + file_ending, "wb" if not save_as_dna else "w") as f:
+                    e_prob = (
+                        (str(ceil(packet.error_prob * 100)) + "_")
+                        if packet.error_prob is not None
+                        else ""
+                    )
+                with open(
+                    out_file + "/" + e_prob + str(i) + file_ending, "wb" if not save_as_dna else "w"
+                ) as f:
                     f.write(
                         packet.get_dna_struct(split_to_multiple_files)
                         if save_as_dna
@@ -204,7 +248,7 @@ class OnlineEncoder(Encoder):
             print("Config: " + self.getConfigStr(out_file))
 
     def create_new_packet(self, seed=None) -> OnlinePacket:
-        """ Creates a new CheckBlock """
+        """Creates a new CheckBlock"""
         if seed is None:
             check_block_id = self.generate_new_checkblock_id()
         else:
@@ -221,14 +265,23 @@ class OnlineEncoder(Encoder):
                 # Add AUX-Block to list
                 packets.append(self.auxBlocks[i - len(self.chunks)].get_data())
         self.setOfEncodedPackets |= set(packet_numbers)
-        return OnlinePacket(listXOR(packets), self.number_of_chunks, self.quality, self.epsilon, check_block_id,
-                            packet_numbers, dist=self.distribution, read_only=False,
-                            error_correction=self.error_correction,
-                            crc_len_format=self.crc_len_format,
-                            number_of_chunks_len_format=self.number_of_chunks_len_format,
-                            quality_len_format=self.quality_len_format, epsilon_len_format=self.epsilon_len_format,
-                            check_block_number_len_format=self.check_block_number_len_format,
-                            save_number_of_chunks_in_packet=self.save_number_of_chunks_in_packet)
+        return OnlinePacket(
+            listXOR(packets),
+            self.number_of_chunks,
+            self.quality,
+            self.epsilon,
+            check_block_id,
+            packet_numbers,
+            dist=self.distribution,
+            read_only=False,
+            error_correction=self.error_correction,
+            crc_len_format=self.crc_len_format,
+            number_of_chunks_len_format=self.number_of_chunks_len_format,
+            quality_len_format=self.quality_len_format,
+            epsilon_len_format=self.epsilon_len_format,
+            check_block_number_len_format=self.check_block_number_len_format,
+            save_number_of_chunks_in_packet=self.save_number_of_chunks_in_packet,
+        )
 
     def create_and_add_new_packet(self) -> OnlinePacket:  # , error_correction=nocode
         packet = self.create_new_packet()
@@ -243,7 +296,8 @@ class OnlineEncoder(Encoder):
 
     def choose_packet_numbers(self, degree, seed) -> typing.Set[int]:
         assert degree <= len(self.chunks) + len(self.auxBlocks), (
-                str(degree) + ">" + str(len(self.chunks) + len(self.auxBlocks)))
+            str(degree) + ">" + str(len(self.chunks) + len(self.auxBlocks))
+        )
         self.rng.seed(seed)
         res = set()
         for _ in range(0, degree):
@@ -257,7 +311,7 @@ class OnlineEncoder(Encoder):
         return int(ceil(0.55 * self.quality * self.epsilon * self.number_of_chunks))
 
     def getEstimatedDecodeBlocksNeeded(self) -> int:
-        """ Optimal Lower-Bound needed for Decoding """
+        """Optimal Lower-Bound needed for Decoding"""
         return ceil((1 + self.epsilon) * (self.number_of_chunks + self.getNumberOfAuxBlocks()))
 
     def save_config_file(self, default_map=None, section_name=None):
@@ -266,36 +320,65 @@ class OnlineEncoder(Encoder):
         if section_name is None:
             section_name = self.out_file
         config = configparser.ConfigParser()
-        config[section_name] = {'algorithm': 'Online', 'error_correction': get_error_correction_name(self.error_correction),
-                                'insert_header': self.insert_header,
-                                'savenumberofchunks': self.save_number_of_chunks_in_packet,
-                                'upper_bound': self.upper_bound, 'number_of_chunks': self.number_of_chunks,
-                                'config_str': self.getConfigStr(), 'id_len_format': self.check_block_number_len_format,
-                                'number_of_chunks_len_format': self.number_of_chunks_len_format,
-                                'packet_len_format': self.packet_len_format, 'crc_len_format': self.crc_len_format,
-                                'quality_len_format': self.quality_len_format,
-                                'epsilon_len_format': self.epsilon_len_format,
-                                'master_seed': 0, 'distribution': self.distribution.get_config_string(),
-                                'rules': [rule for rule in self.rules.active_rules],
-                                'chunk_size': self.chunk_size, 'dropped_packets': self.ruleDrop,
-                                'created_packets': len(self.encodedPackets), 'checksum': self.checksum,
-                                'checksum_len_str': self.checksum_len_str}
+        config[section_name] = {
+            "algorithm": "Online",
+            "error_correction": get_error_correction_name(self.error_correction),
+            "insert_header": self.insert_header,
+            "savenumberofchunks": self.save_number_of_chunks_in_packet,
+            "upper_bound": self.upper_bound,
+            "number_of_chunks": self.number_of_chunks,
+            "config_str": self.getConfigStr(),
+            "id_len_format": self.check_block_number_len_format,
+            "number_of_chunks_len_format": self.number_of_chunks_len_format,
+            "packet_len_format": self.packet_len_format,
+            "crc_len_format": self.crc_len_format,
+            "quality_len_format": self.quality_len_format,
+            "epsilon_len_format": self.epsilon_len_format,
+            "master_seed": 0,
+            "distribution": self.distribution.get_config_string(),
+            "rules": [rule for rule in self.rules.active_rules],
+            "chunk_size": self.chunk_size,
+            "dropped_packets": self.ruleDrop,
+            "created_packets": len(self.encodedPackets),
+            "checksum": self.checksum,
+            "checksum_len_str": self.checksum_len_str,
+        }
         for key, val in default_map.items():
             config[section_name][str(key)] = str(val)
-        config_file_name = "{}_{}.ini".format(self.file,
-                                              datetime.datetime.now().ctime().replace(" ", "_").replace(":", "_"))
+        config_file_name = "{}_{}.ini".format(
+            self.file, datetime.datetime.now().ctime().replace(" ", "_").replace(":", "_")
+        )
         with open(config_file_name, "w") as config_file:
             config.write(config_file)
         return config_file_name
 
     def getConfigStr(self, out_file=""):
-        res = "USE_HEADER_CHUNK: " + str(self.insert_header) + ", NUMBER_OF_CHUNKS: " + str(self.number_of_chunks) + \
-              " NUMBER_OF_CHUNKS_LEN_FORMAT: " + self.number_of_chunks_len_format + \
-              " ID_LEN_FORMAT: " + self.check_block_number_len_format + " PACKET_LEN_FORMAT: " + self.packet_len_format + \
-              " QUALITY_LEN_FORMAT: " + self.quality_len_format + " EPSILON_LEN_FORMAT: " + self.quality_len_format + \
-              " ERROR_CORRECTION: " + get_error_correction_name(self.error_correction) + \
-              " CRC_LEN_FORMAT(Optional): " + self.crc_len_format + " FILE: " + self.file + " OUT_FILE: " + out_file + \
-              " Distribution: " + self.distribution.get_config_string()
+        res = (
+            "USE_HEADER_CHUNK: "
+            + str(self.insert_header)
+            + ", NUMBER_OF_CHUNKS: "
+            + str(self.number_of_chunks)
+            + " NUMBER_OF_CHUNKS_LEN_FORMAT: "
+            + self.number_of_chunks_len_format
+            + " ID_LEN_FORMAT: "
+            + self.check_block_number_len_format
+            + " PACKET_LEN_FORMAT: "
+            + self.packet_len_format
+            + " QUALITY_LEN_FORMAT: "
+            + self.quality_len_format
+            + " EPSILON_LEN_FORMAT: "
+            + self.quality_len_format
+            + " ERROR_CORRECTION: "
+            + get_error_correction_name(self.error_correction)
+            + " CRC_LEN_FORMAT(Optional): "
+            + self.crc_len_format
+            + " FILE: "
+            + self.file
+            + " OUT_FILE: "
+            + out_file
+            + " Distribution: "
+            + self.distribution.get_config_string()
+        )
         return res
 
 
@@ -303,8 +386,14 @@ def roundup(x) -> int:
     return int(math.ceil(x / 20.0)) * 20
 
 
-def main(file: str, error_correction: typing.Callable[[typing.Any], typing.Any], asdna: bool = True,
-         epsilon: float = 0.06, insert_header: bool = False, arg_header_crc_str=""):
+def main(
+    file: str,
+    error_correction: typing.Callable[[typing.Any], typing.Any],
+    asdna: bool = True,
+    epsilon: float = 0.06,
+    insert_header: bool = False,
+    arg_header_crc_str="",
+):
     dist = OnlineDistribution(epsilon)
     number_of_chunks = dist.get_size()
     quality = 7
@@ -313,9 +402,20 @@ def main(file: str, error_correction: typing.Callable[[typing.Any], typing.Any],
     else:
         rules = None
     encoder = OnlineEncoder(
-        file, number_of_chunks, dist, epsilon, quality, error_correction=error_correction, quality_len_format="B",
-        insert_header=insert_header, check_block_number_len_format="H", number_of_chunks_len_format="H", rules=rules,
-        save_number_of_chunks_in_packet=False, checksum_len_str=arg_header_crc_str)
+        file,
+        number_of_chunks,
+        dist,
+        epsilon,
+        quality,
+        error_correction=error_correction,
+        quality_len_format="B",
+        insert_header=insert_header,
+        check_block_number_len_format="H",
+        number_of_chunks_len_format="H",
+        rules=rules,
+        save_number_of_chunks_in_packet=False,
+        checksum_len_str=arg_header_crc_str,
+    )
     encoder.set_overhead_limit(1.70)
     encoder.encode_file(split_to_multiple_files=True, save_as_dna=asdna)
     encoder.save_packets(True, save_as_dna=asdna)
@@ -325,17 +425,43 @@ if __name__ == "__main__":
     # try:
     parser = argparse.ArgumentParser()
     parser.add_argument("filename", metavar="file", type=str, help="the file to Encode")
-    parser.add_argument("--error_correction", metavar="error_correction", required=False, type=str, default="nocode",
-                        help="Error Correction Method to use; possible values: \
-                        nocode, crc, reedsolomon (default=nocode)")
-    parser.add_argument("--repair_symbols", metavar="repair_symbols", required=False, type=int, default=2,
-                        help="number of repair symbols for ReedSolomon (default=2)")
-    parser.add_argument("--insert_header", metavar="insert_header", required=False, type=bool, default=False)
-    parser.add_argument("--as_dna", help="convert packets to dna and use dna rules", action="store_true",
-                        required=False)
-    parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
-    parser.add_argument("--epsilon", metavar="epsilon", required=False, type=float, default=0.06,
-                        help="epsilon to use for the distribution")
+    parser.add_argument(
+        "--error_correction",
+        metavar="error_correction",
+        required=False,
+        type=str,
+        default="nocode",
+        help="Error Correction Method to use; possible values: \
+                        nocode, crc, reedsolomon (default=nocode)",
+    )
+    parser.add_argument(
+        "--repair_symbols",
+        metavar="repair_symbols",
+        required=False,
+        type=int,
+        default=2,
+        help="number of repair symbols for ReedSolomon (default=2)",
+    )
+    parser.add_argument(
+        "--insert_header", metavar="insert_header", required=False, type=bool, default=False
+    )
+    parser.add_argument(
+        "--as_dna",
+        help="convert packets to dna and use dna rules",
+        action="store_true",
+        required=False,
+    )
+    parser.add_argument(
+        "--header_crc_str", metavar="header_crc_str", required=False, type=str, default=""
+    )
+    parser.add_argument(
+        "--epsilon",
+        metavar="epsilon",
+        required=False,
+        type=float,
+        default=0.06,
+        help="epsilon to use for the distribution",
+    )
     args = parser.parse_args()
     _file = args.filename
     _repair_symbols = args.repair_symbols
@@ -343,10 +469,23 @@ if __name__ == "__main__":
     _as_dna = args.as_dna
     _error_correction = get_error_correction_encode(args.error_correction, _repair_symbols)
     arg_header_crc_str = args.header_crc_str
-    if (not _insert_header and arg_header_crc_str != "") or arg_header_crc_str not in ["", "I", "H", "B"]:
-        print("Invalid config for header_crc_str: Cannot set header_crc_str if insert_header is False,\nAllowed values:"
-              "I, H, B")
+    if (not _insert_header and arg_header_crc_str != "") or arg_header_crc_str not in [
+        "",
+        "I",
+        "H",
+        "B",
+    ]:
+        print(
+            "Invalid config for header_crc_str: Cannot set header_crc_str if insert_header is False,\nAllowed values:"
+            "I, H, B"
+        )
         exit()
     print("File to encode: " + str(_file))
-    main(_file, _error_correction, _as_dna, insert_header=_insert_header, arg_header_crc_str=arg_header_crc_str)
+    main(
+        _file,
+        _error_correction,
+        _as_dna,
+        insert_header=_insert_header,
+        arg_header_crc_str=arg_header_crc_str,
+    )
     print("File encoded.")

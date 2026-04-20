@@ -1,10 +1,9 @@
 import matplotlib.pyplot as plt
-from numpy import mean
-
-from norec4dna import RU10Encoder, reed_solomon_encode, Encoder
+from norec4dna import Encoder, RU10Encoder, reed_solomon_encode
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.helper import should_drop_packet
 from norec4dna.rules.FastDNARules import FastDNARules
+from numpy import mean
 
 
 class QualityPacketGen:
@@ -68,7 +67,16 @@ if __name__ == "__main__":
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
 
     dist = RaptorDistribution(number_of_chunks)
-    x = RU10Encoder(file, number_of_chunks, dist, chunk_size=chunk_size, insert_header=insert_header, rules=rules,
-                    error_correction=error_correction, id_len_format="H", number_of_chunks_len_format="B",
-                    save_number_of_chunks_in_packet=save_number_of_chunks_in_packet)
+    x = RU10Encoder(
+        file,
+        number_of_chunks,
+        dist,
+        chunk_size=chunk_size,
+        insert_header=insert_header,
+        rules=rules,
+        error_correction=error_correction,
+        id_len_format="H",
+        number_of_chunks_len_format="B",
+        save_number_of_chunks_in_packet=save_number_of_chunks_in_packet,
+    )
     aa = QualityPacketGen(x)

@@ -1,16 +1,17 @@
 #!/usr/bin/python
-import os
-import glob
 import argparse
-import progressbar
+import glob
 import multiprocessing
+import os
 
+import progressbar
+from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.Encoder import Encoder
+from norec4dna.ErrorCorrection import get_error_correction_encode, nocode
 from norec4dna.Packet import ParallelPacket
 from norec4dna.RU10Encoder import RU10Encoder
+
 from .rules.FastDNARules import FastDNARules
-from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.ErrorCorrection import nocode, get_error_correction_encode
 
 CHUNK_SIZE = 100
 
@@ -19,20 +20,31 @@ def create_progress_bar(max_value):
     widgets = [
         progressbar.Percentage(),
         progressbar.Bar(),
-        ' Correct: ',
+        " Correct: ",
         progressbar.Counter(),
-        ', ',
-        progressbar.Variable('Corrupt'),
-        ', ',
-        progressbar.AdaptiveETA(), ' ',
-        progressbar.Timer()
+        ", ",
+        progressbar.Variable("Corrupt"),
+        ", ",
+        progressbar.AdaptiveETA(),
+        " ",
+        progressbar.Timer(),
     ]
-    return progressbar.ProgressBar(max_value=max_value, widgets=widgets, max_error=False,
-                                   redirect_stdout=True).start()
+    return progressbar.ProgressBar(
+        max_value=max_value, widgets=widgets, max_error=False, redirect_stdout=True
+    ).start()
 
 
-def encode(p_output, file, as_dna=True, error_correction=nocode, insert_header=False,
-           save_number_of_chunks_in_packet=False, overhead=6.0, clear_output=False, checksum_len_str=None):
+def encode(
+    p_output,
+    file,
+    as_dna=True,
+    error_correction=nocode,
+    insert_header=False,
+    save_number_of_chunks_in_packet=False,
+    overhead=6.0,
+    clear_output=False,
+    checksum_len_str=None,
+):
     number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, CHUNK_SIZE)
     dist = RaptorDistribution(number_of_chunks)
     dna_rules = FastDNARules()
@@ -40,9 +52,19 @@ def encode(p_output, file, as_dna=True, error_correction=nocode, insert_header=F
         rules = dna_rules
     else:
         rules = None
-    x = RU10Encoder(file, number_of_chunks, dist, chunk_size=CHUNK_SIZE, insert_header=insert_header, rules=rules,
-                    error_correction=error_correction, id_len_format="H", number_of_chunks_len_format="B",
-                    save_number_of_chunks_in_packet=save_number_of_chunks_in_packet, checksum_len_str=checksum_len_str)
+    x = RU10Encoder(
+        file,
+        number_of_chunks,
+        dist,
+        chunk_size=CHUNK_SIZE,
+        insert_header=insert_header,
+        rules=rules,
+        error_correction=error_correction,
+        id_len_format="H",
+        number_of_chunks_len_format="B",
+        save_number_of_chunks_in_packet=save_number_of_chunks_in_packet,
+        checksum_len_str=checksum_len_str,
+    )
     x.set_overhead_limit(overhead)
     x.encode_to_packets()
     p_output.send([ParallelPacket.from_packet(packet) for packet in x.encodedPackets])
@@ -61,15 +83,36 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument("filename", metavar="file", type=str, help="the file to Encode")
-    parser.add_argument("--error_correction", metavar="error_correction", required=False, type=str, default="nocode",
-                        help="Error Correction Method to use; possible values: \
-                        nocode, crc, reedsolomon (default=nocode)")
-    parser.add_argument("--repair_symbols", metavar="repair_symbols", required=False, type=int, default=2,
-                        help="number of repair symbols for ReedSolomon (default=2)")
-    parser.add_argument("--insert_header", metavar="insert_header", required=False, type=bool, default=False)
-    parser.add_argument("--header_crc_str", metavar="header_crc_str", required=False, type=str, default="")
-    parser.add_argument("--save_number_of_chunks", metavar="save_number_of_chunks", required=False, type=bool,
-                        default=False)
+    parser.add_argument(
+        "--error_correction",
+        metavar="error_correction",
+        required=False,
+        type=str,
+        default="nocode",
+        help="Error Correction Method to use; possible values: \
+                        nocode, crc, reedsolomon (default=nocode)",
+    )
+    parser.add_argument(
+        "--repair_symbols",
+        metavar="repair_symbols",
+        required=False,
+        type=int,
+        default=2,
+        help="number of repair symbols for ReedSolomon (default=2)",
+    )
+    parser.add_argument(
+        "--insert_header", metavar="insert_header", required=False, type=bool, default=False
+    )
+    parser.add_argument(
+        "--header_crc_str", metavar="header_crc_str", required=False, type=str, default=""
+    )
+    parser.add_argument(
+        "--save_number_of_chunks",
+        metavar="save_number_of_chunks",
+        required=False,
+        type=bool,
+        default=False,
+    )
     args = parser.parse_args()
     _overhead = 6.0
     _file = args.filename
@@ -100,10 +143,19 @@ if __name__ == "__main__":
     processes = []
     for core in range(cores):
         _p_output, _p_input = multiprocessing.Pipe()
-        p = Process(target=encode, args=(
-            _p_output, _file, _as_dna, _error_correction, False, False,
-            -(1.0 - (1.0 / cores)) + 1.0 * _overhead / cores,
-            False))
+        p = Process(
+            target=encode,
+            args=(
+                _p_output,
+                _file,
+                _as_dna,
+                _error_correction,
+                False,
+                False,
+                -(1.0 - (1.0 / cores)) + 1.0 * _overhead / cores,
+                False,
+            ),
+        )
         p.start()
         print("[" + str(core + 1) + "] started")
         processes.append((p, _p_input))
@@ -122,7 +174,9 @@ if __name__ == "__main__":
 
     _number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(_file, CHUNK_SIZE)
     _dist = RaptorDistribution(_number_of_chunks)
-    tmp = RU10Encoder(_file, _as_dna, distribution=_dist, chunk_size=CHUNK_SIZE, checksum_len_str=_header_crc_str)
+    tmp = RU10Encoder(
+        _file, _as_dna, distribution=_dist, chunk_size=CHUNK_SIZE, checksum_len_str=_header_crc_str
+    )
     tmp.encodedPackets = res
     tmp.save_packets(True, save_as_dna=_as_dna, clear_output=True, seed_is_filename=True)
 

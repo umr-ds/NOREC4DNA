@@ -1,24 +1,37 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
-from math import ceil
 import struct
-import numpy as np
 import typing
+from math import ceil
 
-from norec4dna.ErrorCorrection import nocode
+import numpy as np
 from norec4dna.distributions.OnlineDistribution import OnlineDistribution
-from norec4dna.Packet import Packet
+from norec4dna.ErrorCorrection import nocode
 from norec4dna.helper import xor_mask
+from norec4dna.Packet import Packet
 
 
 class OnlinePacket(Packet):
-    def __init__(self, data: bytes, total_number_of_chunks: int, quality: int, epsilon: float, check_block_number: int,
-                 used_packets: typing.Optional[typing.Union[typing.List[int], typing.Set[int]]] = None,
-                 dist: typing.Optional[OnlineDistribution] = None, read_only: bool = False,
-                 error_correction: typing.Callable[[typing.Any], typing.Any] = nocode, crc_len_format: str = "L",
-                 number_of_chunks_len_format: str = "I", quality_len_format: str = "I", epsilon_len_format: str = "f",
-                 check_block_number_len_format: str = "I", save_number_of_chunks_in_packet: bool = True, prepend="",
-                 append=""):
+    def __init__(
+        self,
+        data: bytes,
+        total_number_of_chunks: int,
+        quality: int,
+        epsilon: float,
+        check_block_number: int,
+        used_packets: typing.Optional[typing.Union[typing.List[int], typing.Set[int]]] = None,
+        dist: typing.Optional[OnlineDistribution] = None,
+        read_only: bool = False,
+        error_correction: typing.Callable[[typing.Any], typing.Any] = nocode,
+        crc_len_format: str = "L",
+        number_of_chunks_len_format: str = "I",
+        quality_len_format: str = "I",
+        epsilon_len_format: str = "f",
+        check_block_number_len_format: str = "I",
+        save_number_of_chunks_in_packet: bool = True,
+        prepend="",
+        append="",
+    ):
         self.data: bytes = data
         self.total_number_of_chunks: int = total_number_of_chunks
         self.quality: int = quality
@@ -62,25 +75,42 @@ class OnlinePacket(Packet):
 
     def prepare_and_pack(self) -> bytes:
         # Format = Highest possible Packetnumber for this file, quality settings, epsilon, and a (hopefully) unique checkBlock-Number
-        struct_format = "<" + (
-            self.number_of_chunks_len_format if self.save_number_of_chunks_in_packet else "") + self.quality_len_format + self.epsilon_len_format + self.check_block_number_len_format
+        struct_format = (
+            "<"
+            + (self.number_of_chunks_len_format if self.save_number_of_chunks_in_packet else "")
+            + self.quality_len_format
+            + self.epsilon_len_format
+            + self.check_block_number_len_format
+        )
         if self.save_number_of_chunks_in_packet:
-            return struct.pack(struct_format, xor_mask(self.total_number_of_chunks, self.number_of_chunks_len_format),
-                               xor_mask(self.quality, self.quality_len_format), self.epsilon, self.check_block_number)
+            return struct.pack(
+                struct_format,
+                xor_mask(self.total_number_of_chunks, self.number_of_chunks_len_format),
+                xor_mask(self.quality, self.quality_len_format),
+                self.epsilon,
+                self.check_block_number,
+            )
         else:
-            return struct.pack(struct_format, xor_mask(self.quality, self.quality_len_format), self.epsilon,
-                               self.check_block_number)
+            return struct.pack(
+                struct_format,
+                xor_mask(self.quality, self.quality_len_format),
+                self.epsilon,
+                self.check_block_number,
+            )
 
     def calculate_packed_data(self) -> bytes:
         # Länge des Packets + Infos + Data + crc
-        payload = struct.pack("<" + str(len(self.packedInfo)) + "s" + str(len(self.data)) + "s", self.packedInfo,
-                              bytes(self.data))
+        payload = struct.pack(
+            "<" + str(len(self.packedInfo)) + "s" + str(len(self.data)) + "s",
+            self.packedInfo,
+            bytes(self.data),
+        )
         return self.error_correction(payload)
 
     def get_data(self) -> bytes:
         return self.data
 
-    def set_used_packets(self, used_packets: typing.Union[typing.List[int],typing.Set[int]]):
+    def set_used_packets(self, used_packets: typing.Union[typing.List[int], typing.Set[int]]):
         if isinstance(used_packets, typing.List):
             used_packets = set(used_packets)
         self.used_packets = used_packets
@@ -97,10 +127,13 @@ class OnlinePacket(Packet):
         rng.seed(seed)
         res: typing.Set[int] = set()
         for _ in range(0, degree):
-            tmp:int = rng.choice(range(0, self.total_number_of_chunks + self.getNumberOfAuxBlocks()))  # +1 for HeaderChunk
+            tmp: int = rng.choice(
+                range(0, self.total_number_of_chunks + self.getNumberOfAuxBlocks())
+            )  # +1 for HeaderChunk
             while tmp in res:
                 tmp = rng.choice(
-                    range(0, self.total_number_of_chunks + self.getNumberOfAuxBlocks()))  # +1 for HeaderChunk
+                    range(0, self.total_number_of_chunks + self.getNumberOfAuxBlocks())
+                )  # +1 for HeaderChunk
             res.add(tmp)
         return res
 
@@ -113,13 +146,24 @@ class OnlinePacket(Packet):
 
     def getBoolArrayAuxPackets(self) -> typing.List[bool]:
         assert self.used_packets is not None, "used_packets must be set first!"
-        return [x in self.used_packets
-                for x in range(self.total_number_of_chunks, self.total_number_of_chunks + self.getNumberOfAuxBlocks(), )
-                ]
+        return [
+            x in self.used_packets
+            for x in range(
+                self.total_number_of_chunks,
+                self.total_number_of_chunks + self.getNumberOfAuxBlocks(),
+            )
+        ]
 
     def __str__(self) -> str:
-        return ("< used_packets: " + str(self.used_packets) + " , Data: " + str(
-            self.data) + " , Error Correction: " + str(self.error_correction) + " >")
+        return (
+            "< used_packets: "
+            + str(self.used_packets)
+            + " , Data: "
+            + str(self.data)
+            + " , Error Correction: "
+            + str(self.error_correction)
+            + " >"
+        )
 
     def __hash__(self) -> int:
         assert self.used_packets is not None, "used_packets must be set first!"

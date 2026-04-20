@@ -1,8 +1,8 @@
 # Stores methods for fallback if c-extensions are not installed.
-import warnings
-import numpy
 import typing
+import warnings
 
+import numpy
 from numpy.typing import NDArray
 
 
@@ -15,7 +15,7 @@ def bitsSet(x: numpy.uint64) -> int:  # x is of type uint64 !
         warnings.simplefilter("ignore")
         x -= (x >> numpy.uint64(1)) & numpy.uint64(0x5555555555555555)
         x = (x & numpy.uint64(0x3333333333333333)) + (
-                (x >> numpy.uint64(2)) & numpy.uint64(0x3333333333333333)
+            (x >> numpy.uint64(2)) & numpy.uint64(0x3333333333333333)
         )
         x = (x + (x >> numpy.uint64(4))) & numpy.uint64(0x0F0F0F0F0F0F0F0F)
         res = numpy.int64((x * numpy.uint64(0x0101010101010101)) >> numpy.uint64(56))
@@ -53,8 +53,8 @@ def r_region(data: str, repeat_length: int = 20) -> float:
     :return:
     """
     for i in range(len(data) - repeat_length):
-        subseq = data[i:i + repeat_length]
-        if data[i + 1:].find(subseq) >= 0:
+        subseq = data[i : i + repeat_length]
+        if data[i + 1 :].find(subseq) >= 0:
             return 1.0
     return 0.0
 
@@ -62,34 +62,40 @@ def r_region(data: str, repeat_length: int = 20) -> float:
 def small_r_region(data: str, repeat_length: int = 9) -> float:
     count = 1
     for i in range(len(data) - repeat_length):
-        subseq = data[i:i + repeat_length]
-        if data[i + 1:].find(subseq) >= 0:
+        subseq = data[i : i + repeat_length]
+        if data[i + 1 :].find(subseq) >= 0:
             count += 1
-    return 1.0 if 1.0 * count * repeat_length / len(data) > 0.44 else count * repeat_length / len(data) * 0.5
+    return (
+        1.0
+        if 1.0 * count * repeat_length / len(data) > 0.44
+        else count * repeat_length / len(data) * 0.5
+    )
 
 
-def microsatellite_python(text: typing.AnyStr, lengthToLookFor: int) -> typing.Tuple[int, typing.AnyStr]:
+def microsatellite_python(
+    text: typing.AnyStr, lengthToLookFor: int
+) -> typing.Tuple[int, typing.AnyStr]:
     i = 0
     n = len(text)
     res = 1
     res_chars = text[:lengthToLookFor]
     max_lenght = 0
     while i <= n - 2 * lengthToLookFor:
-        if text[i: i + lengthToLookFor] == text[i + lengthToLookFor: i + 2 * lengthToLookFor]:
+        if text[i : i + lengthToLookFor] == text[i + lengthToLookFor : i + 2 * lengthToLookFor]:
             res += 1  # we found one
         else:
             if max_lenght < res:
                 max_lenght = res
-                res_chars = text[i: i + lengthToLookFor]
+                res_chars = text[i : i + lengthToLookFor]
             res = 1
         i += lengthToLookFor
     if max_lenght < res:
         max_lenght = res
-        res_chars = text[i: i + lengthToLookFor]
+        res_chars = text[i : i + lengthToLookFor]
     return max_lenght, res_chars
 
 
-def longestSequenceOfChar_python(text: str, char_x:str ="*") -> typing.Tuple[str, int]:
+def longestSequenceOfChar_python(text: str, char_x: str = "*") -> typing.Tuple[str, int]:
     n = len(text)
     c = 0
     res = char_x
@@ -112,15 +118,17 @@ def strContainsSub_python(text: typing.AnyStr, sequence: typing.AnyStr) -> bool:
     return res
 
 
-def xor_numpy_internal(n_p1: NDArray, n_p2: NDArray) -> NDArray:
+def xor_numpy_internal(
+    n_p1: NDArray[numpy.uint8], n_p2: NDArray[numpy.uint8]
+) -> NDArray[numpy.uint8]:
     """
     Internal XOR function for numpy arrays.
     Fallback implementation when cdnarules is not available.
-    
+
     Args:
         n_p1: First numpy array
         n_p2: Second numpy array
-        
+
     Returns:
         XOR result of the two arrays
     """

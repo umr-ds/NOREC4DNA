@@ -1,12 +1,12 @@
-import struct
-import numpy as np
 import multiprocessing
+import struct
 from functools import partial
 
+import numpy as np
 from norec4dna import RU10Encoder, reed_solomon_encode
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.rules.FastDNARules import FastDNARules
 from norec4dna.helper import should_drop_packet
+from norec4dna.rules.FastDNARules import FastDNARules
 
 SEED_LEN_FORMAT = "H"
 NUMBER_OF_CHUNKS_LEN_FORMAT = "I"
@@ -20,10 +20,20 @@ def get_error_sum(file, number_of_chunks, chunk_size, seq_seed=None, while_count
     dist = RaptorDistribution(number_of_chunks)
     dna_rules = FastDNARules()
     error_correction = lambda x: reed_solomon_encode(x, NO_REPAIR_SYMBOLS)
-    encoder = RU10Encoder(file, number_of_chunks, dist, chunk_size=chunk_size, insert_header=INSERT_HEADER,
-                          rules=dna_rules, error_correction=error_correction, id_len_format=SEED_LEN_FORMAT,
-                          number_of_chunks_len_format=NUMBER_OF_CHUNKS_LEN_FORMAT,
-                          save_number_of_chunks_in_packet=save_number_of_chunks_in_packet, prepend="", append="")
+    encoder = RU10Encoder(
+        file,
+        number_of_chunks,
+        dist,
+        chunk_size=chunk_size,
+        insert_header=INSERT_HEADER,
+        rules=dna_rules,
+        error_correction=error_correction,
+        id_len_format=SEED_LEN_FORMAT,
+        number_of_chunks_len_format=NUMBER_OF_CHUNKS_LEN_FORMAT,
+        save_number_of_chunks_in_packet=save_number_of_chunks_in_packet,
+        prepend="",
+        append="",
+    )
     encoder.prepare()
     i = 0
     res = []
@@ -49,7 +59,9 @@ def main(file, number_of_chunks, chunk_size, spare1core=True, sequential=True, w
         stepsize = 65536 / cores
         param = [int(np.floor(i * stepsize)) for i in range(cores)]
         while_count = int(np.ceil(stepsize)) + 1
-    a = p.map(partial(get_error_sum, file, number_of_chunks, chunk_size, while_count=while_count), param)
+    a = p.map(
+        partial(get_error_sum, file, number_of_chunks, chunk_size, while_count=while_count), param
+    )
     print(a)
 
 

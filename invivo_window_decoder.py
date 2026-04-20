@@ -1,7 +1,9 @@
 import copy
 import os
 import random
+import typing
 from io import BytesIO
+from pathlib import Path
 
 from norec4dna import RU10Decoder
 from norec4dna.ErrorCorrection import get_error_correction_decode
@@ -11,15 +13,15 @@ from norec4dna.rules.FastDNARules import FastDNARules
 
 """
 This code reads a single strand of DNA and decodes it:
-- A sliding window of size _PACKET_SEQ_LENGTH_ is used check if the window is a valid packet 
+- A sliding window of size _PACKET_SEQ_LENGTH_ is used check if the window is a valid packet
   (adheres to the rules and has a valid Reed-Solomon code)
   - If the window is a valid packet it gets added to the RU10 decoder and the window is shifted by _PACKET_SEQ_LENGTH_
-  - else: the window will be moved by one base and the process will be repeated 
-- To reduce the risk of having a single wrong packet propagating to the whole result, 
-  the decoding process will be repeated after shuffling the parsed packets.  
+  - else: the window will be moved by one base and the process will be repeated
+- To reduce the risk of having a single wrong packet propagating to the whole result,
+  the decoding process will be repeated after shuffling the parsed packets.
 
 To use this script for other experiments you need to change the following variables:
-additionally you should ensure the correct ruleset and boundary is used 
+additionally you should ensure the correct ruleset and boundary is used
 """
 REED_SOLOMON_PARITY_LENGTH = 3
 _error_correction = get_error_correction_decode("reedsolomon", REED_SOLOMON_PARITY_LENGTH)
@@ -37,18 +39,22 @@ INPUT_FILE = "assembly.fasta"
 GROUND_TRUTH = ".INFILES/merged_file.fasta"
 
 
-def create_decoder():
+def create_decoder() -> RU10Decoder:
     """
     create a fresh decoder instance
     """
-    decoder = RU10Decoder(INPUT_FILE, use_headerchunk=USE_HEADER_CHUNK, error_correction=_error_correction,
-                          static_number_of_chunks=NUM_CHUNKS)
+    decoder = RU10Decoder(
+        INPUT_FILE,
+        use_headerchunk=USE_HEADER_CHUNK,
+        error_correction=_error_correction,
+        static_number_of_chunks=NUM_CHUNKS,
+    )
     decoder.number_of_chunks = NUM_CHUNKS
     decoder.read_all_before_decode = True
     return decoder
 
 
-def load_fasta_list(fasta_file):
+def load_fasta_list(fasta_file: typing.Union[Path, str]) -> typing.List[typing.Tuple[str, str]]:
     """
     Load a FASTA file and return all entries as a list of ``(header, sequence)`` tuples.
 
@@ -69,23 +75,23 @@ def load_fasta_list(fasta_file):
         >>> for header, seq in entries:
         ...     print(header, seq[:10])
     """
-    entries = []
+    entries: typing.List[typing.Tuple[str, str]] = []
     current_name = None
-    current_seq = []
-    with open(fasta_file, 'r') as f:
+    current_seq: typing.List[str] = []
+    with open(fasta_file, "r") as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
-            if line.startswith('>'):
+            if line.startswith(">"):
                 if current_name is not None:
-                    entries.append((current_name, ''.join(current_seq)))
+                    entries.append((current_name, "".join(current_seq)))
                 current_name = line.split()[0][1:]
                 current_seq = []
             else:
                 current_seq.append(line)
     if current_name is not None:
-        entries.append((current_name, ''.join(current_seq)))
+        entries.append((current_name, "".join(current_seq)))
     return entries
 
 
@@ -150,15 +156,17 @@ def window_parse_packets():
     correct_seqs = []
     for k in fasta.keys():
         while (window_start + PACKET_SEQ_LENGTH) <= len(fasta[k]):
-            line = fasta.get(k)[window_start:(window_start + PACKET_SEQ_LENGTH)]
+            line = fasta.get(k)[window_start : (window_start + PACKET_SEQ_LENGTH)]
             # ensure the packet adheres to the rules
             rule_err = RULES.apply_all_rules(line)
             if rule_err < RULES_DROP_LIMIT:
-                new_pack = decoder.parse_raw_packet(BytesIO(tranlate_quat_to_byte(line)).read(),
-                                                    crc_len_format=CRC_LEN_FORMAT,
-                                                    packet_len_format="",
-                                                    number_of_chunks_len_format="",
-                                                    id_len_format=ID_LEN_FORMAT)
+                new_pack = decoder.parse_raw_packet(
+                    BytesIO(tranlate_quat_to_byte(line)).read(),
+                    crc_len_format=CRC_LEN_FORMAT,
+                    packet_len_format="",
+                    number_of_chunks_len_format="",
+                    id_len_format=ID_LEN_FORMAT,
+                )
                 # TODO: one could convert the RS-repaired data back to dna and check if it adheres to all rules - this
                 # would be less restrictive since packets that violate constraints might still be repairable
                 if new_pack is not None and new_pack != "CORRUPT":
@@ -198,8 +206,12 @@ def main():
             # such a sanity check could be a check-sum at the ent of the file, or a check of the content
             # (e.g. only ASCII characters...) same for the filename stored in the header chunk (if available).
             if _decoder.solve(partial=True):
-                _decoder.saveDecodedFile(null_is_terminator=True, print_to_output=True,
-                                         return_file_name=True, partial_decoding=True)
+                _decoder.saveDecodedFile(
+                    null_is_terminator=True,
+                    print_to_output=True,
+                    return_file_name=True,
+                    partial_decoding=True,
+                )
                 print(f"Finished after {i} runs.")
                 return
         except Exception:
@@ -209,10 +221,10 @@ def main():
 
 def merge_files(folder):
     # write content of each file in the folder into a single file
-    with open(folder + "/merged_file.fasta", 'w') as outfile:
+    with open(folder + "/merged_file.fasta", "w") as outfile:
         for filename in os.listdir(folder):
             if filename.endswith(".txt"):
-                with open(folder + "/" + filename, 'r') as infile:
+                with open(folder + "/" + filename, "r") as infile:
                     outfile.write(f"\n>{filename}\n")
                     for line in infile:
                         outfile.write(line)
@@ -232,7 +244,7 @@ def create_match_html():
             ground_truth.remove(k)
     print("Correct sequences:", correct_seqs)
     with open("match.html", "w") as f:
-        f.write('<font color="red">' + vivo_html.replace("<br/><br/>", "<br/>") + '</font>')
+        f.write('<font color="red">' + vivo_html.replace("<br/><br/>", "<br/>") + "</font>")
     print(ground_truth)
     return "match.html"
 

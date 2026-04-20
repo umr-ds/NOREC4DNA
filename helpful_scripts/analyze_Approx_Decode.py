@@ -1,11 +1,11 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
 import time
-import numpy as np
 
+import numpy as np
+from norec4dna.distributions.RobustSolitonDistribution import RobustSolitonDistribution
 from norec4dna.LTBPDecoder import LTBPDecoder
 from norec4dna.LTEncoder import LTEncoder
-from norec4dna.distributions.RobustSolitonDistribution import RobustSolitonDistribution
 
 
 def main():

@@ -1,13 +1,16 @@
 import sys
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 
 sys.path.append("..")
-from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.distributions.RobustSolitonDistribution import RobustSolitonDistribution
+from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import (
+    ErlichZielinskiRobustSolitonDistribution,
+)
 from norec4dna.distributions.IdealSolitonDistribution import IdealSolitonDistribution
 from norec4dna.distributions.OnlineDistribution import OnlineDistribution
-from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import ErlichZielinskiRobustSolitonDistribution
+from norec4dna.distributions.RaptorDistribution import RaptorDistribution
+from norec4dna.distributions.RobustSolitonDistribution import RobustSolitonDistribution
 
 plt.rcParams["svg.fonttype"] = "none"
 
@@ -45,9 +48,13 @@ def vergleich():
         plt.tight_layout()
         plt.legend()
         plt.show(block=False)
-        plt.savefig("../plotDists/Vergleich_RobustSolitonS50_K8_delta" + str(delt) + "_" + a + ".pdf",
-                    bbox_inches="tight", )
-        plt.savefig("../plotDists/Vergleich_RobustSolitonS50_K8_delta" + str(delt) + "_" + a + ".svg")
+        plt.savefig(
+            "../plotDists/Vergleich_RobustSolitonS50_K8_delta" + str(delt) + "_" + a + ".pdf",
+            bbox_inches="tight",
+        )
+        plt.savefig(
+            "../plotDists/Vergleich_RobustSolitonS50_K8_delta" + str(delt) + "_" + a + ".svg"
+        )
         plt.close()
 
 
@@ -68,7 +75,10 @@ def main():
             plt.grid(True)
             plt.tight_layout()
             plt.show(block=False)
-            plt.savefig("../plotDists/RobustSolitonS50_K8_delta" + str(delt) + "_" + a + ".pdf", bbox_inches="tight", )
+            plt.savefig(
+                "../plotDists/RobustSolitonS50_K8_delta" + str(delt) + "_" + a + ".pdf",
+                bbox_inches="tight",
+            )
             plt.savefig("../plotDists/RobustSolitonS50_K8_delta" + str(delt) + "_" + a + ".svg")
 
             plt.close()
@@ -110,7 +120,10 @@ def onlineDist():
             plt.grid(True)
             plt.tight_layout()
             plt.show(block=False)
-            plt.savefig("../plotDists/Online_eps" + str(eps) + "_" + a + ".pdf", bbox_inches="tight", )
+            plt.savefig(
+                "../plotDists/Online_eps" + str(eps) + "_" + a + ".pdf",
+                bbox_inches="tight",
+            )
             plt.savefig("../plotDists/Online_eps" + str(eps) + "_" + a + ".svg")
             plt.close()
 
@@ -158,7 +171,9 @@ def OnlineVergleich():
 def raptorDist():
     for a in ["log", ""]:
         dist = RaptorDistribution(1)
-        erg = [dist.deg(eps) for eps in [0, 10241, 491582, 712794, 831695, 948446, 1032189, 1048576]]
+        erg = [
+            dist.deg(eps) for eps in [0, 10241, 491582, 712794, 831695, 948446, 1032189, 1048576]
+        ]
         print(erg)
         if a == "log":
             plt.semilogy([0.0] + erg)
@@ -215,9 +230,49 @@ def erlich_zielinski_robust_soliton_dist():
 
 
 def raptorDistNeu():
-    dist = [0.0, 10241 / 1048576, 481341 / 1048576, 221212 / 1048576, 118901 / 1048576, 0.0, 0.0, 0.0, 0.0, 0.0,
-            116751 / 1048576, 83743 / 1048576, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 16387 / 1048576, ]
+    dist = [
+        0.0,
+        10241 / 1048576,
+        481341 / 1048576,
+        221212 / 1048576,
+        118901 / 1048576,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        116751 / 1048576,
+        83743 / 1048576,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        16387 / 1048576,
+    ]
     for a in ["log", ""]:
         print(dist)
         if a == "log":

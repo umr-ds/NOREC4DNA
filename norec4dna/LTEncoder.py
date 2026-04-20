@@ -4,37 +4,58 @@ import argparse
 import configparser
 import datetime
 import glob
+import os
 import struct
 import time
-import os
-import numpy as np
 import typing
 from math import ceil
-from numpy.typing import NDArray
 
+import numpy as np
 from norec4dna.Decoder import Decoder
-from norec4dna.Encoder import Encoder
-from norec4dna.ErrorCorrection import nocode, crc32, reed_solomon_encode
-from norec4dna.Packet import Packet
 from norec4dna.distributions.Distribution import Distribution
-from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import ErlichZielinskiRobustSolitonDistribution
-from norec4dna.helper import should_drop_packet, listXOR
+from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import (
+    ErlichZielinskiRobustSolitonDistribution,
+)
+from norec4dna.Encoder import Encoder
+from norec4dna.ErrorCorrection import crc32, nocode, reed_solomon_encode
+from norec4dna.helper import listXOR, should_drop_packet
+from norec4dna.Packet import Packet
 from norec4dna.rules.DNARules import DNARules
 from norec4dna.rules.DNARules2 import DNARules2
 from norec4dna.rules.DNARules_ErlichZielinski import DNARules_ErlichZielinski
 from norec4dna.rules.FastDNARules import FastDNARules
+from numpy.typing import NDArray
 
 
 class LTEncoder(Encoder):
-    def __init__(self, file: str, number_of_chunks: int, distribution: Distribution, insert_header: bool = True,
-                 pseudo_decoder: typing.Optional[Decoder] = None, prioritized_packets=None,
-                 chunk_size: int = 0, error_correction: typing.Callable = nocode, rules: typing.Optional[
-                typing.Union[DNARules, DNARules2, FastDNARules, DNARules_ErlichZielinski]] = None,
-                 implicit_mode: bool = True, packet_len_format: str = "I", crc_len_format: str = "L",
-                 number_of_chunks_len_format: str = "I", used_packets_len_format: str = "I", id_len_format: str = "I",
-                 last_chunk_len_format: str = "I", save_number_of_chunks_in_packet: bool = True, drop_upper_bound=1.0,
-                 sequential_seed=True):
-        super().__init__(file, number_of_chunks, distribution, insert_header, pseudo_decoder, chunk_size)
+    def __init__(
+        self,
+        file: str,
+        number_of_chunks: int,
+        distribution: Distribution,
+        insert_header: bool = True,
+        pseudo_decoder: typing.Optional[Decoder] = None,
+        prioritized_packets=None,
+        chunk_size: int = 0,
+        error_correction: typing.Callable = nocode,
+        rules: typing.Optional[
+            typing.Union[DNARules, DNARules2, FastDNARules, DNARules_ErlichZielinski]
+        ] = None,
+        implicit_mode: bool = True,
+        packet_len_format: str = "I",
+        crc_len_format: str = "L",
+        number_of_chunks_len_format: str = "I",
+        used_packets_len_format: str = "I",
+        id_len_format: str = "I",
+        last_chunk_len_format: str = "I",
+        save_number_of_chunks_in_packet: bool = True,
+        drop_upper_bound=1.0,
+        sequential_seed=True,
+        checksum_len_str=None,
+    ):
+        super().__init__(
+            file, number_of_chunks, distribution, insert_header, pseudo_decoder, chunk_size
+        )
         if prioritized_packets is None:
             prioritized_packets = []
         assert number_of_chunks == distribution.get_size()
@@ -45,7 +66,8 @@ class LTEncoder(Encoder):
         self.chunk_size: int = chunk_size
         self.file: str = file
         self.rules: typing.Optional[
-                typing.Union[DNARules, DNARules2, FastDNARules, DNARules_ErlichZielinski]] = rules
+            typing.Union[DNARules, DNARules2, FastDNARules, DNARules_ErlichZielinski]
+        ] = rules
         self.upper_bound: float = drop_upper_bound
         if self.chunk_size == 0:
             self.number_of_chunks: int = number_of_chunks
@@ -70,7 +92,11 @@ class LTEncoder(Encoder):
         self.ruleDrop: int = 0
         self.next_checkblock_id = -1
         self.sequential_seed = sequential_seed
-        self.progress_bar = self.create_progress_bar(int(self.number_of_chunks + 0.02 * self.number_of_chunks))
+        if checksum_len_str is not None:
+            print("WARNING: Checksum not implemented yet, checksum_len_str will be ignored!")
+        self.progress_bar = self.create_progress_bar(
+            int(self.number_of_chunks + 0.02 * self.number_of_chunks)
+        )
 
     def encode_file(self, split_to_multiple_files: bool = False):
         self.encode_to_packets()
@@ -109,8 +135,11 @@ class LTEncoder(Encoder):
                 self.pseudo_decoder.input_new_packet(new_pack)
                 self.encodedPackets.add(new_pack)
         else:
-            while (len(self.encodedPackets) < (self.number_of_chunks + (self.number_of_chunks * self.overhead_limit))
-                   or self.number_of_packets_encoded_already() < self.number_of_chunks):  # 20% Aufschlag
+            while (
+                len(self.encodedPackets)
+                < (self.number_of_chunks + (self.number_of_chunks * self.overhead_limit))
+                or self.number_of_packets_encoded_already() < self.number_of_chunks
+            ):  # 20% Aufschlag
                 # This process continues until the receiver signals that the
                 # message has been received and successfully decoded.
                 pack: Packet = self.create_new_packet()
@@ -126,11 +155,19 @@ class LTEncoder(Encoder):
 
     def encodePriotizedPackets(self, error_correction: typing.Callable = nocode):
         for num in self.prioritized_packets:
-            new_pack = Packet(self.chunks[num], {num}, self.number_of_chunks, read_only=False,
-                              implicit_mode=self.implicit_mode, error_correction=error_correction,
-                              packet_len_format=self.packet_len_format, crc_len_format=self.crc_len_format,
-                              number_of_chunks_len_format=self.number_of_chunks_len_format,
-                              used_packets_len_format=self.used_packets_len_format, id_len_format=self.id_len_format)
+            new_pack = Packet(
+                self.chunks[num],
+                {num},
+                self.number_of_chunks,
+                read_only=False,
+                implicit_mode=self.implicit_mode,
+                error_correction=error_correction,
+                packet_len_format=self.packet_len_format,
+                crc_len_format=self.crc_len_format,
+                number_of_chunks_len_format=self.number_of_chunks_len_format,
+                used_packets_len_format=self.used_packets_len_format,
+                id_len_format=self.id_len_format,
+            )
             if self.pseudo_decoder is not None:
                 self.pseudo_decoder.input_new_packet(new_pack)
             self.encodedPackets.add(new_pack)
@@ -144,17 +181,31 @@ class LTEncoder(Encoder):
         assert file_name_length + 4 < self.chunk_size, "Chunks too small for HeaderInfo"
         # -4 for bytes to store length of last_chunk (I)
         last_chunk_len_struct_size = struct.calcsize("<" + self.last_chunk_len_format)
-        struct_str = "<" + self.last_chunk_len_format + str(file_name_length) + "s" + \
-                     str(self.chunk_size - file_name_length - last_chunk_len_struct_size) + "x"
-        packed_data: bytes = struct.pack(struct_str, len(last_chunk), bytes(self.file, encoding="utf-8"))
+        struct_str = (
+            "<"
+            + self.last_chunk_len_format
+            + str(file_name_length)
+            + "s"
+            + str(self.chunk_size - file_name_length - last_chunk_len_struct_size)
+            + "x"
+        )
+        packed_data: bytes = struct.pack(
+            struct_str, len(last_chunk), bytes(self.file, encoding="utf-8")
+        )
         # Convert bytes to NDArray
         return np.frombuffer(packed_data, dtype=np.uint8)
 
     def number_of_packets_encoded_already(self) -> int:
         return len(self.setOfEncodedPackets)
 
-    def save_packets(self, split_to_multiple_files: bool, out_file: typing.Optional[str] = None,
-                     save_as_dna: bool = False, clear_output: bool = True, seed_is_filename: bool = False) -> None:
+    def save_packets(
+        self,
+        split_to_multiple_files: bool,
+        out_file: typing.Optional[str] = None,
+        save_as_dna: bool = False,
+        clear_output: bool = True,
+        seed_is_filename: bool = False,
+    ) -> None:
         """
         Saves the generated packets either to multiple files or to a single one. It's possible to save the packets
         either as DNA or binary.
@@ -171,8 +222,11 @@ class LTEncoder(Encoder):
                 out_file = self.file + file_ending
             with open(out_file, "wb" if not save_as_dna else "w") as f:
                 for packet in self.encodedPackets:
-                    f.write(packet.get_dna_struct(split_to_multiple_files) if save_as_dna else packet.get_struct(
-                        split_to_multiple_files))
+                    f.write(
+                        packet.get_dna_struct(split_to_multiple_files)
+                        if save_as_dna
+                        else packet.get_struct(split_to_multiple_files)
+                    )
         else:
             # Folder:
             if out_file is None:
@@ -190,11 +244,19 @@ class LTEncoder(Encoder):
             e_prob = ""
             if not os.path.exists(out_file):
                 os.makedirs(out_file)
-            for packet in sorted(self.encodedPackets, key=lambda elem: (elem.error_prob, elem.__hash__())):
+            for packet in sorted(
+                self.encodedPackets, key=lambda elem: (elem.error_prob, elem.__hash__())
+            ):
                 if seed_is_filename:
                     i = packet.id
-                    e_prob = (str(ceil(packet.error_prob * 100)) + "_") if packet.error_prob is not None else ""
-                with open(out_file + "/" + e_prob + str(i) + file_ending, "wb" if not save_as_dna else "w") as f:
+                    e_prob = (
+                        (str(ceil(packet.error_prob * 100)) + "_")
+                        if packet.error_prob is not None
+                        else ""
+                    )
+                with open(
+                    out_file + "/" + e_prob + str(i) + file_ending, "wb" if not save_as_dna else "w"
+                ) as f:
                     f.write(
                         packet.get_dna_struct(split_to_multiple_files)
                         if save_as_dna
@@ -223,7 +285,9 @@ class LTEncoder(Encoder):
             generated_seed = self.generate_new_checkblock_id(self.sequential_seed)
         else:
             generated_seed = seed
-        if self.implicit_mode:  # in implicit mode we want to be able derive the used chunks from having only the seed
+        if (
+            self.implicit_mode
+        ):  # in implicit mode we want to be able derive the used chunks from having only the seed
             self.dist.set_seed(generated_seed)
         degree: int = self.dist.getNumber()
 
@@ -241,8 +305,9 @@ class LTEncoder(Encoder):
             packet_len_format=self.packet_len_format,
             crc_len_format=self.crc_len_format,
             number_of_chunks_len_format=self.number_of_chunks_len_format,
-            used_packets_len_format=self.used_packets_len_format, id_len_format=self.id_len_format,
-            save_number_of_chunks_in_packet=self.save_number_of_chunks_in_packet
+            used_packets_len_format=self.used_packets_len_format,
+            id_len_format=self.id_len_format,
+            save_number_of_chunks_in_packet=self.save_number_of_chunks_in_packet,
         )
 
     def create_and_add_new_packet(self, error_correction=nocode):
@@ -261,51 +326,78 @@ class LTEncoder(Encoder):
             res.add(tmp)
         return res
 
-    def save_config_file(self, default_map: typing.Optional[typing.Dict[str, typing.Any]] = None, section_name: typing.Optional[str] = None):
+    def save_config_file(
+        self,
+        default_map: typing.Optional[typing.Dict[str, typing.Any]] = None,
+        section_name: typing.Optional[str] = None,
+    ):
         if default_map is None:
             default_map = {}
         if section_name is None:
             section_name = str(self.out_file)
         config = configparser.ConfigParser()
         config[section_name] = {
-            'algorithm': 'LT',
-            'error_correction': self.error_correction.__code__.co_name,
-            'insert_header': str(self.insert_header),
-            'savenumberofchunks': str(self.save_number_of_chunks_in_packet),
-            'mode_1_bmp': str(self.mode_1_bmp),
-            'upper_bound': str(self.upper_bound),
-            'number_of_chunks': str(self.number_of_chunks),
-            'config_str': self.getConfigStr(),
-            'id_len_format': self.id_len_format,
-            'number_of_chunks_len_format': self.number_of_chunks_len_format,
-            'packet_len_format': self.packet_len_format,
-            'crc_len_format': self.crc_len_format,
-            'master_seed': '0',
-            'distribution': self.dist.get_config_string(),
-            'rules': str([rule for rule in self.rules.active_rules]) if self.rules else '[]',
-            'chunk_size': str(self.chunk_size),
-            'dropped_packets': str(self.ruleDrop),
-            'created_packets': str(len(self.encodedPackets))
+            "algorithm": "LT",
+            "error_correction": self.error_correction.__code__.co_name,
+            "insert_header": str(self.insert_header),
+            "savenumberofchunks": str(self.save_number_of_chunks_in_packet),
+            "mode_1_bmp": str(self.mode_1_bmp),
+            "upper_bound": str(self.upper_bound),
+            "number_of_chunks": str(self.number_of_chunks),
+            "config_str": self.getConfigStr(),
+            "id_len_format": self.id_len_format,
+            "number_of_chunks_len_format": self.number_of_chunks_len_format,
+            "packet_len_format": self.packet_len_format,
+            "crc_len_format": self.crc_len_format,
+            "master_seed": "0",
+            "distribution": self.dist.get_config_string(),
+            "rules": str([rule for rule in self.rules.active_rules]) if self.rules else "[]",
+            "chunk_size": str(self.chunk_size),
+            "dropped_packets": str(self.ruleDrop),
+            "created_packets": str(len(self.encodedPackets)),
         }
         for key, val in default_map.items():
             config[section_name][str(key)] = str(val)
-        config_file_name = "{}_{}.ini".format(self.file, datetime.datetime.now().ctime().replace(" ", "_").replace(":",
-                                                                                                                   "_"))
+        config_file_name = "{}_{}.ini".format(
+            self.file, datetime.datetime.now().ctime().replace(" ", "_").replace(":", "_")
+        )
         with open(config_file_name, "w") as config_file:
             config.write(config_file)
         return config_file_name
 
     def getConfigStr(self, out_file=""):
-        res = "USE_HEADER_CHUNK: " + str(self.insert_header) + ", NUMBER_OF_CHUNKS: " + str(self.number_of_chunks) + \
-              " NUMBER_OF_CHUNKS_LEN_FORMAT: " + self.number_of_chunks_len_format + \
-              " ID_LEN_FORMAT: " + self.id_len_format + " ERROR_CORRECTION: " + self.error_correction.__code__.co_name + \
-              " CRC_LEN_FORMAT(Optional): " + self.crc_len_format + " FILE: " + self.file + " OUT_FILE: " + out_file + \
-              " Distribution: " + self.dist.get_config_string()
+        res = (
+            "USE_HEADER_CHUNK: "
+            + str(self.insert_header)
+            + ", NUMBER_OF_CHUNKS: "
+            + str(self.number_of_chunks)
+            + " NUMBER_OF_CHUNKS_LEN_FORMAT: "
+            + self.number_of_chunks_len_format
+            + " ID_LEN_FORMAT: "
+            + self.id_len_format
+            + " ERROR_CORRECTION: "
+            + self.error_correction.__code__.co_name
+            + " CRC_LEN_FORMAT(Optional): "
+            + self.crc_len_format
+            + " FILE: "
+            + self.file
+            + " OUT_FILE: "
+            + out_file
+            + " Distribution: "
+            + self.dist.get_config_string()
+        )
         return res
 
 
-def main(file, number_of_chunks: int = 0, chunk_size: int = 0, error_correction: typing.Callable = nocode,
-         as_dna: bool = False, insert_header: bool = False, save_number_of_chunks=False):
+def main(
+    file,
+    number_of_chunks: int = 0,
+    chunk_size: int = 0,
+    error_correction: typing.Callable = nocode,
+    as_dna: bool = False,
+    insert_header: bool = False,
+    save_number_of_chunks=False,
+):
     if chunk_size != 0:
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
     if as_dna:
@@ -313,10 +405,19 @@ def main(file, number_of_chunks: int = 0, chunk_size: int = 0, error_correction:
     else:
         rules = None
     dist = ErlichZielinskiRobustSolitonDistribution(number_of_chunks, seed=2)
-    encoder = LTEncoder(file, number_of_chunks, dist, insert_header=insert_header, rules=rules,
-                        error_correction=error_correction, number_of_chunks_len_format="H", id_len_format="I",
-                        used_packets_len_format="H", save_number_of_chunks_in_packet=save_number_of_chunks,
-                        implicit_mode=False)
+    encoder = LTEncoder(
+        file,
+        number_of_chunks,
+        dist,
+        insert_header=insert_header,
+        rules=rules,
+        error_correction=error_correction,
+        number_of_chunks_len_format="H",
+        id_len_format="I",
+        used_packets_len_format="H",
+        save_number_of_chunks_in_packet=save_number_of_chunks,
+        implicit_mode=False,
+    )
     encoder.encode_to_packets()
     print("Number of Chunks=%s" % encoder.number_of_chunks)
     encoder.save_packets(split_to_multiple_files=True, save_as_dna=as_dna)
@@ -324,22 +425,56 @@ def main(file, number_of_chunks: int = 0, chunk_size: int = 0, error_correction:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--as_dna", help="convert packets to dna and use dna rules", action="store_true",
-                        required=False)
+    parser.add_argument(
+        "--as_dna",
+        help="convert packets to dna and use dna rules",
+        action="store_true",
+        required=False,
+    )
     parser.add_argument("filename", metavar="file", type=str, help="the file to Encode")
-    parser.add_argument("--chunk_size", metavar="chunk_size", required=False, type=int, default=0,
-                        help="size of chunks to split the file into")
-    parser.add_argument("--number_of_chunks", metavar="number_of_chunks", required=False, type=int, default=0,
-                        help="number of chunks to split the file into,"
-                             "only used if no chunk_size is given")
-    parser.add_argument("--error_correction", metavar="error_correction", required=False, type=str, default="nocode",
-                        help="Error Correction Method to use; possible values: \
-                        nocode, crc, reedsolomon, dna_reedsolomon (default=nocode)")
-    parser.add_argument("--repair_symbols", metavar="repair_symbols", required=False, type=int, default=2,
-                        help="number of repair symbols for ReedSolomon (default=2)")
-    parser.add_argument("--insert_header", metavar="insert_header", required=False, type=bool, default=False)
-    parser.add_argument("--save_number_of_chunks", metavar="save_number_of_chunks", required=False, type=bool,
-                        default=False)
+    parser.add_argument(
+        "--chunk_size",
+        metavar="chunk_size",
+        required=False,
+        type=int,
+        default=0,
+        help="size of chunks to split the file into",
+    )
+    parser.add_argument(
+        "--number_of_chunks",
+        metavar="number_of_chunks",
+        required=False,
+        type=int,
+        default=0,
+        help="number of chunks to split the file into," "only used if no chunk_size is given",
+    )
+    parser.add_argument(
+        "--error_correction",
+        metavar="error_correction",
+        required=False,
+        type=str,
+        default="nocode",
+        help="Error Correction Method to use; possible values: \
+                        nocode, crc, reedsolomon, dna_reedsolomon (default=nocode)",
+    )
+    parser.add_argument(
+        "--repair_symbols",
+        metavar="repair_symbols",
+        required=False,
+        type=int,
+        default=2,
+        help="number of repair symbols for ReedSolomon (default=2)",
+    )
+    parser.add_argument(
+        "--insert_header", metavar="insert_header", required=False, type=bool, default=False
+    )
+    parser.add_argument(
+        "--save_number_of_chunks",
+        metavar="save_number_of_chunks",
+        required=False,
+        type=bool,
+        default=False,
+    )
 
     args = parser.parse_args()
     filename = args.filename
@@ -368,6 +503,13 @@ if __name__ == "__main__":
         exit()
     filename = args.filename
     print("File to encode: " + str(filename))
-    main(filename, _number_of_chunks, _chunk_size, e_correction, _as_dna, _insert_header,
-         save_number_of_chunks=_save_number_of_chunks)
+    main(
+        filename,
+        _number_of_chunks,
+        _chunk_size,
+        e_correction,
+        _as_dna,
+        _insert_header,
+        save_number_of_chunks=_save_number_of_chunks,
+    )
     print("File encoded.")

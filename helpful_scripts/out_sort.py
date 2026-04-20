@@ -1,5 +1,5 @@
-import os
 import bisect
+import os
 
 directory = "norec4dna_new/"
 sort_list = []

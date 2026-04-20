@@ -7,15 +7,22 @@ try:
 except:
     import pybloom as pybloomfilter  # code for windows...
 
-from .RuleParser import longestSequenceOfChar, microsatellite, length, strContainsIllegalChars, \
-    charCountBiggerEqualThanX, gc_content, strContainsSub, strContainsSubRegex
+from .RuleParser import (
+    charCountBiggerEqualThanX,
+    gc_content,
+    length,
+    longestSequenceOfChar,
+    microsatellite,
+    strContainsIllegalChars,
+    strContainsSub,
+    strContainsSubRegex,
+)
 
 try:
     from cdnarules import repeatRegion as rRegion
     from cdnarules import smallRepeatRegion as smallrRegion
 except:
     print("C Module failed to load, falling back to slow mode")
-
 
     def rRegion(data, repeat_length=20):
         """
@@ -25,19 +32,23 @@ except:
         :return:
         """
         for i in range(len(data) - repeat_length):
-            subseq = data[i:i + repeat_length]
-            if data[i + 1:].find(subseq) >= 0:
+            subseq = data[i : i + repeat_length]
+            if data[i + 1 :].find(subseq) >= 0:
                 return 1.0
         return 0.0
-
 
     def smallrRegion(data, repeat_length=9):
         count = 1
         for i in range(len(data) - repeat_length):
-            subseq = data[i:i + repeat_length]
-            if data[i + 1:].find(subseq) >= 0:
+            subseq = data[i : i + repeat_length]
+            if data[i + 1 :].find(subseq) >= 0:
                 count += 1
-        return 1.0 if 1.0 * count * repeat_length / len(data) > 0.44 else count * repeat_length / len(data) * 0.5
+        return (
+            1.0
+            if 1.0 * count * repeat_length / len(data) > 0.44
+            else count * repeat_length / len(data) * 0.5
+        )
+
 
 _undes_motifs = [
     ("CTCGTAGACTGCGTACCA", 1.01),
@@ -62,13 +73,18 @@ undes_motifs = [
     ("ATAACTTCGTATAGTATACCTTATACGAAGTTAT", 1.01),
     # Twister Adapters:
     ("GAAGTGCCATTCCGCCTGACCT", 1.0),  # Twister 5' Adapter
-    ("AGGCTAGGTGGAGGCTCAGTG", 1.0)  # Twister 3' Adapter
+    ("AGGCTAGGTGGAGGCTCAGTG", 1.0),  # Twister 3' Adapter
 ]
 
 
 def gc_error_calculation(gc_percentage):
-    return (100 + (175 * gc_percentage) / 6 - (121 * gc_percentage ** 2) / 72 + (gc_percentage ** 3) / 36 - (
-            gc_percentage ** 4) / 7200) / 100
+    return (
+        100
+        + (175 * gc_percentage) / 6
+        - (121 * gc_percentage**2) / 72
+        + (gc_percentage**3) / 36
+        - (gc_percentage**4) / 7200
+    ) / 100
 
 
 def fs_gc_error_calculation(gc_percentage):
@@ -81,18 +97,26 @@ def ts_gc_error_calculation(gc_percentage):
 
 def gc_strict_calculation(gc_percentage):
     return (
-            100 + 49970.8 * gc_percentage - 2582 * gc_percentage ** 2 + 41.6458 * gc_percentage ** 3 - 0.208229 * gc_percentage ** 4) / 100
+        100
+        + 49970.8 * gc_percentage
+        - 2582 * gc_percentage**2
+        + 41.6458 * gc_percentage**3
+        - 0.208229 * gc_percentage**4
+    ) / 100
 
 
 def strict_homopolymers():
     return [0.0, 0.0, 0.2, 0.5, 0.8, 1.0]
 
+
 # x = |Homopolymer| ; x > 3 -> 100% ; x <= 3 -> 0%
 def three_strict_homopolymers():
     return [0.0, 0.0, 0.0, 0.0, 1.0]
 
+
 def four_strict_homopolymers():
     return [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+
 
 def lax_increasing_homopolymers():
     return [0.0, 0.0, 0.01, 0.05, 0.4, 0.7, 0.9, 1.0]
@@ -107,8 +131,8 @@ def lax_homopolymers():
 
 class FastDNARules:
     def __init__(self, active_rules=None, extra_motifs=None):
-        #self.nineteen_mers = pybloomfilter.BloomFilter(50000000, 0.0001)
-        #self.tmp_nineteen_mers = pybloomfilter.BloomFilter(50000, 0.0001)
+        # self.nineteen_mers = pybloomfilter.BloomFilter(50000000, 0.0001)
+        # self.tmp_nineteen_mers = pybloomfilter.BloomFilter(50000, 0.0001)
         # Extra forbidden motifs supplied at construction time or via add_forbidden_sequences().
         # Each entry is a (dna_sequence, error_probability) tuple; error_probability >= 1.01
         # guarantees the packet is rejected (same convention as the built-in undesired motifs).
@@ -131,7 +155,7 @@ class FastDNARules:
                 #  FastDNARules.illegal_symbols,
                 # FastDNARules.trinucleotid_runs,
                 # FastDNARules.random_permutations,
-                self._motif_search  # bound method so extra_motifs are included
+                self._motif_search,  # bound method so extra_motifs are included
                 # FastDNARules.motif_regex_search,
                 # FastDNARules.repeatRegion,
                 # FastDNARules.smallRepeatRegion,
@@ -178,7 +202,7 @@ class FastDNARules:
         return drop
 
     def check_and_add_mers(self, data, length=19):
-        chunks = [data[i:i + length] for i in range(0, len(data), length)]
+        chunks = [data[i : i + length] for i in range(0, len(data), length)]
         self.tmp_nineteen_mers.clear_all()
         res = 0.0
         for chunk in chunks:
@@ -215,10 +239,7 @@ class FastDNARules:
             dna_data = packet.get_dna_struct(True)
         except Exception as ex:
             dna_data = packet
-        res_arr = [
-            x(dna_data)
-            for x in self.active_rules
-        ]
+        res_arr = [x(dna_data) for x in self.active_rules]
         return sum(res_arr)
 
     # @staticmethod
@@ -232,10 +253,7 @@ class FastDNARules:
             dna_data = packet.get_dna_struct(True)
         except:
             dna_data = packet
-        res_arr = [
-            x(dna_data)
-            for x in self.active_rules
-        ]
+        res_arr = [x(dna_data) for x in self.active_rules]
         return sum(res_arr), res_arr, packet
 
     @staticmethod
@@ -248,7 +266,7 @@ class FastDNARules:
         """
         if probs is None:
             probs = [0.0, 0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
-        length = longestSequenceOfChar(data, '*')[1]
+        length = longestSequenceOfChar(data, "*")[1]
         return min(1.0, probs[length] if length < len(probs) else 1.0)
 
     @staticmethod
@@ -262,7 +280,7 @@ class FastDNARules:
         :return: The dropchance based on the occurence of microsatellites with length 2.
         """
         _len = microsatellite(data, 2)[0]
-        return max(min(1.0, 0.00002 * _len ** 2 - 0.0001 * _len), 0.0)
+        return max(min(1.0, 0.00002 * _len**2 - 0.0001 * _len), 0.0)
 
     @staticmethod
     def trinucleotid_runs(data):
@@ -275,7 +293,7 @@ class FastDNARules:
         :return: The dropchance based on the occurence of microsatellites with length 3.
         """
         _len = microsatellite(data, 3)[0]
-        return max(min(1.0, 0.00002 * _len ** 2 - 0.0001 * _len), 0.0)
+        return max(min(1.0, 0.00002 * _len**2 - 0.0001 * _len), 0.0)
 
     @staticmethod
     def long_strands(data):
@@ -347,7 +365,7 @@ class FastDNARules:
         :param data: Sequence
         :return: Dropchance
         """
-        return FastDNARules.ch_at_permutation(data, 'A')
+        return FastDNARules.ch_at_permutation(data, "A")
 
     @staticmethod
     def t_permutation(data):
@@ -388,8 +406,10 @@ class FastDNARules:
 
     @staticmethod
     def windowed_gc_content(data, window_size=50, calc_func=gc_error_calculation):
-        chunks = [FastDNARules.overall_gc_content(data[i:i + window_size], calc_func=calc_func) for i in
-                  range(0, len(data), window_size)]
+        chunks = [
+            FastDNARules.overall_gc_content(data[i : i + window_size], calc_func=calc_func)
+            for i in range(0, len(data), window_size)
+        ]
         return min(1.0, max(chunks))
 
     @staticmethod
@@ -445,7 +465,6 @@ class FastDNARules:
             ("GGTCTC", 1.01),
             # inverse BsaI
             ("CCAGAG", 1.01),
-
             ("CGTCTC", 1.01),
             ("GCGATG", 1.01),
             ("GCTCTTC", 1.01),
@@ -458,7 +477,7 @@ class FastDNARules:
             ("GCCAGTACATCAATTGCC", 1.01),
             # Twister Adapters:
             ("GAAGTGCCATTCCGCCTGACCT", 1.0),  # Twister 5' Adapter
-            ("AGGCTAGGTGGAGGCTCAGTG", 1.0)  # Twister 3' Adapter
+            ("AGGCTAGGTGGAGGCTCAGTG", 1.0),  # Twister 3' Adapter
         ]
         # undes_motifs = FastDNARules.add_reverse_complementary(undes_motifs)
         dropchance = 0.0
@@ -487,7 +506,7 @@ class FastDNARules:
             # Ribosomal binding site (Prok).
             ("AGGAGGACAGCTAUG", 0.05),
             # Lox sites.
-            ("ATAACTTCGTATAGTAYACATTATACGAAGTTAT", 0.01)
+            ("ATAACTTCGTATAGTAYACATTATACGAAGTTAT", 0.01),
         ]
         dropchance = 0.0
         for motif in undes_motifs:
@@ -526,37 +545,50 @@ class FastDNARules:
 
     @staticmethod
     def simple_motif_search(data):
-        return 1.0 if any([x in data for x in FastDNARules.add_complementary(["ATAACTTCGTATAGCATACATTATACGAAGTTAT",
-                                                                              "ATAACTTCGTATAGCATACATTATACGAACGGTA",
-                                                                              "TACCGTTCGTATAGCATACATTATACGAAGTTAT",
-                                                                              "TACCGTTCGTATAGCATACATTATACGAACGGTA",
-                                                                              "TACCGTTCGTATATGGTATTATATACGAAGTTAT",
-                                                                              "TACCGTTCGTATATTCTATCTTATACGAAGTTAT",
-                                                                              "TACCGTTCGTATAGGATACTTTATACGAAGTTAT",
-                                                                              "TACCGTTCGTATATACTATACTATACGAAGTTAT",
-                                                                              "TACCGTTCGTATACTATAGCCTATACGAAGTTAT",
-                                                                              "ATAACTTCGTATATGGTATTATATACGAACGGTA",
-                                                                              "ATAACTTCGTATAGTATACCTTATACGAAGTTAT",
-                                                                              "ATAACTTCGTATAGTATACATTATACGAAGTTAT",
-                                                                              "ATAACTTCGTATAGTACACATTATACGAAGTTAT",
-                                                                              "GCATACAT",
-                                                                              "TGGTATTA",
-                                                                              "TTCTATCT",
-                                                                              "GGATACTT",
-                                                                              "TACTATAC",
-                                                                              "CTATAGCC",
-                                                                              "AGGTATGC",
-                                                                              "TTGTATGG",
-                                                                              "GGATAGTA",
-                                                                              "GTGTATTT",
-                                                                              "GGTTACGG",
-                                                                              "TTTTAGGT",
-                                                                              "GTATACCT",
-                                                                              "GTACACAT",
-                                                                              "GAAGAC",
-                                                                              "CTTCTG",
-                                                                              "GGTCTC",
-                                                                              "CCAGAG"])]) else 0.0
+        return (
+            1.0
+            if any(
+                [
+                    x in data
+                    for x in FastDNARules.add_complementary(
+                        [
+                            "ATAACTTCGTATAGCATACATTATACGAAGTTAT",
+                            "ATAACTTCGTATAGCATACATTATACGAACGGTA",
+                            "TACCGTTCGTATAGCATACATTATACGAAGTTAT",
+                            "TACCGTTCGTATAGCATACATTATACGAACGGTA",
+                            "TACCGTTCGTATATGGTATTATATACGAAGTTAT",
+                            "TACCGTTCGTATATTCTATCTTATACGAAGTTAT",
+                            "TACCGTTCGTATAGGATACTTTATACGAAGTTAT",
+                            "TACCGTTCGTATATACTATACTATACGAAGTTAT",
+                            "TACCGTTCGTATACTATAGCCTATACGAAGTTAT",
+                            "ATAACTTCGTATATGGTATTATATACGAACGGTA",
+                            "ATAACTTCGTATAGTATACCTTATACGAAGTTAT",
+                            "ATAACTTCGTATAGTATACATTATACGAAGTTAT",
+                            "ATAACTTCGTATAGTACACATTATACGAAGTTAT",
+                            "GCATACAT",
+                            "TGGTATTA",
+                            "TTCTATCT",
+                            "GGATACTT",
+                            "TACTATAC",
+                            "CTATAGCC",
+                            "AGGTATGC",
+                            "TTGTATGG",
+                            "GGATAGTA",
+                            "GTGTATTT",
+                            "GGTTACGG",
+                            "TTTTAGGT",
+                            "GTATACCT",
+                            "GTACACAT",
+                            "GAAGAC",
+                            "CTTCTG",
+                            "GGTCTC",
+                            "CCAGAG",
+                        ]
+                    )
+                ]
+            )
+            else 0.0
+        )
 
 
 if __name__ == "__main__":
@@ -565,9 +597,15 @@ if __name__ == "__main__":
     # print(x.add_reverse_complementary([("CTCGTAGACTGCGTACCA", 1.01)]))
     # print(x.check_and_add_mers("AAAAGAGAGAGAGAGAGAGCCCCCCCCCCCCCCCCCCCAACAGAGAGAGAGAGAGAG", 19))
     # print(x.check_and_add_mers("CCCCCCCCCCCCCCCCCCC", 19))
-    print(x.homopolymers(
-        "GGTCTCGCAAGTTACGTGTCTATTTAGCGCGGCATATCACAGCGGCGGTACGCATAACAGTTTACAGGGAAAGTAGATCATCAGGCGTGGCTAGGGAGCGCGTGTCCTCATTTGTTGAGGAGACGCTAAAGCACCCGGGTAGTAAATATCTGAACATGGGGGGG",
-        probs=three_strict_homopolymers()))
-    print(x.overall_gc_content(
-        "GGTCTCGCAAGTTACGTGTCTATTTAGCGCGGCATATCACAGCGGCGGTACGCATAACAGTTTACAGGGAAAGTAGATCATCAGGCGTGGCTAGGGAGCGCGTGTCCTCATTTGTTGAGGAGACGCTAAAGCACCCGGGTAGTAAATATCTGAACATGGGGGGG"))
+    print(
+        x.homopolymers(
+            "GGTCTCGCAAGTTACGTGTCTATTTAGCGCGGCATATCACAGCGGCGGTACGCATAACAGTTTACAGGGAAAGTAGATCATCAGGCGTGGCTAGGGAGCGCGTGTCCTCATTTGTTGAGGAGACGCTAAAGCACCCGGGTAGTAAATATCTGAACATGGGGGGG",
+            probs=three_strict_homopolymers(),
+        )
+    )
+    print(
+        x.overall_gc_content(
+            "GGTCTCGCAAGTTACGTGTCTATTTAGCGCGGCATATCACAGCGGCGGTACGCATAACAGTTTACAGGGAAAGTAGATCATCAGGCGTGGCTAGGGAGCGCGTGTCCTCATTTGTTGAGGAGACGCTAAAGCACCCGGGTAGTAAATATCTGAACATGGGGGGG"
+        )
+    )
     # print(x.motif_search("ATGGTACGCAAGTCTACGAG"))

@@ -1,7 +1,8 @@
 import itertools
+
 import matplotlib
-import pandas as pd
 import matplotlib.pyplot as plt
+import pandas as pd
 
 plt.rcParams["savefig.dpi"] = 10000
 # Get current size
@@ -37,17 +38,43 @@ def plot_encode():
     name6 = "../../../../CSV/recent/DATEIGROESSE_Zeit/orange_out_new_new.csv"
     axis_font = {"size": "38"}
 
-    df6 = pd.read_csv(name6, delimiter=",", engine="python",
-                      usecols=["Art", "number_of_chunks", "Sekunden", "Datei", "Modus"], index_col=False, )
+    df6 = pd.read_csv(
+        name6,
+        delimiter=",",
+        engine="python",
+        usecols=["Art", "number_of_chunks", "Sekunden", "Datei", "Modus"],
+        index_col=False,
+    )
     df6["Sekunden"] = 1.0 * df6["Sekunden"] / 10.0
     fig, axs = plt.subplots(1, 1)
 
     for name, group in df6.groupby(["Art"]):
         fig, axs = plt.subplots(1, 1)
         axs.set_ylabel("Sekunden", **axis_font)
-        mark = itertools.cycle(["o", "v", "^", ">", "1", "2", "3", "4", "8", "P", "*", "h", "D", "X", "d", "|", ])
+        mark = itertools.cycle(
+            [
+                "o",
+                "v",
+                "^",
+                ">",
+                "1",
+                "2",
+                "3",
+                "4",
+                "8",
+                "P",
+                "*",
+                "h",
+                "D",
+                "X",
+                "d",
+                "|",
+            ]
+        )
         linest = itertools.cycle(["-", ":"])
-        color = itertools.cycle(["m", "m", "r", "r", "c", "c", "g", "g", "b", "b", "y", "y", "k", "k"])
+        color = itertools.cycle(
+            ["m", "m", "r", "r", "c", "c", "g", "g", "b", "b", "y", "y", "k", "k"]
+        )
         for name1, group1 in group.groupby(["Datei", "Modus"]):
             datei, modus = name1
             tmp = group1.groupby(["number_of_chunks"]).mean()
@@ -56,8 +83,17 @@ def plot_encode():
                 datei = "_nolegend_"
             trenn = ""
             modus = ""
-            yyy.plot(x="number_of_chunks", y="Sekunden", label=datei + trenn + modus, ax=axs, color=next(color),
-                     marker=next(mark), markersize=msize, linestyle=next(linest), linewidth=3.0, )
+            yyy.plot(
+                x="number_of_chunks",
+                y="Sekunden",
+                label=datei + trenn + modus,
+                ax=axs,
+                color=next(color),
+                marker=next(mark),
+                markersize=msize,
+                linestyle=next(linest),
+                linewidth=3.0,
+            )
         axs.plot([], [], label="   ", color="white", linestyle="-")
         axs.plot([], [], color="black", linestyle="-", label="ohne IO")
         axs.plot([], [], color="black", linestyle="--", label="ohne Speichern")
@@ -70,10 +106,18 @@ def plot_encode():
         plt.tight_layout()
         plt.show(block=False)
         fig = plt.gcf()
-        plt.savefig("size_Zeit/Encode/chunks_vs_time_" + name + "_bigger.pdf", bbox_inches="tight", )
+        plt.savefig(
+            "size_Zeit/Encode/chunks_vs_time_" + name + "_bigger.pdf",
+            bbox_inches="tight",
+        )
         plt.savefig("size_Zeit/Encode/chunks_vs_time_" + name + "_bigger.svg")
-    df6 = pd.read_csv(name6, delimiter=",", engine="python", usecols=["Art", "Kilobytes", "Sekunden", "Datei", "Modus"],
-                      index_col=False, )
+    df6 = pd.read_csv(
+        name6,
+        delimiter=",",
+        engine="python",
+        usecols=["Art", "Kilobytes", "Sekunden", "Datei", "Modus"],
+        index_col=False,
+    )
     df6["Sekunden"] = 1.0 * df6["Sekunden"] / 10.0
     plt.close()
     fig, axs = plt.subplots(1, 1)
@@ -86,8 +130,16 @@ def plot_encode():
             tmp = group1.groupby(["Kilobytes"]).mean()
             y = tmp.reset_index()
             trenn = " - "
-            y.plot(x="Kilobytes", y="Seconds", label=name + trenn + modus, ax=axs, legend=True,
-                   linestyle=next(linest), linewidth=3.0, color=next(color), )
+            y.plot(
+                x="Kilobytes",
+                y="Seconds",
+                label=name + trenn + modus,
+                ax=axs,
+                legend=True,
+                linestyle=next(linest),
+                linewidth=3.0,
+                color=next(color),
+            )
             plt.title("Time needed compared to the filesize")
     plt.ylabel("Seconds", **axis_font)
     plt.xlabel("Kilobytes", **axis_font)
@@ -97,26 +149,49 @@ def plot_encode():
     plt.grid(True)
     plt.tight_layout()
     plt.show(block=False)
-    plt.savefig("../../../../Masterarbeit/TeX/Bilder/DATEIGROESSE_Zeit/Encode/Kilobytes_vs_time_" + "_bigger.pdf",
-                bbox_inches="tight", )
-    plt.savefig("../../../../Masterarbeit/TeX/Bilder/DATEIGROESSE_Zeit/Encode/Kilobytes_vs_time_" + "_bigger.svg")
+    plt.savefig(
+        "../../../../Masterarbeit/TeX/Bilder/DATEIGROESSE_Zeit/Encode/Kilobytes_vs_time_"
+        + "_bigger.pdf",
+        bbox_inches="tight",
+    )
+    plt.savefig(
+        "../../../../Masterarbeit/TeX/Bilder/DATEIGROESSE_Zeit/Encode/Kilobytes_vs_time_"
+        + "_bigger.svg"
+    )
     plt.close()
 
-    df6 = pd.read_csv(name6, delimiter=",", engine="python",
-                      usecols=["Art", "Kilobytes", "Sekunden", "Datei", "Modus", "number_of_chunks"], index_col=False, )
+    df6 = pd.read_csv(
+        name6,
+        delimiter=",",
+        engine="python",
+        usecols=["Art", "Kilobytes", "Sekunden", "Datei", "Modus", "number_of_chunks"],
+        index_col=False,
+    )
     df6["Sekunden"] = 1.0 * df6["Sekunden"] / 10.0
     fig, axs = plt.subplots(1, 1)
     linest = itertools.cycle(["-", ":"])
 
-    mark = itertools.cycle(["o", "v", "^", ">", "1", "2", "3", "4", "8", "P", "*", "h", "D", "X", "d", "|"])
+    mark = itertools.cycle(
+        ["o", "v", "^", ">", "1", "2", "3", "4", "8", "P", "*", "h", "D", "X", "d", "|"]
+    )
     color = itertools.cycle(["m", "m", "r", "r", "c", "c", "g", "g", "b", "b", "y", "y", "k", "k"])
     for name, group in df6.groupby(["Art"]):
         fig, axs = plt.subplots(1, 1)
         for name1, group1 in group.groupby(["number_of_chunks"]):
             tmp = group1.groupby(["Kilobytes"]).mean()
             y = tmp.reset_index()
-            y.plot(x="Kilobytes", y="Seconds", label=name + " with " + str(int(name1)) + " Chunks", ax=axs, legend=True,
-                   linestyle=next(linest), linewidth=3.0, color=next(color), marker=next(mark), markersize=msize, )
+            y.plot(
+                x="Kilobytes",
+                y="Seconds",
+                label=name + " with " + str(int(name1)) + " Chunks",
+                ax=axs,
+                legend=True,
+                linestyle=next(linest),
+                linewidth=3.0,
+                color=next(color),
+                marker=next(mark),
+                markersize=msize,
+            )
 
         plt.title("Time needed compared to filesize")
         plt.ylabel("Seconds", **axis_font)
@@ -126,7 +201,10 @@ def plot_encode():
         plt.grid(True)
         plt.tight_layout()
         plt.show(block=False)
-        plt.savefig("size_Zeit//Encode/Kilobytes_vs_time_packets_" + name + "_bigger.pdf", bbox_inches="tight", )
+        plt.savefig(
+            "size_Zeit//Encode/Kilobytes_vs_time_packets_" + name + "_bigger.pdf",
+            bbox_inches="tight",
+        )
         plt.savefig("size_Zeit/Encode/Kilobytes_vs_time_packets_" + name + "_bigger.svg")
         plt.close()
 
@@ -152,8 +230,17 @@ def plot_decode():
                 datei = "_nolegend_"
             trenn = ""
             modus = ""
-            yyy.plot(x="number_of_chunks", y="seconds", label=datei + trenn + modus, ax=axs, color=next(color),
-                     marker=next(mark), markersize=msize, linestyle=next(linest), linewidth=3.0, )
+            yyy.plot(
+                x="number_of_chunks",
+                y="seconds",
+                label=datei + trenn + modus,
+                ax=axs,
+                color=next(color),
+                marker=next(mark),
+                markersize=msize,
+                linestyle=next(linest),
+                linewidth=3.0,
+            )
         plt.title("Decoder: " + name)
         plt.xlabel("#Chunks", **axis_font)
         manager = plt.get_current_fig_manager()
@@ -163,7 +250,10 @@ def plot_decode():
         plt.tight_layout()
         plt.show(block=False)
         fig = plt.gcf()
-        plt.savefig("size_time/Decode/chunks_vs_time_" + name + "_bigger.pdf", bbox_inches="tight", )
+        plt.savefig(
+            "size_time/Decode/chunks_vs_time_" + name + "_bigger.pdf",
+            bbox_inches="tight",
+        )
         plt.savefig("size_time/Decode/chunks_vs_time_" + name + "_bigger.svg")
         plt.close()
 
@@ -180,8 +270,17 @@ def plot_decode():
             if modus == "ohne Speichern" or modus == "ohne IO":
                 trenn = ""
                 modus = ""
-            yyy.plot(x="number_of_packets", y="seconds", label=datei + trenn + modus, ax=axs, color=next(color),
-                     marker=next(mark), markersize=msize, linestyle=next(linest), linewidth=3.0, )
+            yyy.plot(
+                x="number_of_packets",
+                y="seconds",
+                label=datei + trenn + modus,
+                ax=axs,
+                color=next(color),
+                marker=next(mark),
+                markersize=msize,
+                linestyle=next(linest),
+                linewidth=3.0,
+            )
         plt.title("Decoder: " + name)
         plt.xlabel("#Pakets", **axis_font)
         manager = plt.get_current_fig_manager()
@@ -194,7 +293,10 @@ def plot_decode():
         plt.tight_layout()
         plt.show(block=False)
         fig = plt.gcf()
-        plt.savefig("size_time/Decode/big_packets_vs_time_" + name + "_bigger.pdf", bbox_inches="tight", )
+        plt.savefig(
+            "size_time/Decode/big_packets_vs_time_" + name + "_bigger.pdf",
+            bbox_inches="tight",
+        )
         plt.savefig("size_time/Decode/big_packets_vs_time_" + name + "_bigger.svg")
         plt.close()
 

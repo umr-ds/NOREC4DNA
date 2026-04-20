@@ -1,13 +1,19 @@
-import time
 import math
 import struct
-import numpy as np
+import time
 from random import random
 
-from .rules.DNARules import DNARules
+import numpy as np
+from norec4dna.ReedSolomonSuite import (
+    ReedSolomonDecoder,
+    ReedSolomonEncoder,
+    get_file_size,
+    xor_mask,
+)
+
 from .helper.bin2Quaternary import string2QUATS
 from .helper.quaternary2Bin import quats_to_bytes
-from norec4dna.ReedSolomonSuite import get_file_size, ReedSolomonEncoder, ReedSolomonDecoder, xor_mask
+from .rules.DNARules import DNARules
 
 lines = [
     "Algorithm,CRC,A_Permutation,T_Permutation,C_Permutation,G_Permutation,dinucleotid_Runs,Homopolymers,GC_Content,Trinucleotid_Runs,Random_Permutation,Overall_Dropchance,Random_Number,Did_Drop"
@@ -28,7 +34,15 @@ def permute(data, add_line=True):
     drop_chance, data, _ = DNARules.apply_all_rules_with_data(dna_data)
     drop_chance = 0.01 * drop_chance
     if add_line:
-        line = ("ReedSolomon" + "," + str() + "," + ",".join([str(round(x, 4)) for x in data]) + "," + str(drop_chance))
+        line = (
+            "ReedSolomon"
+            + ","
+            + str()
+            + ","
+            + ",".join([str(round(x, 4)) for x in data])
+            + ","
+            + str(drop_chance)
+        )
         lines.append(line)
     lim_drop_chance = min(drop_chance, 0.9999999)
     number_of_permutations = int(math.ceil(lim_drop_chance * len(dna_data)))
@@ -65,9 +79,7 @@ def blackbox(file, number_of_chunks, seed, overhead, r_symbols):
     for elem in a:
         # permute input according to dna rules:
         elem = permute(elem)
-        elem = struct.pack(
-            "<I" + str(len(elem)) + "s", xor_mask(rs.number_repair_symbols), elem
-        )
+        elem = struct.pack("<I" + str(len(elem)) + "s", xor_mask(rs.number_repair_symbols), elem)
         try:
             i, res = dec.decode(elem)
             resmap[i] = res
@@ -108,52 +120,52 @@ def main(file="logo.jpg", repeats=5):
                     r_symbols=number_repair_symbols,
                 )
                 line = (
-                        str(file)
-                        + ","
-                        + str(overhead)
-                        + ","
-                        + str(name)
-                        + ","
-                        + str(number_of_chunks)
-                        + ","
-                        + str(invalid_drop)
-                        + ","
-                        + str(rnd)
-                        + ","
-                        + str(result)
-                        + ","
-                        + str(time_needed)
+                    str(file)
+                    + ","
+                    + str(overhead)
+                    + ","
+                    + str(name)
+                    + ","
+                    + str(number_of_chunks)
+                    + ","
+                    + str(invalid_drop)
+                    + ","
+                    + str(rnd)
+                    + ","
+                    + str(result)
+                    + ","
+                    + str(time_needed)
                 )
             except Exception:
                 line = (
-                        str(file)
-                        + ","
-                        + str(overhead)
-                        + ","
-                        + str(name)
-                        + ","
-                        + str(number_of_chunks)
-                        + ","
-                        + "ERROR"
-                        + ","
-                        + str(rnd)
-                        + ","
-                        + "ERROR"
-                        + ","
-                        + "ERROR"
+                    str(file)
+                    + ","
+                    + str(overhead)
+                    + ","
+                    + str(name)
+                    + ","
+                    + str(number_of_chunks)
+                    + ","
+                    + "ERROR"
+                    + ","
+                    + str(rnd)
+                    + ","
+                    + "ERROR"
+                    + ","
+                    + "ERROR"
                 )
             print(line)
             csv.append(line)
 
         dtimeno = (
-                mode
-                + "_"
-                + str(number_repair_symbols)
-                + "_"
-                + str(overhead)
-                + "_sim"
-                + str(time.strftime("%Y-%m-%d_%H-%M", time.localtime()))
-                + ".csv"
+            mode
+            + "_"
+            + str(number_repair_symbols)
+            + "_"
+            + str(overhead)
+            + "_sim"
+            + str(time.strftime("%Y-%m-%d_%H-%M", time.localtime()))
+            + ".csv"
         )
         with open("DNA_" + dtimeno, "w") as f:
             for line in lines:

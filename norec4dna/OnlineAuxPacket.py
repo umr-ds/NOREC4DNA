@@ -11,20 +11,31 @@ from norec4dna.Packet import Packet
 
 
 class OnlineAuxPacket(Packet):
-    def __init__(self, data: bytes, used_packets: typing.Optional[typing.Set[int]] = None,
-                 aux_number: typing.Optional[int] = None, total_number_of_chunks: int = 0):
+    def __init__(
+        self,
+        data: bytes,
+        used_packets: typing.Optional[typing.Set[int]] = None,
+        aux_number: typing.Optional[int] = None,
+        total_number_of_chunks: int = 0,
+    ):
         # Ensure used_packets is never None when calling super().__init__
-        super().__init__(data, used_packets if used_packets is not None else set(), total_number_of_chunks)
+        super().__init__(
+            data, used_packets if used_packets is not None else set(), total_number_of_chunks
+        )
         self.data: bytes = data
         self.total_number_of_chunks: int = total_number_of_chunks
         self.used_packets: typing.Optional[typing.Set[int]] = used_packets
         self.update_degree()
-        self.error_correction: typing.Callable[[typing.Any], typing.Any] = lambda x: x  # "AUX-Packet - NO CRC"
+        self.error_correction: typing.Callable[[typing.Any], typing.Any] = (
+            lambda x: x
+        )  # "AUX-Packet - NO CRC"
         self.aux_number: int = aux_number if aux_number is not None else 0
         self.dna_data: typing.Optional[str] = None
         self.error_prob: typing.Optional[int] = None
 
-    def get_struct(self, split_to_multiple_files: bool = False) -> bytes:  # split_to_multiple_files not used here.
+    def get_struct(
+        self, split_to_multiple_files: bool = False
+    ) -> bytes:  # split_to_multiple_files not used here.
         return self.get_data()
 
     def get_data(self) -> bytes:
@@ -34,9 +45,17 @@ class OnlineAuxPacket(Packet):
         self.data = data
 
     def __str__(self):
-        return ("< aux_number : " + str(self.aux_number) + ", used_packets: " + str(self.used_packets)
-                + " , Data: " + str(self.data) + " , Error Correction: "
-                + str(self.error_correction) + " >")
+        return (
+            "< aux_number : "
+            + str(self.aux_number)
+            + ", used_packets: "
+            + str(self.used_packets)
+            + " , Data: "
+            + str(self.data)
+            + " , Error Correction: "
+            + str(self.error_correction)
+            + " >"
+        )
 
     def __eq__(self, other) -> bool:
         return hash(self) == hash(other)

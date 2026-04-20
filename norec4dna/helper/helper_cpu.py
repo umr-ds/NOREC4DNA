@@ -1,8 +1,9 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
 import zlib
-import numpy
 from functools import reduce
+
+import numpy
 from numba import jit, vectorize
 
 cache = False
@@ -11,8 +12,8 @@ cache = False
 # @jit(nogil=True, cache=cache)
 def xor_numpy(p1, p2):
     if (isinstance(p2, numpy.ndarray) and isinstance(p1, numpy.ndarray)) and (
-            (p1.dtype == numpy.uint8 and p2.dtype == numpy.uint8)
-            or (p1.dtype == numpy.bool and p2.dtype == numpy.bool)
+        (p1.dtype == numpy.uint8 and p2.dtype == numpy.uint8)
+        or (p1.dtype == numpy.bool and p2.dtype == numpy.bool)
     ):
         n_p1 = p1
         n_p2 = p2
@@ -80,7 +81,11 @@ def xor_mask(data, len_format="I", mask=0b10101010101010101010101010101010, enab
 
 
 # bitSet returns true if x has the b'th bit set
-@vectorize(["boolean(uint32, uint32)", "boolean(uint64, uint64)"], nopython=True, cache=cache, )
+@vectorize(
+    ["boolean(uint32, uint32)", "boolean(uint64, uint64)"],
+    nopython=True,
+    cache=cache,
+)
 def bitSet(x, b):
     return ((x >> b) & 1) == 1
 
@@ -91,7 +96,9 @@ def bitSet(x, b):
 @vectorize(["int64(uint64)", "int64(uint32)"], nopython=True, cache=cache)
 def bitsSet(x):  # x is of type uint64 !
     x -= (x >> numpy.uint64(1)) & numpy.uint64(0x5555555555555555)
-    x = (x & numpy.uint64(0x3333333333333333)) + ((x >> numpy.uint64(2)) & numpy.uint64(0x3333333333333333))
+    x = (x & numpy.uint64(0x3333333333333333)) + (
+        (x >> numpy.uint64(2)) & numpy.uint64(0x3333333333333333)
+    )
     x = (x + (x >> numpy.uint64(4))) & numpy.uint64(0x0F0F0F0F0F0F0F0F)
     res = numpy.int64((x * numpy.uint64(0x0101010101010101)) >> numpy.uint64(56))
     return res
@@ -100,7 +107,11 @@ def bitsSet(x):  # x is of type uint64 !
 # grayCode calculates the gray code representation of the input argument
 # The Gray code is a binary representation in which successive values differ
 # by exactly one bit. See http://en.wikipedia.org/wiki/Gray_code
-@vectorize(["uint64(uint64)", "uint64(uint32)", "uint64(float64)"], nopython=True, cache=cache, )
+@vectorize(
+    ["uint64(uint64)", "uint64(uint32)", "uint64(float64)"],
+    nopython=True,
+    cache=cache,
+)
 def grayCode(x):
     return numpy.bitwise_xor((numpy.uint64(x) >> numpy.uint64(1)), numpy.uint64(x))
 

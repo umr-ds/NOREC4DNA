@@ -1,6 +1,6 @@
 import matplotlib
-import pandas as pd
 import matplotlib.pyplot as plt
+import pandas as pd
 
 # Get current size
 # plt.style.use('seaborn-whitegrid')
@@ -32,8 +32,13 @@ def plot(column=True):
     axis_font = {"size": "18"}
     matplotlib.rc("font", **font)
     x_achse = "Count " + ("columns" if column else "rows")
-    df6 = pd.read_csv(name6, delimiter=",", engine="python", usecols=["Method", x_achse, "Seconds"],
-                      index_col=False, )  # "Anzahl Spalten",
+    df6 = pd.read_csv(
+        name6,
+        delimiter=",",
+        engine="python",
+        usecols=["Method", x_achse, "Seconds"],
+        index_col=False,
+    )  # "Anzahl Spalten",
 
     plt.title("Comparison of the XOR reductions")
     plt.xlabel("")
@@ -48,7 +53,11 @@ def plot(column=True):
             # parzen
             # barthannc
             plt.plot(group, label=name)
-            print(group.rolling(window=15, win_type="blackman", closed="neither", min_periods=1).mean(std=1))
+            print(
+                group.rolling(window=15, win_type="blackman", closed="neither", min_periods=1).mean(
+                    std=1
+                )
+            )
 
     manager = plt.get_current_fig_manager()
     manager.resize(*manager.window.maxsize())
@@ -57,9 +66,13 @@ def plot(column=True):
     plt.legend()
     plt.grid(True)
     plt.show(block=False)
-    plt.savefig("../../../../CSV/brauchbar/GPU_CPU_XOR/" + str(x_achse.replace(" ", "_")) + "_vs_zeit.pdf",
-                bbox_inches="tight", )
-    plt.savefig("../../../../CSV/brauchbar/GPU_CPU_XOR/" + str(x_achse.replace(" ", "_")) + "_vs_zeit.svg")
+    plt.savefig(
+        "../../../../CSV/brauchbar/GPU_CPU_XOR/" + str(x_achse.replace(" ", "_")) + "_vs_zeit.pdf",
+        bbox_inches="tight",
+    )
+    plt.savefig(
+        "../../../../CSV/brauchbar/GPU_CPU_XOR/" + str(x_achse.replace(" ", "_")) + "_vs_zeit.svg"
+    )
     plt.close()
 
 

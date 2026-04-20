@@ -3,10 +3,11 @@ import typing
 from typing import Any, Callable, List, Optional, Set, Union
 
 import numpy as np
+from numpy.typing import NDArray
+
 from .ErrorCorrection import nocode
 from .helper import xor_mask, xor_numpy
 from .helper.bin2Quaternary import quads2dna, string2QUATS
-from numpy.typing import NDArray
 
 
 def interleave_spacing(input_str: str, spacing: int, spacing_length: int) -> str:
@@ -217,7 +218,9 @@ class Packet:
         return self.used_packets
 
     def get_bool_array_used_packets(self) -> NDArray[np.bool_]:
-        return np.array([x in self.used_packets for x in range(self.total_number_of_chunks)], dtype=bool)
+        return np.array(
+            [x in self.used_packets for x in range(self.total_number_of_chunks)], dtype=bool
+        )
 
     def set_bool_array_used_packet(self, b_array: List[bool]) -> None:
         assert len(b_array) == self.total_number_of_chunks, "Problem"

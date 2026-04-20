@@ -29,8 +29,8 @@ Example Usage (NEW):
 For more information, see MULTIVERSION_INPUT_FIX.md
 """
 
-import warnings
 import logging
+import warnings
 
 # Issue deprecation warning on import
 warnings.warn(
@@ -43,32 +43,31 @@ warnings.warn(
 
 logger = logging.getLogger(__name__)
 logger.warning(
-    "NOREC4DNA.file_update_coding is deprecated. "
-    "Please use MultiVersionCoder instead."
+    "NOREC4DNA.file_update_coding is deprecated. " "Please use MultiVersionCoder instead."
 )
+
+# Also export types for type checking
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 # Re-export all functions and classes from MultiVersionCoder
 from MultiVersionCoder import (
     MultiVersionCoder,
+    add_packets,
+    create_perceptual_hash,
+    decode_versions,
+    encoder_from_decoder,
     find_affected_chunks,
-    generate_dna_version_string,
-    get_current_file_version,
-    insert_dna_version_string,
-    insert_id_string,
-    reduce_packet_to_chunk,
     find_insertion_position,
     find_insertion_position_with_seed,
+    generate_dna_version_string,
     generate_new_packets,
-    create_perceptual_hash,
-    encoder_from_decoder,
-    add_packets,
-    decode_versions,
+    get_current_file_version,
     init_args,
+    insert_dna_version_string,
+    insert_id_string,
     main,
+    reduce_packet_to_chunk,
 )
-
-# Also export types for type checking
-from typing import Dict, List, Set, Tuple, Optional, Union
 
 __all__ = [
     "MultiVersionCoder",

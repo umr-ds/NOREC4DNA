@@ -1,10 +1,10 @@
 import copy
 import csv
 import math
+
 import matplotlib.pyplot as plt
 import numpy as np
-
-from norec4dna import Encoder, nocode, RU10Encoder, RU10Decoder
+from norec4dna import Encoder, RU10Decoder, RU10Encoder, nocode
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.helper import should_drop_packet
 from norec4dna.helper.RU10Helper import intermediate_symbols
@@ -179,10 +179,50 @@ def init_population(pop_size, add_raptor=True):
     if add_raptor:
         # Raptor Distribution
         x = np.asarray(
-            [0, 10241, 491582, 712794, 831695, 831695, 831695, 831695, 831695, 831695, 948446, 1032189, 1032189,
-             1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189,
-             1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189, 1032189,
-             1032189, 1032189, 1032189, 1048576])
+            [
+                0,
+                10241,
+                491582,
+                712794,
+                831695,
+                831695,
+                831695,
+                831695,
+                831695,
+                831695,
+                948446,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1032189,
+                1048576,
+            ]
+        )
         x = norm_list(list_to_diff_list(x))
         pop.append(x)
         pop_size -= 1
@@ -255,7 +295,9 @@ def encode(file, chunk_size, dist, as_dna=True, repeats=15):
     """
     degree_dict = {}
     overhead_lst = []
-    number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size, insert_header=False)
+    number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(
+        file, chunk_size, insert_header=False
+    )
     distribution = RaptorDistribution(number_of_chunks)
     distribution.f = dist
     distribution.d = [x for x in range(0, 41)]
@@ -263,9 +305,18 @@ def encode(file, chunk_size, dist, as_dna=True, repeats=15):
         rules = FastDNARules()
     else:
         rules = None
-    encoder = RU10Encoder(file, number_of_chunks, distribution, insert_header=False, rules=rules,
-                          error_correction=nocode, id_len_format="H", number_of_chunks_len_format="B",
-                          save_number_of_chunks_in_packet=False, mode_1_bmp=False)
+    encoder = RU10Encoder(
+        file,
+        number_of_chunks,
+        distribution,
+        insert_header=False,
+        rules=rules,
+        error_correction=nocode,
+        id_len_format="H",
+        number_of_chunks_len_format="B",
+        save_number_of_chunks_in_packet=False,
+        mode_1_bmp=False,
+    )
     encoder.prepare()
     for _ in range(0, repeats):
         encoder.random_state = np.random.RandomState()
@@ -296,7 +347,9 @@ def create_pseudo_decoder(number_of_chunks, distribution):
     if pseudo_decoder.distribution is None:
         pseudo_decoder.distribution = distribution
         pseudo_decoder.numberOfChunks = number_of_chunks
-        _, pseudo_decoder.s, pseudo_decoder.h = intermediate_symbols(number_of_chunks, pseudo_decoder.distribution)
+        _, pseudo_decoder.s, pseudo_decoder.h = intermediate_symbols(
+            number_of_chunks, pseudo_decoder.distribution
+        )
         pseudo_decoder.createAuxBlocks()
     return pseudo_decoder
 
@@ -318,9 +371,9 @@ def compute_cost(dist_lst, c_size_list=None, file_list=None, fast=False, diff_li
         if fast:
             c_size_list = [100]
     if file_list is None:
-        file_list = ['Dorn', 'Dorn.tar.gz', 'umr_logo_sw_scaled.png']
+        file_list = ["Dorn", "Dorn.tar.gz", "umr_logo_sw_scaled.png"]
         if fast:
-            file_list = ['Dorn']
+            file_list = ["Dorn"]
     if diff_list:
         dist_lst = scale_to(diff_list_to_list(dist_lst), 1048576)
     degree_packet_costs = dict()
@@ -362,17 +415,68 @@ def encode(file, dist_lst, asdna=True, chunk_size=50):
     number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
     dist = RaptorDistribution(number_of_chunks)
     dist.f = dist_lst
-    d = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
-         29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]
+    d = [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+    ]
     dist.d = d
     dna_rules = FastDNARules()
     if asdna:
         rules = dna_rules
     else:
         rules = None
-    x = RU10Encoder(file, number_of_chunks, dist, chunk_size=chunk_size, insert_header=False, rules=rules,
-                    error_correction=nocode, id_len_format="H", number_of_chunks_len_format="B",
-                    save_number_of_chunks_in_packet=False, mode_1_bmp=False)
+    x = RU10Encoder(
+        file,
+        number_of_chunks,
+        dist,
+        chunk_size=chunk_size,
+        insert_header=False,
+        rules=rules,
+        error_correction=nocode,
+        id_len_format="H",
+        number_of_chunks_len_format="B",
+        save_number_of_chunks_in_packet=False,
+        mode_1_bmp=False,
+    )
     x.prepare()
     y = RU10Decoder.pseudo_decoder(x.number_of_chunks, False)
     if y.distribution is None:  # self.isPseudo and
@@ -403,9 +507,11 @@ def encode(file, dist_lst, asdna=True, chunk_size=50):
 
 
 def generate_log(file_con, file):
-    with open(file + ".csv", 'w', newline='') as f:
-        writer = csv.writer(f, delimiter=',', lineterminator='\n', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(['gen', 'avg_par_err', 'timestamp', 'dist_lst'])
+    with open(file + ".csv", "w", newline="") as f:
+        writer = csv.writer(
+            f, delimiter=",", lineterminator="\n", quotechar="|", quoting=csv.QUOTE_MINIMAL
+        )
+        writer.writerow(["gen", "avg_par_err", "timestamp", "dist_lst"])
         for item in file_con:
             writer.writerow([item[0], item[1], item[2], item[3]])
 
@@ -422,8 +528,8 @@ def generate_plot(file_con, file, max_gen):
     axis2 = fig.add_subplot(212)
     axis2.plot(file_con[-1][3][0])
     fig.savefig(file + ".png")
-    fig.savefig(file + ".svg", format='svg', bbox_inches='tight')
+    fig.savefig(file + ".svg", format="svg", bbox_inches="tight")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print()
