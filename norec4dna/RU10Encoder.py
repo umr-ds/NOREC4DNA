@@ -585,7 +585,7 @@ if __name__ == "__main__":
         required=False,
         type=int,
         default=0,
-        help="number of chunks to split the file into," "only used if no chunk_size is given",
+        help="number of chunks to split the file into,only used if no chunk_size is given",
     )
     parser.add_argument(
         "--error_correction",

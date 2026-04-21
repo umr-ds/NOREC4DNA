@@ -3,14 +3,13 @@
 import filecmp
 import os
 import shutil
-import tempfile
 from pathlib import Path
 from zipfile import ZipFile
 
 import pytest
 from norec4dna import Encoder, RU10BPDecoder, RU10Decoder, RU10Encoder
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.ErrorCorrection import crc32, nocode
+from norec4dna.ErrorCorrection import crc32
 from norec4dna.rules.FastDNARules import FastDNARules
 
 # Get the directory containing this test file
@@ -440,7 +439,7 @@ class TestRU10EndToEnd:
         encoder.save_packets(split_to_multiple_files=True, out_file=out_dir)
 
         # Create config map
-        from configparser import ConfigParser, SectionProxy
+        from configparser import ConfigParser
 
         config = ConfigParser()
         config.add_section(out_dir)

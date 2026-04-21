@@ -13,3 +13,10 @@ dist/**
 unified_venv/**
 venv2/**
 *.so
+*.tmp
+LT_Dorn/**
+RU10_logo.jpg/**
+htmlcov/**
+tests/**
+bkp/**
+.INFILES/**

@@ -5,12 +5,11 @@ Comprehensive coverage tests for RU10Packet and RU10IntermediatePacket modules.
 Targets 100% coverage for these files.
 """
 
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
-import numpy as np
 import pytest
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.ErrorCorrection import crc32, nocode
+from norec4dna.ErrorCorrection import crc32
 from norec4dna.RU10IntermediatePacket import RU10IntermediatePacket
 from norec4dna.RU10Packet import RU10Packet
 

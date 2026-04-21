@@ -229,7 +229,7 @@ class Encoder(ABC):
                 else:
                     f.writestr(f"{i}{file_ending}", packet.get_struct(True))
                 i += 1
-        print(f"Saved result at: %s" % out_file)
+        print("Saved result at: %s" % out_file)
 
     def save_packets_fasta(
         self,
@@ -260,7 +260,7 @@ class Encoder(ABC):
                     ">" + e_prob + str(i) + file_ending + "\n" + packet.get_dna_struct(True) + "\n"
                 )
                 i += 1
-        print(f"Saved result at: %s" % out_file)
+        print("Saved result at: %s" % out_file)
 
     @staticmethod
     def translate_to_bytes(bit_arr: np.ndarray, img: Image.Image) -> bytes:

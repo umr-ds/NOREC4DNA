@@ -1,4 +1,3 @@
-import functools
 import io
 import logging
 import struct
@@ -12,7 +11,6 @@ from numpy.typing import NDArray
 
 from . import (
     Encoder,
-    IdealSolitonDistribution,
     RaptorDistribution,
     RU10Decoder,
     RU10Encoder,

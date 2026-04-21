@@ -367,7 +367,7 @@ static PyObject* elimination(PyObject *self, PyObject *args) {
 
     // Backward elimination
     npy_intp max_col = (dims_a_1 < dims_a_0) ? dims_a_1 : dims_a_0;
-    
+
     for (npy_intp col = max_col - 1; col >= 0; col--) {
         if (dirty_rows[col]) continue;
 

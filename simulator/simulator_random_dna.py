@@ -8,7 +8,6 @@ import numpy as np
 from norec4dna.helper import xor_mask
 
 from .helper.bin2Quaternary import string2QUATS
-from .helper.quaternary2Bin import quats_to_bytes
 from .rules.DNARules import DNARules
 
 lines = [

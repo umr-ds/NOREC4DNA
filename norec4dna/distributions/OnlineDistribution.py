@@ -1,6 +1,7 @@
-import numpy
 import typing
 from math import ceil, log
+
+import numpy
 
 from .Distribution import Distribution
 
@@ -10,7 +11,7 @@ class OnlineDistribution(Distribution):
     # -> total_number_of_chunks = 1000 -> 3% overhead for recovery error rate of 1e-8
     def __init__(self, eps: float = 0.1, seed: int = 0):
         super().__init__()
-        self.rng: numpy.random = numpy.random # type: ignore
+        self.rng: numpy.random = numpy.random  # type: ignore
         self.rng.seed(seed)
         self.eps: float = eps
         self.S: typing.Optional[int] = None
@@ -29,7 +30,9 @@ class OnlineDistribution(Distribution):
         if self.S is None:
             self.S: int = s
         p1: float = 1 - ((1 + 1 / s) / (1 + self.eps))
-        return self.normalize([p1] + [((1 - p1) * s) / ((s - 1) * i * (i - 1)) for i in range(2, s + 1)])
+        return self.normalize(
+            [p1] + [((1 - p1) * s) / ((s - 1) * i * (i - 1)) for i in range(2, s + 1)]
+        )
 
     def update_number_of_chunks(self, num_chunks: int):
         self.S = num_chunks

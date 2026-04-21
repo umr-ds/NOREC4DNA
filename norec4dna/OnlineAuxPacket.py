@@ -26,8 +26,8 @@ class OnlineAuxPacket(Packet):
         self.total_number_of_chunks: int = total_number_of_chunks
         self.used_packets: typing.Optional[typing.Set[int]] = used_packets
         self.update_degree()
-        self.error_correction: typing.Callable[[typing.Any], typing.Any] = (
-            lambda x: x
+        self.error_correction: typing.Callable[[typing.Any], typing.Any] = lambda x: (
+            x
         )  # "AUX-Packet - NO CRC"
         self.aux_number: int = aux_number if aux_number is not None else 0
         self.dna_data: typing.Optional[str] = None

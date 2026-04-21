@@ -124,7 +124,6 @@ def plot_encode():
     linest = itertools.cycle(["-", ":"])
     color = itertools.cycle(["m", "m", "r", "r", "c", "c", "g", "g", "b", "b", "y", "y", "k", "k"])
     for name, group in df6.groupby(["Art"]):
-
         for name1, group1 in group.groupby(["Modus"]):
             modus = name1
             tmp = group1.groupby(["Kilobytes"]).mean()

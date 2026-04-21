@@ -1,5 +1,6 @@
-import numpy
 import typing
+
+import numpy
 
 from .Distribution import Distribution
 

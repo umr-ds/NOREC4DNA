@@ -1,5 +1,4 @@
 # Partially based on jgcastro89 's Code https://gist.github.com/jgcastro89/49090cc69a499a129413597433b9baab
-import typing
 from typing import List, Optional
 
 import numpy as np

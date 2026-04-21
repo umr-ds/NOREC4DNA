@@ -5,9 +5,6 @@ Coverage tests for fallback_code.py module.
 These tests cover the fallback implementations used when C extensions are not available.
 """
 
-import sys
-from unittest.mock import MagicMock, patch
-
 import numpy as np
 import pytest
 from norec4dna.helper.fallback_code import (

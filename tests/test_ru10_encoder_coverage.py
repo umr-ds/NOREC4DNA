@@ -8,12 +8,12 @@ Targets 100% coverage for this file.
 import os
 import shutil
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock
 
 import numpy as np
 import pytest
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.ErrorCorrection import crc32, nocode, reed_solomon_encode
+from norec4dna.ErrorCorrection import crc32
 from norec4dna.RU10Encoder import RU10Encoder
 from norec4dna.rules.FastDNARules import FastDNARules
 

@@ -5,7 +5,7 @@ from .RuleParser import gc_content, shouldDrop, shouldDropMax
 try:
     from cdnarules import repeatRegion as rRegion
     from cdnarules import smallRepeatRegion as smallrRegion
-except ImportError as ex:
+except ImportError:
     print("C Module failed to load, falling back to slow mode")
     from ..helper.fallback_code import r_region as rRegion
     from ..helper.fallback_code import small_r_region as smallrRegion

@@ -8,7 +8,6 @@ from pathlib import Path
 from norec4dna import RU10Decoder
 from norec4dna.ErrorCorrection import get_error_correction_decode
 from norec4dna.helper.quaternary2Bin import tranlate_quat_to_byte
-from norec4dna.rules.DNARules import DNARules
 from norec4dna.rules.FastDNARules import FastDNARules
 
 """

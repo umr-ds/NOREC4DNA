@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 
 import pytest
-from norec4dna import Encoder, RU10BPDecoder, RU10Decoder, RU10Encoder
+from norec4dna import Encoder, RU10Decoder, RU10Encoder
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.ErrorCorrection import (
     crc32,

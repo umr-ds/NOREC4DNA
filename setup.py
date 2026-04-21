@@ -13,7 +13,7 @@ if is_windows:
     extra_compile_args = ["/O2", "/arch:AVX2", "/fp:fast"]
 else:
     extra_compile_args = [
-        "-D__BUILTIN_POPCOUNT" "-O3",  # Maximum optimization
+        "-D__BUILTIN_POPCOUNT-O3",  # Maximum optimization
         "-march=native",  # Use all CPU features
         "-mtune=native",  # Tune for current CPU
         "-ffast-math",  # Fast floating point

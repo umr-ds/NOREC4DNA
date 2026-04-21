@@ -23,9 +23,10 @@ from .invivo_window_decoder import load_fasta
 try:
     from norec4dna_multiversion.reconstruction import SemiAutomaticReconstructionToolkit
 except ImportError:
-    from semi_automatic_reconstruction_toolkit import SemiAutomaticReconstructionToolkit  # type: ignore[no-redef]
+    from semi_automatic_reconstruction_toolkit import (
+        SemiAutomaticReconstructionToolkit,  # type: ignore[no-redef]
+    )
 
-import imagehash
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -769,7 +770,6 @@ def _cmd_embed(args: argparse.Namespace) -> int:
 
     # Determine output path
     import configparser
-    import os
 
     ini_path = args.ini
     if args.output:

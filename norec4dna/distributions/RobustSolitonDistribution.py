@@ -1,8 +1,9 @@
-import numpy
 import random
 import typing
 from math import ceil
 from operator import add
+
+import numpy
 
 from .Distribution import Distribution
 
@@ -11,7 +12,7 @@ class RobustSolitonDistribution(Distribution):
     def __init__(self, S=10, K=8, delta=1.0, seed=0):
         # delta = failure probability # K = Grenze (position des hoehepunkts) , S = Anzahl der Bloecke
         super().__init__()
-        self.rng: numpy.random = numpy.random # type: ignore
+        self.rng: numpy.random = numpy.random  # type: ignore
         self.rng.seed(seed)
         self.S: int = S
         self.K: int = K
@@ -40,9 +41,11 @@ class RobustSolitonDistribution(Distribution):
     @staticmethod
     def robustSolitonDist(S: int, k: int, delta: float) -> typing.List[float]:
         R: float = S / k
-        return ([1 / (d * k) for d in range(1, k)]
-                + [numpy.log(R / delta) / k]
-                + [0 for _ in range(k + 1, S)])
+        return (
+            [1 / (d * k) for d in range(1, k)]
+            + [numpy.log(R / delta) / k]
+            + [0 for _ in range(k + 1, S)]
+        )
 
     def preCompute(self, S: int, k: int, delta: float) -> typing.List[float]:
         ideal = self.idealSolitonDist(S)

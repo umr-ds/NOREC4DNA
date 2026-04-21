@@ -356,3 +356,5 @@ TSWLatexianTemp*
 *.RU10_DNA
 *.LT_DNA
 .OUTFILES/**
+bkp/*
+*.tmp

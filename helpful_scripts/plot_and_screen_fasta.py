@@ -1,12 +1,8 @@
 import galois
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import seaborn as sns
 from norec4dna.rules.FastDNARules import FastDNARules
 from numpy import zeros
-from plot.plot_error_prob_all import plot_error_prob_for_all
 
 matplotlib.rcParams["figure.dpi"] = 800
 
@@ -100,12 +96,12 @@ def fix_(in_file, out_file_str):
             correct.append((line, err_prob))
     with open(out_file_str, "w") as out_file:
         for line, err_prob in correct:
-            out_file.write(f">%s\n" % err_prob)
+            out_file.write(">%s\n" % err_prob)
             out_file.write(line.strip().replace("\n", "") + "\n")
     cleaned = find_dup_ids(out_file_str)
     with open(out_file_str, "w") as out_file:
         for line in cleaned:
-            out_file.write(f">abc\n")
+            out_file.write(">abc\n")
             out_file.write(line.strip().replace("\n", "") + "\n")
 
 
@@ -120,7 +116,7 @@ def screen(truth, to_check):
     with open(to_check, "r") as check_file:
         lines = check_file.readlines()
         for line in lines[1::2]:
-            if not line.strip() in in_set:
+            if line.strip() not in in_set:
                 wrong.append(line.strip())
             else:
                 correct.append(line.strip())

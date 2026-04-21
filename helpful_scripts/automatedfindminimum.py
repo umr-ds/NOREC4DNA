@@ -12,7 +12,6 @@ from norec4dna.RU10Packet import RU10Packet
 
 
 class AutomatedFindMinimum:
-
     def __init__(self, packets, error_correction, dist, use_headerchunk=False):
         self.packets = packets
         self.error_correction = error_correction

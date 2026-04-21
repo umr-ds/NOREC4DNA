@@ -42,12 +42,9 @@ warnings.warn(
 )
 
 logger = logging.getLogger(__name__)
-logger.warning(
-    "NOREC4DNA.file_update_coding is deprecated. " "Please use MultiVersionCoder instead."
-)
+logger.warning("NOREC4DNA.file_update_coding is deprecated. Please use MultiVersionCoder instead.")
 
 # Also export types for type checking
-from typing import Dict, List, Optional, Set, Tuple, Union
 
 # Re-export all functions and classes from MultiVersionCoder
 from MultiVersionCoder import (

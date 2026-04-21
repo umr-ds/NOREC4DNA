@@ -367,7 +367,7 @@ def main(file="logo.jpg", repeats=5):
                         + ","
                         + str(time_needed)
                     )
-                except Exception as ex:
+                except Exception:
                     line = (
                         str(file)
                         + ","

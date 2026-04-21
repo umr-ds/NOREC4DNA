@@ -3,7 +3,7 @@ import os
 import random
 
 import requests
-from norec4dna.helper.bin2Quaternary import byte2QUATS, string2QUATS
+from norec4dna.helper.bin2Quaternary import byte2QUATS
 from norec4dna.helper.quaternary2Bin import quats_to_bytes
 
 # IMPORTANT: if you plan to use this, you should change the MESA_URL to a (local) instance of your own.

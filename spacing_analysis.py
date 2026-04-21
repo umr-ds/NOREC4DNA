@@ -112,7 +112,7 @@ def calculate_impossible_seeds(seed_len_format="H"):
         if res > 3:
             bad += 1
     print(
-        f"Seed format: {seed_len_format}, Bad: {bad}, Total: {total_packets}, Percentage: {1.0*bad/total_packets}"
+        f"Seed format: {seed_len_format}, Bad: {bad}, Total: {total_packets}, Percentage: {1.0 * bad / total_packets}"
     )
 
 

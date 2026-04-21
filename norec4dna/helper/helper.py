@@ -3,11 +3,10 @@ import math
 import os
 import shutil
 import typing
-from typing import Any, List, Tuple, Union
+from typing import List, Tuple, Union
 
 import crcmod
 import numpy as np
-from numpy.typing import NDArray
 
 mode = "single_cpu"
 
@@ -271,6 +270,7 @@ def calc_crc(
     while chunk := file_io.read(chunksize):
         checksum = algo(chunk, checksum)
     return checksum
+
 
 if __name__ == "__main__":
     print(os.listdir(os.path.curdir))

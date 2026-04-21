@@ -4,7 +4,7 @@ import os
 import struct
 from io import BytesIO
 from math import ceil, floor
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, List, Optional, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -262,9 +262,9 @@ class RU10BPDecoder(BPDecoder):
         Reconstructs the auxblocks to be able to remove them afterwards.
         :return:
         """
-        assert (
-            self.number_of_chunks is not None
-        ), "createAuxBlocks can only be called AFTER first Packet"
+        assert self.number_of_chunks is not None, (
+            "createAuxBlocks can only be called AFTER first Packet"
+        )
         if self.debug:
             logger.debug(
                 "We should have %s LDPC-Blocks, %s Half-Blocks and %s normal Chunks (including 1 HeaderChunk)",
@@ -455,7 +455,7 @@ class RU10BPDecoder(BPDecoder):
                     ch for ch in range(start, start + window_size) if ch <= self.number_of_chunks
                 ]
             else:
-                raise RuntimeError(f"Invalid method_data: %s" % method_data)
+                raise RuntimeError("Invalid method_data: %s" % method_data)
         len_data = struct.unpack(struct_str, packet[0:struct_len])
         if self.static_number_of_chunks is None:
             self.number_of_chunks = xor_mask(len_data[0], number_of_chunks_len_format)
@@ -611,8 +611,9 @@ class RU10BPDecoder(BPDecoder):
         return self.bytes_to_bitmap(dec_out)
 
     def bytes_to_bitmap(self, img_byt: bytes):
-        width, height = int(struct.unpack(">H", img_byt[:2])[0]), int(
-            struct.unpack(">H", img_byt[2:4])[0]
+        width, height = (
+            int(struct.unpack(">H", img_byt[:2])[0]),
+            int(struct.unpack(">H", img_byt[2:4])[0]),
         )
         unpack = (
             np.unpackbits(

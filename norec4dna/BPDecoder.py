@@ -1,6 +1,6 @@
 import os
 from collections import deque
-from typing import TYPE_CHECKING, Any, Callable, Deque, Dict, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Deque, Dict, List, Optional, Set, Union
 
 from norec4dna import Decoder, HeaderChunk
 from norec4dna.distributions import Distribution
@@ -60,7 +60,7 @@ class BPDecoder(Decoder):
     def addPacket(self, packet: Union[Packet, RU10Packet, OnlinePacket]) -> None:
         removed = self.removeAndXorAuxPackets(packet)
         packet.set_used_packets(set(from_true_false_list(removed)))
-        if (not packet.get_degree() in self.degreeToPacket) or (
+        if (packet.get_degree() not in self.degreeToPacket) or (
             not isinstance(self.degreeToPacket[packet.get_degree()], set)
         ):
             self.degreeToPacket[packet.get_degree()] = set()

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Union
 import numpy
 from crccheck.crc import Crc8Lte as crc8
 from crccheck.crc import Crc16, Crc32, Crc64
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import NDArray
 
 try:
     from cdnarules import xorArray as xor_numpy_internal
@@ -107,7 +107,6 @@ try:
 
 except ImportError:
     print("BitSet - C Module failed to load, falling back to slow mode")
-    from .fallback_code import bitSet
 
 try:
     from cdnarules import bitsSet as bitsSet_c
@@ -117,7 +116,6 @@ try:
 
 except ImportError:
     print("BitsSet - C Module failed to load, falling back to slow mode")
-    from .fallback_code import bitsSet
 
 try:
     from cdnarules import grayCode as grayCode_c
@@ -127,10 +125,8 @@ try:
 
 except ImportError:
     print("Gray-Code - C Module failed to load, falling back to slow mode")
-    from .fallback_code import grayCode
 
 try:
     from cdnarules import buildGraySequence
 except ImportError:
     print("Graysequence - C Module failed to load, falling back to slow mode")
-    from .fallback_code import buildGraySequence

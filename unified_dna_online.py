@@ -1,4 +1,3 @@
-import functools
 import io
 import math
 import os
@@ -10,7 +9,6 @@ from norec4dna.Packet import Packet
 
 from . import (
     Encoder,
-    IdealSolitonDistribution,
     OnlineDecoder,
     OnlineDistribution,
     OnlineEncoder,

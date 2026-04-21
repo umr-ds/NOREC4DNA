@@ -2,10 +2,6 @@
 import argparse
 import typing
 
-from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import (
-    ErlichZielinskiRobustSolitonDistribution,
-)
-from norec4dna.distributions.IdealSolitonDistribution import IdealSolitonDistribution
 from norec4dna.distributions.RobustSolitonDistribution import RobustSolitonDistribution
 from norec4dna.ErrorCorrection import get_error_correction_encode, nocode
 from norec4dna.LTEncoder import LTEncoder as LTEncoder

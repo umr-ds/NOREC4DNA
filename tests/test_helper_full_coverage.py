@@ -7,7 +7,6 @@ Targets 100% coverage where possible.
 
 import os
 import shutil
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -524,7 +523,6 @@ class TestXorMask:
         """Test xor_mask with Q format - tests the mask assignment code path"""
         # Note: The actual XOR operation may overflow due to numpy limitations
         # We're testing that the Q format mask assignment code path is executed
-        import sys
 
         # Just test that the function handles the Q format without crashing in setup
         # The mask value is assigned but the XOR may fail on some numpy versions

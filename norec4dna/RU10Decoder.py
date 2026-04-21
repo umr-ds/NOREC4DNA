@@ -628,9 +628,9 @@ class RU10Decoder(Decoder):
         Reconstructs the auxblocks to be able to remove them afterwards.
         :return:
         """
-        assert (
-            self.number_of_chunks is not None
-        ), "createAuxBlocks can only be called AFTER first Packet"
+        assert self.number_of_chunks is not None, (
+            "createAuxBlocks can only be called AFTER first Packet"
+        )
         if self.debug:
             logger.debug(
                 "We should have "
@@ -859,7 +859,10 @@ class RU10Decoder(Decoder):
             used_packets = [chunk_lst[i] for i in numbers]
         else:
             used_packets = choose_packet_numbers(
-                self.number_of_chunks, unxored_id, typing.cast(RaptorDistribution, self.distribution), systematic=False  # type: ignore[arg-type]
+                self.number_of_chunks,
+                unxored_id,
+                typing.cast(RaptorDistribution, self.distribution),
+                systematic=False,  # type: ignore[arg-type]
             )
         res = RU10Packet(
             data,
@@ -949,9 +952,9 @@ class RU10Decoder(Decoder):
         :param print_to_output: True: Result we be printed to the command line.
         :return:
         """
-        assert (
-            self.is_decoded() or partial_decoding
-        ), "Can not save File: Unable to reconstruct. You may try saveDecodedFile(partial_decoding=True)"
+        assert self.is_decoded() or partial_decoding, (
+            "Can not save File: Unable to reconstruct. You may try saveDecodedFile(partial_decoding=True)"
+        )
         if partial_decoding:
             self.solve(partial=True)
         dirty = False

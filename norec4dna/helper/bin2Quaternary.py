@@ -2,7 +2,7 @@
 # -*- coding: latin-1 -*-
 import os
 import typing
-from typing import Any, List, Union
+from typing import List, Union
 
 """
 Mapping:

@@ -6,12 +6,10 @@ import os
 import struct
 from io import BytesIO
 from math import ceil
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Set, Union
 
-import numpy
 import numpy as np
 from norec4dna.Decoder import Decoder
-from norec4dna.distributions.Distribution import Distribution
 from norec4dna.distributions.OnlineDistribution import OnlineDistribution
 from norec4dna.ErrorCorrection import crc32, get_error_correction_decode, nocode
 from norec4dna.GEPP import GEPP, GEPP_intern
@@ -199,9 +197,9 @@ class OnlineDecoder(Decoder):
         raise NotImplementedError("Not implemented for OnlineDecoder!")
 
     def createAuxBlocks(self) -> None:
-        assert (
-            self.number_of_chunks is not None
-        ), "createAuxBlocks can only be called AFTER first Packet"
+        assert self.number_of_chunks is not None, (
+            "createAuxBlocks can only be called AFTER first Packet"
+        )
         self.rng.seed(self.number_of_chunks)
         if self.debug:
             logger.debug(

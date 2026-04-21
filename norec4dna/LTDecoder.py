@@ -18,7 +18,7 @@ from .distributions.ErlichZielinskiRobustSolitonDisribution import (
 from .ErrorCorrection import crc32, nocode, reed_solomon_decode
 from .GEPP import GEPP, GEPP_intern
 from .HeaderChunk import HeaderChunk
-from .helper import calc_crc, calc_file_crc, logical_xor, xor_mask
+from .helper import calc_crc, calc_file_crc, xor_mask
 from .helper.quaternary2Bin import quat_file_to_bin, tranlate_quat_to_byte
 from .Packet import Packet
 

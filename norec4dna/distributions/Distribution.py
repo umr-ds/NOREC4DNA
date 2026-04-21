@@ -1,6 +1,7 @@
-from abc import ABC
-import numpy as np
 import typing
+from abc import ABC
+
+import numpy as np
 
 
 class Distribution(ABC):

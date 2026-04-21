@@ -3,9 +3,9 @@ import math
 from functools import partial
 
 try:
-    import pybloomfilter
+    pass
 except:
-    import pybloom as pybloomfilter  # code for windows...
+    pass  # code for windows...
 
 from .RuleParser import (
     charCountBiggerEqualThanX,
@@ -237,7 +237,7 @@ class FastDNARules:
         """
         try:
             dna_data = packet.get_dna_struct(True)
-        except Exception as ex:
+        except Exception:
             dna_data = packet
         res_arr = [x(dna_data) for x in self.active_rules]
         return sum(res_arr)

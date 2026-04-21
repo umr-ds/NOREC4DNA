@@ -1,8 +1,9 @@
-import numpy
 import random
 import typing
 from math import ceil
 from operator import add
+
+import numpy
 
 from .Distribution import Distribution
 
@@ -25,7 +26,14 @@ class ErlichZielinskiRobustSolitonDistribution(Distribution):
         self.pre_comp_dist = self.preCompute(self.K, self.c, self.delta)
 
     def get_config_string(self) -> str:
-        return "LT_ErlichZielinskiRobustSoliton_K=" + str(self.K) + "_delta=" + str(self.delta) + "_c=" + str(self.c)
+        return (
+            "LT_ErlichZielinskiRobustSoliton_K="
+            + str(self.K)
+            + "_delta="
+            + str(self.delta)
+            + "_c="
+            + str(self.c)
+        )
 
     @staticmethod
     def getGenerator(n: int):
@@ -47,10 +55,11 @@ class ErlichZielinskiRobustSolitonDistribution(Distribution):
     def robustSolitonDist(K: int, c: float, delta: float) -> typing.List[float]:
         s = c * numpy.sqrt(K) * numpy.power(numpy.log(1.0 * K / delta), 2)
         lim = int(round(1.0 * K / s))
-        return ([s / (K * d) for d in range(1, lim)]
-                + [(s * numpy.log(s / delta)) / K]
-                + [0 for _ in range(lim + 1, K)]
-                )
+        return (
+            [s / (K * d) for d in range(1, lim)]
+            + [(s * numpy.log(s / delta)) / K]
+            + [0 for _ in range(lim + 1, K)]
+        )
 
     def preCompute(self, k: int, c: float, delta: float) -> typing.List[float]:
         ideal = self.idealSolitonDist(k)

@@ -51,9 +51,9 @@ class OnlineEncoder(Encoder):
         super().__init__(
             file, number_of_chunks, distribution, insert_header, pseudo_decoder, chunk_size
         )
-        assert (
-            number_of_chunks >= distribution.get_size()
-        ), "Epsilon too small for desired number_of_chunks"
+        assert number_of_chunks >= distribution.get_size(), (
+            "Epsilon too small for desired number_of_chunks"
+        )
         if checksum_len_str is None:
             checksum_len_str = ""
         self.checksum_len_str = checksum_len_str

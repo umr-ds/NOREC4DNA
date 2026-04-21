@@ -25,7 +25,6 @@ from norec4dna.Encoder import Encoder
 from norec4dna.ErrorCorrection import crc32, dna_reed_solomon_encode, nocode, reed_solomon_encode
 from norec4dna.helper import (
     find_ceil_power_of_four,
-    merge_folder_content,
     number_to_base_str,
     should_drop_packet,
     split_file,
@@ -210,7 +209,7 @@ def save_packets_zip(
                 i = packet.id
                 f.writestr(f"{i}{file_ending}", packet.get_struct(True))
             i += 1
-    print(f"Saved result at: %s" % out_file)
+    print("Saved result at: %s" % out_file)
 
 
 def save_packets_fasta(packets, out_file, file_ending, clear_output=True, seed_is_filename=True):
@@ -246,7 +245,7 @@ def save_packets_fasta(packets, out_file, file_ending, clear_output=True, seed_i
             )
             f.write(">" + e_prob + str(i) + file_ending + "\n" + packet.get_dna_struct(True) + "\n")
             i += 1
-    print(f"Saved result at: %s" % out_str)
+    print("Saved result at: %s" % out_str)
 
 
 def save_packets(packets, out_file, file_ending, clear_output=True, seed_is_filename=True):

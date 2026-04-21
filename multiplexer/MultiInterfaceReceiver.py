@@ -40,7 +40,7 @@ def listen(sock, queue, signals):
                 % (sender[0], sender[1], sock.getsockname()[0], xor_mask(a), xor_mask(b))
             )
             queue.put(data)
-        except socket.error as ex:
+        except socket.error:
             # queue.put(e)
             continue
 

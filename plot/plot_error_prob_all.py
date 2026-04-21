@@ -27,7 +27,7 @@ def plot_error_prob_for_all(smaller_x: int = 40):
     sns.distplot(tmp, hist=True, bins=smaller_x, ax=ax_hist).grid(True)
     ax_hist.set(xlabel="Sequence error probability in %", xlim=(0, smaller_x), ylim=(0, 0.4))
     sns.boxplot(tmp, showmeans=True, meanprops=m_props, ax=ax_box).set_title(
-        f"LT (%i Sequences with error probability < %i)" % (len(tmp), smaller_x)
+        "LT (%i Sequences with error probability < %i)" % (len(tmp), smaller_x)
     )
     ax_box.set(yticks=[])
     ax2 = plt.twinx()
@@ -37,7 +37,7 @@ def plot_error_prob_for_all(smaller_x: int = 40):
     sns.despine(ax=ax_hist)
     sns.despine(ax=ax_box, left=True)
     f.show()
-    f.savefig(f"05_color_lt_created_error_dist_%i.pdf" % smaller_x, bbox_inches="tight")
+    f.savefig("05_color_lt_created_error_dist_%i.pdf" % smaller_x, bbox_inches="tight")
     tmp = []
     for line in online:
         val = int(line.split("_")[0].replace(">", ""))
@@ -48,7 +48,7 @@ def plot_error_prob_for_all(smaller_x: int = 40):
     sns.distplot(tmp, hist=True, bins=smaller_x, ax=ax_hist).grid(True)
     ax_hist.set(xlabel="Sequence error probability in %", xlim=(0, smaller_x), ylim=(0, 0.4))
     sns.boxplot(tmp, showmeans=True, meanprops=m_props, ax=ax_box).set_title(
-        f"Online (%i Sequences with error probability < %i)" % (len(tmp), smaller_x)
+        "Online (%i Sequences with error probability < %i)" % (len(tmp), smaller_x)
     )
     ax_box.set(yticks=[])
     ax2 = plt.twinx()
@@ -58,7 +58,7 @@ def plot_error_prob_for_all(smaller_x: int = 40):
     sns.despine(ax=ax_hist)
     sns.despine(ax=ax_box, left=True)
     f.show()
-    f.savefig(f"05_color_online_created_error_dist_%i.pdf" % smaller_x, bbox_inches="tight")
+    f.savefig("05_color_online_created_error_dist_%i.pdf" % smaller_x, bbox_inches="tight")
     tmp = []
     for line in ru:
         val = int(line.split("_")[0].replace(">", ""))
@@ -69,7 +69,7 @@ def plot_error_prob_for_all(smaller_x: int = 40):
     sns.distplot(tmp, hist=True, bins=smaller_x, ax=ax_hist).grid(True)
     ax_hist.set(xlabel="Sequence error probability in %", xlim=(0, smaller_x), ylim=(0, 0.4))
     sns.boxplot(tmp, showmeans=True, meanprops=m_props, ax=ax_box).set_title(
-        f"RU10 (%i Sequences with error probability < %i)" % (len(tmp), smaller_x)
+        "RU10 (%i Sequences with error probability < %i)" % (len(tmp), smaller_x)
     )
     ax_box.set(yticks=[])
     ax2 = plt.twinx()
@@ -79,7 +79,7 @@ def plot_error_prob_for_all(smaller_x: int = 40):
     sns.despine(ax=ax_hist)
     sns.despine(ax=ax_box, left=True)
     f.show()
-    f.savefig(f"05_color_ru_created_error_dist_%i.pdf" % smaller_x, bbox_inches="tight")
+    f.savefig("05_color_ru_created_error_dist_%i.pdf" % smaller_x, bbox_inches="tight")
 
 
 if __name__ == "__main__":
