@@ -1,13 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Pytest configuration for NOREC4DNA tests.
-
-This file ensures tests run correctly regardless of the current working directory
-by:
-1. Adding the NOREC4DNA directory to sys.path
-2. Changing to the NOREC4DNA directory before running tests
-3. Providing fixtures for test file paths
-"""
+"""Pytest configuration for NOREC4DNA tests."""
 
 import os
 import sys
@@ -16,11 +8,10 @@ from pathlib import Path
 
 import pytest
 
-# Get the directory containing this conftest.py file (tests directory)
-TESTS_DIR = Path(__file__).parent.absolute()
-
-# Get the NOREC4DNA root directory (parent of tests)
-NOREC4DNA_DIR = TESTS_DIR.parent.absolute()
+REPO_ROOT = Path(__file__).parent.resolve()
+SRC_DIR = REPO_ROOT / "src"
+TESTS_DIR = REPO_ROOT / "tests"
+NOREC4DNA_DIR = REPO_ROOT
 
 # Store original working directory
 ORIGINAL_CWD = os.getcwd()
@@ -28,9 +19,10 @@ ORIGINAL_CWD = os.getcwd()
 
 def pytest_configure(config: object) -> None:
     """Called before test collection."""
-    # Add NOREC4DNA directory to sys.path for imports
+    if str(SRC_DIR) not in sys.path:
+        sys.path.insert(0, str(SRC_DIR))
     if str(NOREC4DNA_DIR) not in sys.path:
-        sys.path.insert(0, str(NOREC4DNA_DIR))
+        sys.path.insert(1, str(NOREC4DNA_DIR))
 
     # Change to NOREC4DNA directory so relative paths in tests work
     os.chdir(NOREC4DNA_DIR)

@@ -1,59 +1,17 @@
-# -*- coding: utf-8 -*-
-__all__ = [
-    "DecodePacket",
-    "Decoder",
-    "GEPP",
-    "helper",
-    "rules",
-    "distributions",
-    "LTEncoder",
-    "RU10Encoder",
-    "RU10Packet",
-    "Encoder",
-    "HeaderChunk",
-    "LTBPDecoder",
-    "LTDecoder",
-    "OnlineBPDecoder",
-    "OnlineDecoder",
-    "OnlineEncoder",
-    "OnlineAuxPacket",
-    "OnlinePacket",
-    "Packet",
-    "ReedSolomonEncoder",
-    "ReedSolomonDecoder",
-    "ReedSolomonSuite",
-    "RU10Decoder",
-    "RU10BPDecoder",
-    "RU10IntermediatePacket",
-    "ErrorCorrection",
-    "nocode",
-    "reed_solomon_encode",
-    "reed_solomon_decode",
-    "crc32",
-]
+"""Compatibility shim that forwards in-repo imports to ``src/norec4dna``."""
 
-from norec4dna.distributions.AdaptableDist import AdaptableDist
-from norec4dna.distributions.IdealSolitonDistribution import IdealSolitonDistribution
-from norec4dna.distributions.OnlineDistribution import OnlineDistribution
-from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.distributions.RobustSolitonDistribution import RobustSolitonDistribution
+from pathlib import Path
 
-from .Decoder import Decoder
-from .Encoder import Encoder
-from .ErrorCorrection import *
-from .HeaderChunk import HeaderChunk
-from .LTBPDecoder import LTBPDecoder
-from .LTDecoder import LTDecoder
-from .LTEncoder import LTEncoder
-from .OnlineBPDecoder import OnlineBPDecoder
-from .OnlineDecoder import OnlineDecoder
-from .OnlineEncoder import OnlineEncoder
-from .ReedSolomonSuite import ReedSolomonDecoder, ReedSolomonEncoder
-from .RU10BPDecoder import RU10BPDecoder
-from .RU10Decoder import RU10Decoder
-from .RU10Encoder import RU10Encoder
+_SRC_PACKAGE = Path(__file__).resolve().parent.parent / "src" / "norec4dna"
+__file__ = str(_SRC_PACKAGE / "__init__.py")
+__path__ = [str(_SRC_PACKAGE)]
 
-__title__ = "LoRaFountain"
-__version__ = "1.0.1"
-__author__ = "Michael Schwarz"
-__copyright__ = "Copyright 2018 Michael Schwarz"
+if __spec__ is not None:
+    __spec__.submodule_search_locations[:] = __path__
+
+with open(__file__, "rb") as _src_init:
+    exec(compile(_src_init.read(), __file__, "exec"))
+
+del Path
+del _SRC_PACKAGE
+del _src_init

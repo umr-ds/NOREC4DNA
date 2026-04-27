@@ -61,10 +61,14 @@ Issues = "https://github.com/umr-ds/norec4dna/issues"
 
 [tool.setuptools]
 zip-safe = false
+py-modules = ["cdnarules"]
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["norec4dna*"]
+
+[tool.setuptools.package-data]
+norec4dna = ["*.pyi", "py.typed"]
 
 # Optional: cibuildwheel configuration for building wheels across platforms
 [tool.cibuildwheel]

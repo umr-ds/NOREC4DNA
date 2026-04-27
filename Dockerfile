@@ -20,5 +20,5 @@ WORKDIR /norec4dna
 
 #ENTRYPOINT ["python", "demo_raptor_encode.py", "Dorn", "--error_correction=reedsolomon", "--repairsymbols=6", "--asdna"]
 ENTRYPOINT ["python", "unified_dna_raptor.py"]
-#ENTRYPOINT ["python", "optimize_dist_gd.py"]
+#ENTRYPOINT ["python", "-m", "norec4dna.optimizer.optimize_dist_gd"]
 # OUTPUT TO parallel_RU10/

@@ -1,0 +1,12 @@
+numpy==1.22.0
+scipy==1.10.0
+colorama==0.4.4
+pandas==1.4.1
+pycallgraph==1.0.1
+matplotlib==3.5.1
+numba==0.55.1
+cycler==0.10.0
+bcolors==1.0.2
+bitarray==2.4.0
+pyldpc==0.7.9
+git+git://github.com/mugpahug/reedsolomon@master

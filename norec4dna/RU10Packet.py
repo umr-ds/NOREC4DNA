@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
+import copy
 import logging
 import struct
 import typing
@@ -271,7 +272,9 @@ class RU10Packet(Packet):
     def copy(self) -> "RU10Packet":
         new_packet = RU10Packet(
             data=np.array(self.data, dtype=np.uint8, copy=True),
-            used_packets=list(self.used_packets.copy()) if self.used_packets is not None else [],
+            used_packets=(
+                list(copy.deepcopy(self.used_packets)) if self.used_packets is not None else []
+            ),
             total_number_of_chunks=self.total_number_of_chunks,
             id=self.id,
             dist=self.dist,

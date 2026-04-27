@@ -1,7 +1,14 @@
-"""NOREC4DNA package initialization."""
+"""Compatibility shim for legacy ``NOREC4DNA.*`` imports."""
 
-import os
-import sys
+from pathlib import Path
 
-# Add this directory to sys.path for cdnarules import
-__path__.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_ROOT = Path(__file__).resolve().parent
+_SRC_PACKAGE = _ROOT / "src" / "norec4dna"
+__path__ = [str(_ROOT), str(_SRC_PACKAGE)]
+
+if __spec__ is not None:
+    __spec__.submodule_search_locations[:] = __path__
+
+del Path
+del _ROOT
+del _SRC_PACKAGE

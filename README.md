@@ -74,7 +74,7 @@ Run:
 `docker run --name norec4dna_gd_multiple_files -d -t -v /tmp/norec4dna/:/norec4dna/tmp norec4dna_gd (Parameter...)`
 
 Alternatively you can run the script directly:
-`python3 find_minimum_packets.py <Parameters>`
+`python3 -m norec4dna.find_minimum_packets <Parameters>`
 
 ### Parameters
 
@@ -194,17 +194,17 @@ there are various more or less useful scripts inside `helpful_scripts/`
 ## Example
 #### To try out NOREC4DNA you can use the demo_\*\_encode.py python scripts:
 
-`python demo_raptor_encode.py Dorn --error_correction=reedsolomon --repair_symbols=3 --as_dna --insert_header`
+`python -m norec4dna.demo_raptor_encode .INFILES/Dorn --error_correction=reedsolomon --repair_symbols=3 --as_dna --insert_header`
 
 ###### this should create a new folder "RU10_Dorn" as well as an Dorn\_\*.ini file.
 
 #### To decode the file from DNA one could either use demo\_\*\_decode.py:
 
-`python demo_raptor_decode.py RU10_Dorn --use_header_chunk --error_correction=reedsolomon --repair_symbols=3 --number_of_chunks=145 (number as seen in the ini, unless --save_number_of_chunks was defined during encoding)`
+`python -m norec4dna.demo_raptor_decode RU10_Dorn --use_header_chunk --error_correction=reedsolomon --repair_symbols=3 --number_of_chunks=145 (number as seen in the ini, unless --save_number_of_chunks was defined during encoding)`
 
-#### or use the ConfigWorker.py:
+#### or use the ConfigWorker module:
 
-`python ConfigWorker.py <name of the .ini-file>`
+`python -m norec4dna.ConfigWorker <name of the .ini-file>`
 
 The decoded file will be saved as DEC_RU10_Dorn if no header-chunk was added during encoding, otherwise the file will be saved under the correct filename.
 ###### if the header-chunk was NOT used, the created file will have padding \00-bytes at the end.
