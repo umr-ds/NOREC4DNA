@@ -12,6 +12,7 @@ from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.helper import should_drop_packet
 from norec4dna.helper.RU10Helper import intermediate_symbols
 from norec4dna.rules.FastDNARules import FastDNARules
+
 from .optimization_helper import diff_list_to_list, list_to_diff_list, scale_to
 
 DO_PLOT = False

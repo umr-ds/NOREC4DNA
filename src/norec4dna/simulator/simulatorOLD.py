@@ -5,14 +5,14 @@ from random import random
 
 import numpy as np
 
+from ..distributions.IdealSolitonDistribution import IdealSolitonDistribution
+from ..distributions.OnlineDistribution import OnlineDistribution
+from ..distributions.RobustSolitonDistribution import RobustSolitonDistribution
 from ..LTBPDecoder import LTBPDecoder
 from ..LTDecoder import LTDecoder
 from ..LTEncoder import LTEncoder
 from ..OnlineBPDecoder import OnlineBPDecoder
 from ..OnlineEncoder import OnlineEncoder
-from ..distributions.IdealSolitonDistribution import IdealSolitonDistribution
-from ..distributions.OnlineDistribution import OnlineDistribution
-from ..distributions.RobustSolitonDistribution import RobustSolitonDistribution
 
 
 def main(file):
@@ -204,9 +204,6 @@ def main(file):
         + str(len(encoder.get_encoded_packets()))
         + " Packets encoded.\n"
     )
-
-
-""" encoder -> blackbox with a (droprate) change of dropping packet -> decoder """
 
 
 def blackbox(encoder, decoder, droprate=0.02):

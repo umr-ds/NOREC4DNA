@@ -1,5 +1,7 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
+"""Rule parsing helpers with optional acceleration via the cdnarules extension."""
+
 import typing
 from collections import Counter
 from re import compile, search
@@ -10,6 +12,7 @@ from ..helper.fallback_code import (
     strContainsSub_python,
 )
 
+cdnarules: typing.Any = None
 try:
     import cdnarules
 except ModuleNotFoundError:
@@ -17,34 +20,33 @@ except ModuleNotFoundError:
 
 
 def microsatellite(text: typing.AnyStr, length_to_look_for: int) -> typing.Tuple[int, str]:
+    if cdnarules is None:
+        return microsatellite_python(text, length_to_look_for)
     try:
         return cdnarules.microsatellite(text, length_to_look_for)
-    except NameError:
+    except AttributeError:
         return microsatellite_python(text, length_to_look_for)
 
 
 def longestSequenceOfChar(text: typing.AnyStr, char_x="*") -> typing.Tuple[str, int]:
+    if cdnarules is None:
+        return longestSequenceOfChar_python(text, char_x)
     try:
         return cdnarules.longestSequenceOfChar(text, char_x)
-    except NameError:
+    except AttributeError:
         return longestSequenceOfChar_python(text, char_x)
 
 
 def strContainsSub(text: typing.AnyStr, sequence: typing.AnyStr) -> bool:
+    if cdnarules is None:
+        return strContainsSub_python(text, sequence)
     try:
         return cdnarules.strContainsSub(text, sequence)
-    except NameError:
+    except AttributeError:
         return strContainsSub_python(text, sequence)
 
 
 debug = False
-
-"""
-data  = string (combination of A, C, G, T) e.g. AAGTCAGAAGTGTTGAAAAAAAAAGCGTGTTTGCC
-rules = List of Rules, a Rule is a Tuple of ("ruleKind(parameter)" (as String), "dropProbability" (in Range (0.0,1.0] ))
-"""
-
-""" ALL RULES MUST HAVE THE (temporary) FORM rule(x,y,z) """
 
 
 # @jit

@@ -6,6 +6,10 @@ from random import random
 
 import numpy as np
 
+from ..distributions.IdealSolitonDistribution import IdealSolitonDistribution
+from ..distributions.OnlineDistribution import OnlineDistribution
+from ..distributions.RaptorDistribution import RaptorDistribution
+from ..distributions.RobustSolitonDistribution import RobustSolitonDistribution
 from ..LTBPDecoder import LTBPDecoder
 from ..LTDecoder import LTDecoder
 from ..LTEncoder import LTEncoder
@@ -14,10 +18,6 @@ from ..OnlineDecoder import OnlineDecoder
 from ..OnlineEncoder import OnlineEncoder
 from ..RU10Decoder import RU10Decoder
 from ..RU10Encoder import RU10Encoder
-from ..distributions.IdealSolitonDistribution import IdealSolitonDistribution
-from ..distributions.OnlineDistribution import OnlineDistribution
-from ..distributions.RaptorDistribution import RaptorDistribution
-from ..distributions.RobustSolitonDistribution import RobustSolitonDistribution
 
 
 def main(file):

@@ -1,16 +1,10 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
+"""Helpers for converting binary payloads to quaternary DNA bases."""
+
 import os
 import typing
 from typing import List, Union
-
-"""
-Mapping:
-A = 0
-C = 1
-G = 2
-T = 3
-"""
 
 try:
     from cdnarules import byte2QUATS, getQUAT

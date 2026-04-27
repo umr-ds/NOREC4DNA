@@ -1,4 +1,4 @@
-# Pre-commit Configuration for DR4DNA
+# Pre-commit Configuration for NOREC4DNA
 # Install with: pre-commit install
 # Run manually: pre-commit run --all-files
 
@@ -25,7 +25,7 @@ repos:
     hooks:
       - id: black
         language_version: python3.12
-        args: [--line-length=100]
+        args: [--line-length=100, --target-version=py38]
 
   # Import sorting
   - repo: https://github.com/PyCQA/isort
@@ -44,7 +44,6 @@ repos:
         additional_dependencies:
           - flake8-bugbear
           - flake8-comprehensions
-          - flake8-docstrings
 
   # Type checking
   - repo: https://github.com/RobertCraigie/pyright-python
@@ -52,6 +51,16 @@ repos:
     hooks:
       - id: pyright
         args: [--project, .]
+        pass_filenames: false
+        additional_dependencies:
+          - numpy>=1.26
+          - pillow
+          - progressbar2
+          - reedsolo
+          - crccheck
+          - bitarray
+          - pytest
+          - setuptools
 
   # Security
   - repo: https://github.com/PyCQA/bandit
@@ -80,7 +89,27 @@ repos:
 
 # Exclude patterns
 # Immutable fixture and data files must never be rewritten by tooling.
-exclude: ^(.git/|results/|.INFILES/|patch/|bkp/|.venv/|venv/|build/|dist/|\.eggs/|node_modules/|data/|tests/static_files/|sleeping_beauty*|v0_sleeping_beauty|v1_sleeping_beauty|tests/(new_sleeping_beauty(_v[0-9]+)?|sleeping_beauty*\.(fasta|ini))$)
+exclude: |
+  (?x)^(
+    \.git/|
+    \.INFILES/|
+    \.venv/|
+    venv/|
+    results/|
+    patch/|
+    bkp/|
+    build/|
+    dist/|
+    \.eggs/|
+    node_modules/|
+    data/|
+    plot/|
+    cluster_out/|
+    tests/static_files/|
+    ONLINE_.*|
+    DEC_.*|
+    norec4dna/(?!__init__\.py$)
+  )|.*\.(ini|fasta|ONLINE_DNA)$|.*sleeping_beauty.*
 
 # Default language version
 default_language_version:

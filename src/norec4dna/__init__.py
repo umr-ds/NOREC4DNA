@@ -35,11 +35,7 @@ __all__ = [
     "crc32",
 ]
 
-from . import ErrorCorrection
-from . import ReedSolomonSuite
-from . import distributions
-from . import helper
-from . import rules
+from . import ErrorCorrection, ReedSolomonSuite, distributions, helper, rules
 from .DecodePacket import DecodePacket
 from .Decoder import Decoder
 from .Encoder import Encoder

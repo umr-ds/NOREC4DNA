@@ -42,7 +42,9 @@ warnings.warn(
 )
 
 logger = logging.getLogger(__name__)
-logger.warning("norec4dna.file_update_coding is deprecated. Please use norec4dna_multiversion.coder instead.")
+logger.warning(
+    "norec4dna.file_update_coding is deprecated. Please use norec4dna_multiversion.coder instead."
+)
 
 # Also export types for type checking
 

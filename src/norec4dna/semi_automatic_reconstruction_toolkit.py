@@ -34,7 +34,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 import crcmod
 import magic
 import numpy as np
-from .ConfigWorker import ConfigReadAndExecute
 from norec4dna import Decoder
 from norec4dna.GEPP import GEPP_intern
 from norec4dna.HeaderChunk import HeaderChunk
@@ -44,6 +43,8 @@ from norec4dna.OnlineDecoder import OnlineDecoder
 from norec4dna.Packet import Packet
 from norec4dna.RU10Decoder import RU10Decoder
 from numpy.typing import NDArray
+
+from .ConfigWorker import ConfigReadAndExecute
 
 _CRCMOD_PREDEFINED = cast(Any, crcmod.predefined)
 

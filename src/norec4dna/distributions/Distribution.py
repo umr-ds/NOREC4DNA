@@ -1,11 +1,15 @@
+"""Common interface for degree distributions used by the encoders and decoders."""
+
 import typing
-from abc import ABC
+from abc import ABC, abstractmethod
 
 import numpy as np
 
 
 class Distribution(ABC):
-    def __init__(self):
+    """Abstract base class for all supported packet-degree distributions."""
+
+    def __init__(self) -> None:
         self.rng = np.random
         self.pre_comp_dist: typing.List[float] = []
         self.S: typing.Optional[int] = None
@@ -23,11 +27,13 @@ class Distribution(ABC):
     def get_size(self) -> typing.Optional[int]:
         return self.S
 
-    def set_seed(self, seed: int):
+    def set_seed(self, seed: int) -> None:
         self.rng.seed(seed)
 
-    def update_number_of_chunks(self, num_chunks: int):
+    @abstractmethod
+    def update_number_of_chunks(self, num_chunks: int) -> None:
         pass  # implemented in subclasses
 
-    def getNumber(self, *args, **kwargs) -> int:
+    @abstractmethod
+    def getNumber(self, *args: typing.Any, **kwargs: typing.Any) -> int:
         pass

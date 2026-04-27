@@ -1,21 +1,26 @@
+"""Base interfaces and helpers for packet encoders."""
+
 import math
 import os
 import struct
 import typing
-from abc import ABC
+from abc import ABC, abstractmethod
 from math import ceil
 from pathlib import Path
 from zipfile import ZipFile
 
 import numpy as np
 import progressbar
-from norec4dna import Decoder
-from norec4dna.ErrorCorrection import nocode
 from numpy.typing import NDArray
 from PIL import Image
 
+from .Decoder import Decoder
+from .ErrorCorrection import nocode
+
 
 class Encoder(ABC):
+    """Common functionality shared by the concrete encoder implementations."""
+
     def __init__(
         self,
         file: str,
@@ -25,7 +30,7 @@ class Encoder(ABC):
         pseudo_decoder: typing.Optional[Decoder] = None,
         chunk_size: int = 0,
         mode_1_bmp: bool = False,
-    ):
+    ) -> None:
         self.crc_len_format: str = "I"
         self.id_len_format: str = "I"
         self.number_of_chunks_len_format: str = "I"
@@ -63,16 +68,19 @@ class Encoder(ABC):
             max_value=max_value, widgets=widgets, max_error=False, redirect_stdout=False
         ).start()
 
-    def encode_to_packets(self) -> None:
+    @abstractmethod
+    def encode_to_packets(self) -> typing.Any:
         pass  # implemented in subclasses
 
     def set_overhead_limit(self, n: float) -> None:
         self.overhead_limit = n
 
+    @abstractmethod
     def encode_file(self, split_to_multiple_files: bool = False) -> None:
         pass  # implemented in subclasses
 
-    def create_new_packet(self) -> typing.Optional[typing.Any]:
+    @abstractmethod
+    def create_new_packet(self, *args: typing.Any, **kwargs: typing.Any) -> typing.Any:
         pass  # implemented in subclasses
 
     def set_no_chunks_from_chunk_size(self) -> None:
@@ -161,9 +169,8 @@ class Encoder(ABC):
     def number_of_packets_encoded_already(self) -> int:
         return len(self.encodedPackets)
 
-    def save_packets(
-        self, split_to_multiple_files: bool, out_file: typing.Optional[str] = None
-    ) -> None:
+    @abstractmethod
+    def save_packets(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         pass  # implemented in subclasses
 
     def create_chunks(self, chunk_size: int) -> typing.List[NDArray[np.uint8]]:
@@ -265,9 +272,7 @@ class Encoder(ABC):
     @staticmethod
     def translate_to_bytes(bit_arr: np.ndarray, img: Image.Image) -> bytes:
         width, height = img.size
-        img_byt = bytes(
-            [i for i in np.packbits([bit_arr[i : i + 8] for i in range(0, len(bit_arr), 8)])]
-        )
+        img_byt = bytes(list(np.packbits([bit_arr[i : i + 8] for i in range(0, len(bit_arr), 8)])))
         return struct.pack(">HH", width, height) + img_byt
 
     @staticmethod

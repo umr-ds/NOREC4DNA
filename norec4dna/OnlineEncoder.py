@@ -46,7 +46,7 @@ class OnlineEncoder(Encoder):
         error_correction: typing.Callable[[typing.Any], typing.Any] = nocode,
         save_number_of_chunks_in_packet=True,
         drop_upper_bound=1.0,
-        checksum_len_str:typing.Optional[str]=None,
+        checksum_len_str: typing.Optional[str] = None,
     ):
         super().__init__(
             file, number_of_chunks, distribution, insert_header, pseudo_decoder, chunk_size

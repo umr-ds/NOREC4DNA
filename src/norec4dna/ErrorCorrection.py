@@ -6,8 +6,6 @@ from norec4dna.helper import calc_crc
 from reedsolo import RSCodec
 
 try:
-    from crccheck import Crc8Lte
-
     missing_crclib = False
 except ImportError:
     missing_crclib = True
@@ -122,20 +120,26 @@ def dec_to_bits(decoded_bytes: Union[List[int], bytearray, bytes]) -> str:
 
 
 def get_error_correction_decode(e_correction: str, repair_symbols: int) -> Callable[[bytes], bytes]:
+    def reed_solomon_decode_with_symbols(data: bytes) -> bytes:
+        return reed_solomon_decode(data, repair_symbols)
+
+    def dna_reed_solomon_decode_with_symbols(data: bytes) -> bytes:
+        return dna_reed_solomon_decode(data, repair_symbols)
+
     if e_correction == "nocode":
         error_correction: Callable[[bytes], bytes] = nocode
     elif e_correction == "crc":
         error_correction = crc32_decode
     elif e_correction == "reedsolomon":
         if repair_symbols != 2:
-            error_correction = lambda x: reed_solomon_decode(x, repair_symbols)  # type: ignore[assignment, return-value]
+            error_correction = reed_solomon_decode_with_symbols
         else:
-            error_correction = reed_solomon_decode  # type: ignore[assignment]
+            error_correction = reed_solomon_decode
     elif e_correction == "dna_reedsolomon":
         if repair_symbols != 2:
-            error_correction = lambda x: dna_reed_solomon_decode(x, repair_symbols)  # type: ignore[assignment, return-value]
+            error_correction = dna_reed_solomon_decode_with_symbols
         else:
-            error_correction = dna_reed_solomon_decode  # type: ignore[assignment]
+            error_correction = dna_reed_solomon_decode
     else:
         raise NotImplementedError(
             "Selected Error Correction not supported, choose: 'nocode', 'crc', 'reedsolomon' or 'dna_reedsolomon'"
@@ -144,20 +148,26 @@ def get_error_correction_decode(e_correction: str, repair_symbols: int) -> Calla
 
 
 def get_error_correction_encode(e_correction: str, repair_symbols: int) -> Callable[[bytes], bytes]:
+    def reed_solomon_encode_with_symbols(data: bytes) -> bytes:
+        return reed_solomon_encode(data, repair_symbols)
+
+    def dna_reed_solomon_encode_with_symbols(data: bytes) -> bytes:
+        return dna_reed_solomon_encode(data, repair_symbols)
+
     if e_correction == "nocode":
         error_correction: Callable[[bytes], bytes] = nocode
     elif e_correction == "crc":
         error_correction = crc32
     elif e_correction == "reedsolomon":
         if repair_symbols != 2:
-            error_correction = lambda x: reed_solomon_encode(x, repair_symbols)  # type: ignore[assignment, return-value]
+            error_correction = reed_solomon_encode_with_symbols
         else:
-            error_correction = reed_solomon_encode  # type: ignore[assignment]
+            error_correction = reed_solomon_encode
     elif e_correction == "dna_reedsolomon":
         if repair_symbols != 2:
-            error_correction = lambda x: dna_reed_solomon_encode(x, repair_symbols)  # type: ignore[assignment, return-value]
+            error_correction = dna_reed_solomon_encode_with_symbols
         else:
-            error_correction = dna_reed_solomon_encode  # type: ignore[assignment]
+            error_correction = dna_reed_solomon_encode
     else:
         raise NotImplementedError(
             "Selected Error Correction not supported, choose: 'nocode', 'crc', 'reedsolomon' or 'dna_reedsolomon'"

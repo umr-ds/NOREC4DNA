@@ -32,6 +32,13 @@ exclude = [
     "htmlcov",
     "results",
     "bkp",
+    "plot",
+    "cluster_out",
+    ".INFILES",
+    "norec4dna",
+    "ONLINE_*",
+    "DEC_*",
+    "*.ONLINE_DNA",
     "*.fasta",
     "*.ini",
     "*sleeping_beauty*"
@@ -41,8 +48,8 @@ exclude = [
 line-length = 100
 indent-width = 4
 
-# Assume Python 3.10
-target-version = "py310"
+# Match the package minimum supported Python version.
+target-version = "py38"
 
 [lint]
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`) codes by default.

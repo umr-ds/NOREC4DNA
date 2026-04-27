@@ -2,15 +2,16 @@ import os
 from collections import deque
 from typing import TYPE_CHECKING, Callable, Deque, Dict, List, Optional, Set, Union
 
-from norec4dna import Decoder, HeaderChunk
-from norec4dna.distributions import Distribution
-from norec4dna.ErrorCorrection import nocode
-from norec4dna.helper.RU10Helper import from_true_false_list
-from norec4dna.OnlineAuxPacket import OnlineAuxPacket
-from norec4dna.OnlinePacket import OnlinePacket
-from norec4dna.Packet import Packet
-from norec4dna.RU10IntermediatePacket import RU10IntermediatePacket
-from norec4dna.RU10Packet import RU10Packet
+from .Decoder import Decoder
+from .distributions import Distribution
+from .ErrorCorrection import nocode
+from .HeaderChunk import HeaderChunk
+from .helper.RU10Helper import from_true_false_list
+from .OnlineAuxPacket import OnlineAuxPacket
+from .OnlinePacket import OnlinePacket
+from .Packet import Packet
+from .RU10IntermediatePacket import RU10IntermediatePacket
+from .RU10Packet import RU10Packet
 
 if TYPE_CHECKING:
     from io import BufferedReader

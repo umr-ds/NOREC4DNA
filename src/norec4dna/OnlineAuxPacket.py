@@ -1,13 +1,14 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
+"""Auxiliary packet implementation used by the Online fountain code."""
+
 import typing
 
 from norec4dna.Packet import Packet
 
-"""
-    Aux Packets only have Data (used_packets are inferred by pseudo-random Number)
-    -> they have same length as the real Datachunks
-"""
+
+def _identity_error_correction(data: typing.Any) -> typing.Any:
+    return data
 
 
 class OnlineAuxPacket(Packet):
@@ -26,9 +27,9 @@ class OnlineAuxPacket(Packet):
         self.total_number_of_chunks: int = total_number_of_chunks
         self.used_packets: typing.Optional[typing.Set[int]] = used_packets
         self.update_degree()
-        self.error_correction: typing.Callable[[typing.Any], typing.Any] = lambda x: (
-            x
-        )  # "AUX-Packet - NO CRC"
+        self.error_correction: typing.Callable[[typing.Any], typing.Any] = (
+            _identity_error_correction
+        )
         self.aux_number: int = aux_number if aux_number is not None else 0
         self.dna_data: typing.Optional[str] = None
         self.error_prob: typing.Optional[int] = None

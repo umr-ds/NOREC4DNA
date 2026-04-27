@@ -1,5 +1,7 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
+"""Belief-propagation decoder for LT-coded files and DNA strands."""
+
 import os
 import struct
 import time
@@ -19,13 +21,6 @@ from norec4dna.Packet import Packet
 if typing.TYPE_CHECKING:
     from norec4dna.OnlinePacket import OnlinePacket
     from norec4dna.RU10Packet import RU10Packet
-
-"""
-    |  len(packed)  | total_number_of_chunks  | len(used_packets) |         used_packets        |        Data       |           CRC32           |
-    |  I (4 bytes)  |      I (4 byte)      |     I (4 byte)   | len(used_packets)*H (2byte) | len(packed_data)*s | L (unsiged long) (4 byte) |
-                    |__________________________________________________________________________________________|  -----------^
-            ^------ |______________________________________________________________________________________________________________________|
-"""
 
 
 class LTBPDecoder(BPDecoder):

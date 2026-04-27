@@ -1,0 +1,26 @@
+{
+  "include": [
+    "src/norec4dna"
+  ],
+  "exclude": [
+    "norec4dna",
+    "tests",
+    "plot",
+    ".INFILES",
+    "data",
+    "results",
+    "patch",
+    "bkp",
+    "build",
+    "dist",
+    "venv",
+    ".venv",
+    "cluster_out",
+    "ONLINE_logo.jpg",
+    "src/norec4dna/helper/helper_cuda.py",
+    "src/norec4dna/helper/helper_cuda_simple.py",
+    "src/norec4dna/helper/helper_test_cuda.py"
+  ],
+  "pythonVersion": "3.8",
+  "typeCheckingMode": "basic"
+}

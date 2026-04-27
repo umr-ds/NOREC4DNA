@@ -8,6 +8,7 @@ import time
 
 import matplotlib
 import numpy as np
+
 from .optimization_helper import (
     compute_population_fitness,
     generate_log,

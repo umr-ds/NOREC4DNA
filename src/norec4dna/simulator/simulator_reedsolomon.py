@@ -5,14 +5,14 @@ from random import random
 
 import numpy as np
 
+from ..helper.bin2Quaternary import string2QUATS
+from ..helper.quaternary2Bin import quats_to_bytes
 from ..ReedSolomonSuite import (
     ReedSolomonDecoder,
     ReedSolomonEncoder,
     get_file_size,
     xor_mask,
 )
-from ..helper.bin2Quaternary import string2QUATS
-from ..helper.quaternary2Bin import quats_to_bytes
 from ..rules.DNARules import DNARules
 
 lines = [

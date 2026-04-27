@@ -178,9 +178,9 @@ class OnlineBPDecoder(BPDecoder):
         return result if isinstance(result, list) else list(result)
 
     def createAuxBlocks(self) -> None:
-        assert self.number_of_chunks is not None, (
-            "createAuxBlocks can only be called AFTER first Packet"
-        )
+        assert (
+            self.number_of_chunks is not None
+        ), "createAuxBlocks can only be called AFTER first Packet"
         # self.dist.update_number_of_chunks(self.number_of_chunks)
         self.rng.seed(int(self.number_of_chunks))
         if self.debug:

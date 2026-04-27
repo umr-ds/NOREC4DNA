@@ -10,8 +10,9 @@ from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.helper import should_drop_packet
 from norec4dna.rules.FastDNARules import FastDNARules
 from numpy import mean, ndarray
-from .optimization_helper import diff_list_to_list, list_to_diff_list, scale_to
 from scipy.optimize import minimize
+
+from .optimization_helper import diff_list_to_list, list_to_diff_list, scale_to
 
 __FILE = ".INFILES/logo.jpg"
 __NUM_CHUNKS = 140

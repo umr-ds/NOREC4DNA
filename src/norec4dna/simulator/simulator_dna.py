@@ -7,6 +7,11 @@ import time
 from random import random
 
 import colorama
+
+from ..distributions.IdealSolitonDistribution import IdealSolitonDistribution
+from ..distributions.OnlineDistribution import OnlineDistribution
+from ..distributions.RaptorDistribution import RaptorDistribution
+from ..distributions.RobustSolitonDistribution import RobustSolitonDistribution
 from ..Encoder import Encoder
 from ..LTBPDecoder import LTBPDecoder
 from ..LTDecoder import LTDecoder
@@ -16,10 +21,6 @@ from ..OnlineDecoder import OnlineDecoder
 from ..OnlineEncoder import OnlineEncoder
 from ..RU10Decoder import RU10Decoder
 from ..RU10Encoder import RU10Encoder
-from ..distributions.IdealSolitonDistribution import IdealSolitonDistribution
-from ..distributions.OnlineDistribution import OnlineDistribution
-from ..distributions.RaptorDistribution import RaptorDistribution
-from ..distributions.RobustSolitonDistribution import RobustSolitonDistribution
 from ..rules.DNARules import DNARules
 from . import bcolors
 

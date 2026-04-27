@@ -2,9 +2,10 @@ import multiprocessing
 import socket
 
 from multiplex_OLD import Multiplexer
-from .MultiInterfaceBase import MultiInterfaceBase
 from norec4dna import RU10Encoder, reed_solomon_encode
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
+
+from .MultiInterfaceBase import MultiInterfaceBase
 
 
 class MultiInterfaceFountain(MultiInterfaceBase):

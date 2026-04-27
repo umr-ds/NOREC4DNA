@@ -7,7 +7,6 @@ import typing
 
 import numpy
 import numpy as np
-from .ConfigWorker import ConfigReadAndExecute
 from norec4dna import RU10Decoder, RU10Encoder
 from norec4dna.ErrorCorrection import get_error_correction_encode
 from norec4dna.HeaderChunk import HeaderChunk
@@ -18,6 +17,7 @@ from norec4dna.Packet import Packet
 from norec4dna.RU10Packet import RU10Packet
 from python_utils.types import deprecated
 
+from .ConfigWorker import ConfigReadAndExecute
 from .invivo_window_decoder import load_fasta
 
 try:
@@ -425,33 +425,6 @@ def encoder_from_decoder(
     # ru10_encoder.generate_intermediate_blocks()
 
     return ru10_encoder
-
-
-"""
-def is_inconsistent_les(semiautomatic_solver):
-    rank_a = semiautomatic_solver.calculate_rank_A()
-    rank_aug = semiautomatic_solver.calculate_rank_augmented_matrix()
-    return rank_a != rank_aug
-"""
-
-"""
-def main(semiautomatic_solver):
-    # Encode:
-    # Load the ini file
-    # Decode all packets and find packets that use chunk 0 (header chunk)
-    # For the last Calculate: Wanted DNA Sequence
-    # Decode:
-    # Load the ini file
-    # decode using semi_automatic_reconstruction_toolkit
-    # extract and parse all version (using inconsistent
-    # save all versions + metadata into the filesystem
-    pass
-
-    header = semiautomatic_solver.decoder.headerChunk
-    ru10_encoder = encoder_from_decoder(semiautomatic_solver, cfg_worker)
-    update_header(ru10_encoder, semiautomatic_solver, "", "", "")
-    # generate_packets(semiautomatic_solver, ru10_encoder, 10, None)
-"""
 
 
 def parse_metadata_file(file: str) -> typing.List[str]:

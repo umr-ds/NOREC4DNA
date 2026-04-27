@@ -262,9 +262,9 @@ class RU10BPDecoder(BPDecoder):
         Reconstructs the auxblocks to be able to remove them afterwards.
         :return:
         """
-        assert self.number_of_chunks is not None, (
-            "createAuxBlocks can only be called AFTER first Packet"
-        )
+        assert (
+            self.number_of_chunks is not None
+        ), "createAuxBlocks can only be called AFTER first Packet"
         if self.debug:
             logger.debug(
                 "We should have %s LDPC-Blocks, %s Half-Blocks and %s normal Chunks (including 1 HeaderChunk)",

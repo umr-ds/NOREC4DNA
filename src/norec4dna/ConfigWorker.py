@@ -3,9 +3,6 @@ import logging
 import sys
 import typing
 
-from .demo_decode import demo_decode as demo_lt_decode
-from .demo_online_decode import demo_decode as demo_online_decode
-from .demo_raptor_decode import demo_decode as demo_raptor_decode
 from norec4dna.Decoder import Decoder
 from norec4dna.ErrorCorrection import get_error_correction_decode
 from norec4dna.helper import (
@@ -14,6 +11,10 @@ from norec4dna.helper import (
     find_ceil_power_of_four,
     merge_parts,
 )
+
+from .demo_decode import demo_decode as demo_lt_decode
+from .demo_online_decode import demo_decode as demo_online_decode
+from .demo_raptor_decode import demo_decode as demo_raptor_decode
 
 DecoderResult = typing.Union[str, bytes, Decoder]
 DecodeCallableResult = typing.Union[DecoderResult, Decoder]

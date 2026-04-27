@@ -15,7 +15,6 @@ from zipfile import ZipFile
 # from pathos import multiprocessing
 # import dill
 import progressbar
-from .helpful_scripts.automatedfindminimum import AutomatedFindMinimum
 from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import (
     ErlichZielinskiRobustSolitonDistribution,
 )
@@ -35,6 +34,7 @@ from norec4dna.Packet import ParallelPacket
 from norec4dna.RU10Encoder import RU10Encoder
 
 from .helper.RepeatedTimer import RepeatedTimer
+from .helpful_scripts.automatedfindminimum import AutomatedFindMinimum
 from .rules.FastDNARules import FastDNARules
 
 DEFAULT_ID_LEN_FORMAT = "H"

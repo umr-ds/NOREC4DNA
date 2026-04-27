@@ -1,15 +1,17 @@
+"""Abstract decoder interfaces shared by all fountain-code decoders."""
+
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Type, TypeVar
 
 import progressbar
 
-from .Packet import Packet
-
 T = TypeVar("T", bound="Decoder")
 
 
 class Decoder(ABC):
-    def __init__(self, file: Optional[str] = None):
+    """Common decoder API used by the concrete LT, Online, and RU10 decoders."""
+
+    def __init__(self, file: Optional[str] = None) -> None:
         self.file: Optional[str] = file
         self.read_all_before_decode: bool = False
         self.isFolder: bool = False
@@ -58,7 +60,7 @@ class Decoder(ABC):
         return pseudo
 
     @abstractmethod
-    def input_new_packet(self, packet: Packet) -> bool:
+    def input_new_packet(self, packet: Any, *args: Any, **kwargs: Any) -> bool:
         pass  # implemented in subclasses
 
     @abstractmethod
@@ -66,7 +68,7 @@ class Decoder(ABC):
         pass  # implemented in subclasses
 
     @abstractmethod
-    def solve(self) -> bool:
+    def solve(self, *args: Any, **kwargs: Any) -> bool:
         pass  # implemented in subclasses
 
     @abstractmethod

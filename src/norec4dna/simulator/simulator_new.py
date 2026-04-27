@@ -7,7 +7,12 @@ import time
 from random import random
 
 import colorama
+
+from ..distributions.OnlineDistribution import OnlineDistribution
+from ..distributions.RaptorDistribution import RaptorDistribution
+from ..distributions.RobustSolitonDistribution import RobustSolitonDistribution
 from ..Encoder import Encoder
+from ..helper import should_drop_packet
 from ..LTBPDecoder import LTBPDecoder
 from ..LTDecoder import LTDecoder
 from ..LTEncoder import LTEncoder
@@ -16,10 +21,6 @@ from ..OnlineDecoder import OnlineDecoder
 from ..OnlineEncoder import OnlineEncoder
 from ..RU10Decoder import RU10Decoder
 from ..RU10Encoder import RU10Encoder
-from ..distributions.OnlineDistribution import OnlineDistribution
-from ..distributions.RaptorDistribution import RaptorDistribution
-from ..distributions.RobustSolitonDistribution import RobustSolitonDistribution
-from ..helper import should_drop_packet
 from ..rules.FastDNARules import FastDNARules
 from . import bcolors
 

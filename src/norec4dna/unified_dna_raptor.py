@@ -4,7 +4,6 @@ import struct
 from typing import List, Optional, Tuple
 
 import numpy as np
-from .invivo_window_decoder import INPUT_FILE
 from norec4dna.HeaderChunk import HeaderChunk
 from norec4dna.Packet import Packet
 from numpy.typing import NDArray
@@ -18,6 +17,7 @@ from . import (
     get_error_correction_encode,
 )
 from .helper.quaternary2Bin import tranlate_quat_to_byte
+from .invivo_window_decoder import INPUT_FILE
 from .rules.FastDNARules import FastDNARules
 
 logger = logging.getLogger(__name__)

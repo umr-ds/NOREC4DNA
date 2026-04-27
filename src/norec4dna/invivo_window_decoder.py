@@ -1,3 +1,5 @@
+"""Sliding-window helpers for extracting RU10 packets from in-vivo FASTA input."""
+
 import copy
 import os
 import random
@@ -10,18 +12,6 @@ from norec4dna.ErrorCorrection import get_error_correction_decode
 from norec4dna.helper.quaternary2Bin import tranlate_quat_to_byte
 from norec4dna.rules.FastDNARules import FastDNARules
 
-"""
-This code reads a single strand of DNA and decodes it:
-- A sliding window of size _PACKET_SEQ_LENGTH_ is used check if the window is a valid packet
-  (adheres to the rules and has a valid Reed-Solomon code)
-  - If the window is a valid packet it gets added to the RU10 decoder and the window is shifted by _PACKET_SEQ_LENGTH_
-  - else: the window will be moved by one base and the process will be repeated
-- To reduce the risk of having a single wrong packet propagating to the whole result,
-  the decoding process will be repeated after shuffling the parsed packets.
-
-To use this script for other experiments you need to change the following variables:
-additionally you should ensure the correct ruleset and boundary is used
-"""
 REED_SOLOMON_PARITY_LENGTH = 3
 _error_correction = get_error_correction_decode("reedsolomon", REED_SOLOMON_PARITY_LENGTH)
 RULES_DROP_LIMIT = 2.0

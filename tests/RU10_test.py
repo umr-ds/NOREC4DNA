@@ -284,7 +284,7 @@ def test_suite5(as_dna, chunk_size, dna_rules, error_correction, headerchunk, de
     shutil.rmtree(out_dir2)
 
 
-""""# testing the null_is_terminator option for a txt file without headerchunk and print_to_output
+# testing the null_is_terminator option for a txt file without headerchunk and print_to_output
 @pytest.mark.parametrize("as_dna", [True])
 @pytest.mark.parametrize("chunk_size", [100])
 @pytest.mark.parametrize("dna_rules", [None])
@@ -295,13 +295,12 @@ def test_suite5(as_dna, chunk_size, dna_rules):
     decoder_instance = RU10Decoder
     pseudo_decoder = decoder_instance.pseudo_decoder(number_of_chunks=number_of_chunks)
     rules = dna_rules if as_dna else None
-    encoder = RU10Encoder(
-        file2, number_of_chunks, dist, pseudo_decoder=pseudo_decoder, rules=rules)
+    encoder = RU10Encoder(file2, number_of_chunks, dist, pseudo_decoder=pseudo_decoder, rules=rules)
     encoder.encode_to_packets()
     encoder.save_packets(split_to_multiple_files=False, save_as_dna=as_dna)
     assert (
-            pseudo_decoder.is_decoded()
-            and pseudo_decoder.getSolvedCount() == pseudo_decoder.number_of_chunks
+        pseudo_decoder.is_decoded()
+        and pseudo_decoder.getSolvedCount() == pseudo_decoder.number_of_chunks
     )
     assert os.path.exists(file2 + ".RU10_DNA")
     decoder = decoder_instance(file2 + ".RU10_DNA")
@@ -310,4 +309,4 @@ def test_suite5(as_dna, chunk_size, dna_rules):
     os.remove(file2)
     decoder.saveDecodedFile(print_to_output=True, null_is_terminator=True)
     assert os.path.exists(file2) and filecmp.cmp(file2, cmp_file2)
-    os.remove(file2 + ".RU10_DNA")"""
+    os.remove(file2 + ".RU10_DNA")

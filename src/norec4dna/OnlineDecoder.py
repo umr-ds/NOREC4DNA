@@ -197,9 +197,9 @@ class OnlineDecoder(Decoder):
         raise NotImplementedError("Not implemented for OnlineDecoder!")
 
     def createAuxBlocks(self) -> None:
-        assert self.number_of_chunks is not None, (
-            "createAuxBlocks can only be called AFTER first Packet"
-        )
+        assert (
+            self.number_of_chunks is not None
+        ), "createAuxBlocks can only be called AFTER first Packet"
         self.rng.seed(self.number_of_chunks)
         if self.debug:
             logger.debug(

@@ -4,6 +4,7 @@ import os
 import time
 
 import numpy as np
+
 from .optimization_helper import (
     compute_cost,
     compute_population_fitness,
@@ -12,10 +13,6 @@ from .optimization_helper import (
     init_population,
     select_dist,
 )
-
-"""if self.merge == 'diff':
-
-    """
 
 
 class DifferentialOptimizer:
