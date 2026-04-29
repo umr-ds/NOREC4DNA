@@ -1,46 +1,72 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
+from __future__ import annotations
+
 import typing
 from functools import reduce
 from random import random
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any, Union, overload
 
 import numpy
 from crccheck.crc import Crc8Lte as crc8
 from crccheck.crc import Crc16, Crc32, Crc64
-from numpy.typing import NDArray
+
+from .fallback_code import buildGraySequence as fallback_build_gray_sequence
+
+UInt8Array = Any
+Int64Array = Any
+BoolArray = Any
 
 try:
-    from cdnarules import xorArray as xor_numpy_internal
+    from cdnarules import xorArray as xor_numpy_uint8_internal
 except ImportError:
-    from .fallback_code import xor_numpy_internal
+    xor_numpy_uint8_internal = None
 
 if TYPE_CHECKING:
-    from .Packet import Packet
+    from norec4dna.Packet import Packet
+
+
+@overload
+def xor_numpy(p1: UInt8Array, p2: UInt8Array) -> UInt8Array: ...
+
+
+@overload
+def xor_numpy(p1: Int64Array, p2: Int64Array) -> Int64Array: ...
+
+
+@overload
+def xor_numpy(p1: BoolArray, p2: BoolArray) -> BoolArray: ...
+
+
+@overload
+def xor_numpy(
+    p1: Union[bytes, bytearray, UInt8Array],
+    p2: Union[bytes, bytearray, UInt8Array],
+) -> UInt8Array: ...
 
 
 def xor_numpy(
-    p1: Union[bytes, bytearray, NDArray[numpy.uint8]],
-    p2: Union[bytes, bytearray, NDArray[numpy.uint8]],
-) -> NDArray[numpy.uint8]:
+    p1: Union[bytes, bytearray, UInt8Array, Int64Array, BoolArray],
+    p2: Union[bytes, bytearray, UInt8Array, Int64Array, BoolArray],
+) -> Union[UInt8Array, Int64Array, BoolArray]:
     if (isinstance(p2, numpy.ndarray) and isinstance(p1, numpy.ndarray)) and (
         (p1.dtype == numpy.uint8 and p2.dtype == numpy.uint8)
         or (p1.dtype == numpy.int64 and p2.dtype == numpy.int64)
         or (p1.dtype == bool and p2.dtype == bool)
     ):
-        n_p1 = p1
-        n_p2 = p2
-    else:
-        n_p1 = numpy.frombuffer(p1, dtype="uint8")
-        n_p2 = numpy.frombuffer(p2, dtype="uint8")
-    return xor_numpy_internal(n_p1, n_p2)
+        return numpy.bitwise_xor(p1, p2)
+    n_p1 = numpy.frombuffer(p1, dtype="uint8")
+    n_p2 = numpy.frombuffer(p2, dtype="uint8")
+    if xor_numpy_uint8_internal is not None:
+        return xor_numpy_uint8_internal(n_p1, n_p2)
+    return numpy.bitwise_xor(n_p1, n_p2)
 
 
 def listXOR(plist: list) -> Any:
     return reduce(xor_numpy, plist)
 
 
-def logical_xor(plist: typing.List[typing.List[bool]]) -> NDArray[numpy.bool_]:
+def logical_xor(plist: typing.List[typing.List[bool]]) -> BoolArray:
     return numpy.logical_xor.reduce(plist)
 
 
@@ -55,7 +81,7 @@ def should_drop_packet(
 ) -> bool:
     rand = upper_bound * random()  # create number from [0, upper_bound)
     drop_chance = rules.apply_all_rules(packet)
-    if type(drop_chance) == list:
+    if isinstance(drop_chance, list):
         drop_chance = drop_chance[0]
     packet.set_error_prob(drop_chance)
     # print(str(rand) + " , " + str(drop_chance))
@@ -111,7 +137,7 @@ except ImportError:
 try:
     from cdnarules import bitsSet as bitsSet_c
 
-    def bitsSet(x: numpy.uint64) -> int:
+    def bitsSet(x: int) -> int:
         return bitsSet_c(int(x))
 
 except ImportError:
@@ -120,13 +146,16 @@ except ImportError:
 try:
     from cdnarules import grayCode as grayCode_c
 
-    def grayCode(x: int) -> numpy.uint64:
+    def grayCode(x: int) -> typing.Any:
         return numpy.uint64(grayCode_c(int(x)))
 
 except ImportError:
     print("Gray-Code - C Module failed to load, falling back to slow mode")
 
 try:
-    from cdnarules import buildGraySequence
+    from cdnarules import buildGraySequence as cdnarules_build_gray_sequence
+
+    buildGraySequence = cdnarules_build_gray_sequence
 except ImportError:
     print("Graysequence - C Module failed to load, falling back to slow mode")
+    buildGraySequence = fallback_build_gray_sequence

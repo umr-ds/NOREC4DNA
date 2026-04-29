@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 import struct
 import typing
 
 import numpy
 import numpy as np
-from numpy.typing import NDArray
 
 from .Packet import Packet
+
+UInt8Array = np.ndarray[typing.Any, np.dtype[np.uint8]]
 
 
 class HeaderChunk:
@@ -14,14 +17,14 @@ class HeaderChunk:
         packet: Packet,
         last_chunk_len_format: str = "I",
         checksum_len_format: typing.Optional[str] = None,
-    ):
+    ) -> None:
         assert packet.get_used_packets().issubset({0}), "only first packet can be HeaderPacket"
         if isinstance(packet.data, numpy.ndarray):
             self.data: bytes = packet.data.tobytes()
         else:
             self.data: bytes = packet.data
         self.last_chunk_len_format: str = last_chunk_len_format
-        self.checksum_len_format: str = checksum_len_format
+        self.checksum_len_format: typing.Optional[str] = checksum_len_format
         self.checksum: typing.Optional[int] = None
         self.additional_payload: typing.Optional[bytes] = None
         self.last_chunk_length, self.file_name = self.decode_header_info()
@@ -65,10 +68,13 @@ class HeaderChunk:
         ]  # should be all zero bytes for legacy packets
         return last_chunk_length, file_name
 
-    def update_header(self, filename: str, checksum: int, additional_payload: bytes):
+    def update_header(
+        self, filename: typing.Optional[str], checksum: int, additional_payload: bytes
+    ) -> None:
         # We may reduce the filename to "" (indicating "use old filename") while grating us more space for any metadata
         if filename is None:
             filename = ""
+        checksum_len_format = self.checksum_len_format or ""
         self.file_name = filename
         self.checksum = checksum
         file_name_length = len(filename)
@@ -82,7 +88,7 @@ class HeaderChunk:
                     - struct.calcsize(
                         ""
                         + self.last_chunk_len_format
-                        + self.checksum_len_format
+                        + checksum_len_format
                         + str(len(additional_payload))
                         + "s"
                     )
@@ -90,7 +96,10 @@ class HeaderChunk:
                 + "x"
             )
             self.data = struct.pack(
-                f"<{self.last_chunk_len_format}{self.checksum_len_format}{file_name_length}s{padding_str}{len(additional_payload)}s",
+                (
+                    f"<{self.last_chunk_len_format}{checksum_len_format}"
+                    f"{file_name_length}s{padding_str}{len(additional_payload)}s"
+                ),
                 self.last_chunk_length,
                 checksum,
                 filename,
@@ -104,7 +113,7 @@ class HeaderChunk:
                     - struct.calcsize(
                         ""
                         + self.last_chunk_len_format
-                        + self.checksum_len_format
+                        + checksum_len_format
                         + str(len(additional_payload))
                         + "s"
                     )
@@ -115,7 +124,7 @@ class HeaderChunk:
                 str(
                     "<"
                     + self.last_chunk_len_format
-                    + self.checksum_len_format
+                    + checksum_len_format
                     + str(file_name_length)
                     + "s"
                     + padding_str
@@ -127,7 +136,7 @@ class HeaderChunk:
 
     @staticmethod
     def from_raw_array(
-        raw_array: NDArray[np.uint8],
+        raw_array: UInt8Array,
         last_chunk_len_format: str = "I",
         checksum_len_format: typing.Optional[str] = None,
     ) -> "HeaderChunk":
@@ -136,7 +145,7 @@ class HeaderChunk:
         )  # we use 0 for # chunks as the content as we just need a stub to initialize the HeaderChunk
         return HeaderChunk(packet, last_chunk_len_format, checksum_len_format)
 
-    def get_numpy(self):
+    def get_numpy(self) -> UInt8Array:
         return np.frombuffer(self.data, dtype=np.uint8)
 
     def __str__(self) -> str:
@@ -148,5 +157,5 @@ class HeaderChunk:
             + " >"
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.__str__()

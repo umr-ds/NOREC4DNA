@@ -25,7 +25,7 @@ def test_suite(as_dna, decoder_instance, use_header):
     dir_path = os.getcwd()
     try:
         os.remove(dir_path + "/" + file)
-    except:
+    except FileNotFoundError:
         print("Not deleting, File did not exists")
     shutil.copyfile(dir_path + "/" + cmp_file, dir_path + "/" + file)
     chunksize = 200
@@ -73,7 +73,7 @@ def test_suite(as_dna, decoder_instance, use_header):
         out_file = file
     try:
         os.remove(out_file)
-    except:
+    except FileNotFoundError:
         print("Not deleting, File did not exists")
     decoder.saveDecodedFile(print_to_output=False)
     assert os.path.exists(out_file) and filecmp.cmp(out_file, cmp_file)

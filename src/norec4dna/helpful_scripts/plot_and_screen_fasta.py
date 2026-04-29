@@ -1,13 +1,28 @@
-import galois
-import matplotlib
-import matplotlib.pyplot as plt
-from norec4dna.rules.FastDNARules import FastDNARules
+import importlib
+import importlib.util
+import typing
+
 from numpy import zeros
 
-matplotlib.rcParams["figure.dpi"] = 800
+from ..rules.FastDNARules import FastDNARules
 
+matplotlib: typing.Any = (
+    importlib.import_module("matplotlib")
+    if importlib.util.find_spec("matplotlib") is not None
+    else None
+)
+plt: typing.Any = (
+    importlib.import_module("matplotlib.pyplot")
+    if importlib.util.find_spec("matplotlib.pyplot") is not None
+    else None
+)
+if matplotlib is not None:
+    matplotlib.rcParams["figure.dpi"] = 800
 
-# GF = galois.GF_factory(2, 1)
+galois = (
+    importlib.import_module("galois") if importlib.util.find_spec("galois") is not None else None
+)
+GF: typing.Any = galois.GF(2) if galois is not None else None
 
 
 def gff(x, header_len=20, repair_len=16):
@@ -15,14 +30,20 @@ def gff(x, header_len=20, repair_len=16):
 
 
 def gf_poly_div_mod(poly_dividend, poly_divisor):
+    if galois is None:
+        raise ImportError("galois is required for gf_poly_div_mod")
     return galois.Poly.divmod(poly_dividend, poly_divisor)
 
 
 def create_poly_from_array(bool_array):
+    if galois is None or GF is None:
+        raise ImportError("galois is required for create_poly_from_array")
     return galois.Poly(bool_array, field=GF)
 
 
 def plot_density_graph(max_len=500):
+    if plt is None:
+        raise ImportError("matplotlib is required for plotting")
     plt.plot([gff(x) for x in range(1, max_len)])
     plt.xlabel("Length (nt)")
     plt.ylabel("Density (bits/nt)")
@@ -61,8 +82,8 @@ def chaos_plt(sequence):
         x[idx], y[idx] = midpoint(k, (x[idx - 1], y[idx - 1]))
 
     plt.scatter(x, y, s=1)
-    plt.xticks([x for x in range(0, max_x + 500, 500)])
-    plt.yticks([x for x in range(0, max_y + 500, 500)])
+    plt.xticks(list(range(0, max_x + 500, 500)))
+    plt.yticks(list(range(0, max_y + 500, 500)))
     plt.grid(True)
 
 
@@ -133,7 +154,7 @@ def matching(wrongs, gt):
 
 
 def find_dup_ids(inf):
-    ids_to_seq = dict()
+    ids_to_seq = {}
     known_ids = set()
 
     dup_ids = set()
@@ -198,7 +219,7 @@ if __name__ == "__main__":
     #     lines = in_file.readlines()
     # for line in lines[1::2]:
     #     chaos_plt(line.strip())
-    # # chaos_plt("TCCTATCTTCACCCGTCGTGCGCCATGTAGGTCTATCTGAAGTCCGGCCTGACGTGAACGCACACTCCATCGAAGGCTAACGGCCGTGCTTTCTTACTAGCTGACTAACTGCCGTGAGAACGGTAGAGCTAGCGCACGGAAGTAAGACAGAACCTCACGATCACTTATCTTTCTGAAGTCATCACGCAATGTCTAAATTACAGCCGGCATCGCTAACGTTCGCAATCTCTTTCGGCATTAATAACACGCGTGCGACCGGACGCCAGGGCGCCCGTTCTTCCGATATGCAGGCCGTCTGCATAGC")
+    # # chaos_plt("<long example sequence omitted>")
     # plt.show()
     #
     # # plot_error_prob_for_all(100)

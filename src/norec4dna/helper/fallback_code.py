@@ -1,16 +1,21 @@
 # Stores methods for fallback if c-extensions are not installed.
+from __future__ import annotations
+
 import typing
 import warnings
 
 import numpy
-from numpy.typing import NDArray
+
+XorScalar = typing.Union[numpy.uint8, numpy.int64, numpy.bool_]
+GenericArray = typing.Any
+XorArray = typing.Any
 
 
 def bitSet(x: int, b: int) -> bool:
     return ((x >> b) & 1) == 1
 
 
-def bitsSet(x: numpy.uint64) -> int:  # x is of type uint64 !
+def bitsSet(x: int) -> int:  # x is of type uint64 !
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         x -= (x >> numpy.uint64(1)) & numpy.uint64(0x5555555555555555)
@@ -22,11 +27,11 @@ def bitsSet(x: numpy.uint64) -> int:  # x is of type uint64 !
         return int(res)
 
 
-def grayCode(x: int) -> numpy.uint64:
+def grayCode(x: int) -> typing.Any:
     return numpy.uint64(numpy.bitwise_xor((numpy.uint64(x) >> numpy.uint64(1)), numpy.uint64(x)))
 
 
-def buildGraySequence(length: int, b: int) -> NDArray:
+def buildGraySequence(length: int, b: int) -> GenericArray:
     s = numpy.empty(length, dtype=int)
     i = 0
     x = 0  # numpy.uint64(0)
@@ -41,7 +46,7 @@ def buildGraySequence(length: int, b: int) -> NDArray:
     return s
 
 
-def xor_intern(n_p1: NDArray, n_p2: NDArray) -> NDArray:
+def xor_intern(n_p1: GenericArray, n_p2: GenericArray) -> GenericArray:
     return numpy.bitwise_xor(n_p1, n_p2)
 
 
@@ -118,9 +123,7 @@ def strContainsSub_python(text: typing.AnyStr, sequence: typing.AnyStr) -> bool:
     return res
 
 
-def xor_numpy_internal(
-    n_p1: NDArray[numpy.uint8], n_p2: NDArray[numpy.uint8]
-) -> NDArray[numpy.uint8]:
+def xor_numpy_internal(n_p1: XorArray, n_p2: XorArray) -> XorArray:
     """
     Internal XOR function for numpy arrays.
     Fallback implementation when cdnarules is not available.

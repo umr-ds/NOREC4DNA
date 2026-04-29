@@ -1,4 +1,5 @@
-import os
+import shlex
+import subprocess
 
 COMMAND = (
     "python3 -m norec4dna.optimizer.optimize_dist_de "
@@ -9,4 +10,10 @@ COMMAND = (
 )
 
 if __name__ == "__main__":
-    os.system("nohup sh -c '" + COMMAND + " >res.txt' &")
+    with open("res.txt", "ab") as output:
+        subprocess.Popen(
+            shlex.split(COMMAND),
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )

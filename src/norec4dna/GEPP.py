@@ -1,15 +1,21 @@
 # Partially based on jgcastro89 's Code https://gist.github.com/jgcastro89/49090cc69a499a129413597433b9baab
-from typing import List, Optional
+from __future__ import annotations
+
+from typing import Any, List, Optional
 
 import numpy as np
-from numpy.typing import NDArray
 
 from .helper import xor_numpy
 
 debug = False
 
+BoolArray = np.ndarray[Any, np.dtype[np.bool_]]
+UInt8Array = np.ndarray[Any, np.dtype[np.uint8]]
+IntpArray = np.ndarray[Any, np.dtype[np.intp]]
+Int32Array = np.ndarray[Any, np.dtype[np.int32]]
 
-def GEPP(a: NDArray[np.bool_], b: NDArray[np.uint8]) -> "GEPP_intern":
+
+def GEPP(a: BoolArray, b: UInt8Array) -> "GEPP_intern":
     return GEPP_intern(a, b)
 
 
@@ -25,25 +31,23 @@ class GEPP_intern:
     post-condition: A and b have been modified.
     """
 
-    def __init__(self, A: NDArray[np.bool_], b: NDArray[np.uint8]):
-        self.A: NDArray[np.bool_] = A  # input: A is an n x n np matrix
-        self.b: NDArray[np.uint8] = b  # b is an n x 1 np array
-        self.chunk_to_used_packets: NDArray[np.bool_] = np.identity(
+    def __init__(self, A: BoolArray, b: UInt8Array):
+        self.A: BoolArray = A  # input: A is an n x n np matrix
+        self.b: UInt8Array = b  # b is an n x 1 np array
+        self.chunk_to_used_packets: BoolArray = np.identity(
             max(self.A.shape[0], self.A.shape[1]), dtype=bool
         )  # inverse part
         while len(self.chunk_to_used_packets) < len(self.A):
             self.chunk_to_used_packets = np.vstack(
                 (self.chunk_to_used_packets, np.full((1, len(self.A[1])), False))
             )
-        self.packet_mapping: NDArray[np.intp] = np.array(list(range(len(self.A))), dtype=np.intp)
+        self.packet_mapping: IntpArray = np.array(list(range(len(self.A))), dtype=np.intp)
         self.n: int = 0  # n is the length of A
         self.m: int = 0  # m is the width of A
-        self.tmp_A: List[NDArray[np.bool_]] = []
-        self.tmp_b: List[NDArray[np.uint8]] = []
+        self.tmp_A: List[BoolArray] = []
+        self.tmp_b: List[UInt8Array] = []
         self._update_input()  # method that validates input
-        self.result_mapping: NDArray[np.int32] = np.zeros(
-            (np.int64(self.m), np.int64(1)), dtype=np.int32
-        )
+        self.result_mapping: Int32Array = np.zeros((np.int64(self.m), np.int64(1)), dtype=np.int32)
 
     def clone(self) -> "GEPP_intern":
         gepp_copy = GEPP(self.A, self.b)
@@ -80,7 +84,7 @@ class GEPP_intern:
         except Exception as ex:
             raise ex
 
-    def addRow(self, row: NDArray[np.bool_], data: NDArray[np.uint8]) -> None:
+    def addRow(self, row: BoolArray, data: UInt8Array) -> None:
         # Always add to A and b immediately
         self.A = np.vstack((self.A, row))
         self.b = np.vstack((self.b, data))
@@ -94,7 +98,7 @@ class GEPP_intern:
             self.packet_mapping = np.concatenate(
                 (
                     self.packet_mapping,
-                    np.array([x for x in range(len(self.A) + 1, self.m + len(self.tmp_A) + 1)]),
+                    np.array(list(range(len(self.A) + 1, self.m + len(self.tmp_A) + 1))),
                 )
             )
             self.A = np.vstack((self.A, self.tmp_A))
@@ -214,21 +218,21 @@ class GEPP_intern:
     except Exception:
         pass
 
-    def generateResultMapping(self) -> NDArray[np.int32]:
+    def generateResultMapping(self) -> Int32Array:
         """
         returns which row maps to which raw-data-Chunk.
         """
-        res_rows: NDArray[np.int32] = np.full((self.m, 1), -1, np.int32)
+        res_rows: Int32Array = np.full((self.m, 1), -1, np.int32)
         for k in range(self.n):
             row = self.A[k]
             if np.sum(row) == 1:
-                x = np.where(row == True)[0][0]
+                x = np.where(row)[0][0]
                 res_rows[x] = k
         return res_rows
 
     def isSolved(self) -> bool:
-        all_true = set(x for x in range(self.m))
-        solved_set = set(x[0] for x in self.result_mapping)
+        all_true = set(range(self.m))
+        solved_set = {x[0] for x in self.result_mapping}
         if -1 in solved_set:
             solved_set.remove(-1)
         res = len(all_true) == len(solved_set)
@@ -237,7 +241,7 @@ class GEPP_intern:
         return res
 
     def getSolvedCount(self) -> int:
-        solved_set = set(x[0] for x in self.result_mapping)
+        solved_set = {x[0] for x in self.result_mapping}
         if -1 in solved_set:
             solved_set.remove(-1)
         return len(solved_set)
@@ -247,7 +251,7 @@ class GEPP_intern:
         chunk_id_lst: List[int],
         valid_chunks_lst: Optional[List[int]] = None,
         multi_error_packet_mode: bool = False,
-    ) -> NDArray[np.bool_]:
+    ) -> BoolArray:
         """
         returns a list of packets that are used to reconstruct all chunks in chunk_id_lst
         :param chunk_id_lst: list of chunk ids that contain invalid data (corrupted)
@@ -281,7 +285,7 @@ class GEPP_intern:
         self.packet_mapping = np.delete(self.packet_mapping, row_id, 0)
         self._update_input()
 
-    def find_missing_chunks(self) -> NDArray[np.bool_]:
+    def find_missing_chunks(self) -> BoolArray:
         """
         returns all chunks from A that do not appear in any received packet and would thus reduce to the complete result
         """
@@ -332,10 +336,12 @@ def main():
 # that way we can guide the user to which chunks might also be invalid so that the user can further finetune the search
 # and won't waste time tagging packets as valid that are not even in consideration
 
-# TODO: create function that takes a list of chunks and returns the packets that were involoved in the decoding of ALL(!) of these chunks
+# TODO: create function that takes a list of chunks and returns the packets
+# that were involved in the decoding of all of these chunks.
 # this is needed to find out which packet was responsible for the invalid chunks
 
 
-# TODO: create a function that analyses GEPP.A and return the missing chunks/packets that would allow to solve the system
+# TODO: create a function that analyses GEPP.A and returns the missing
+# chunks/packets that would allow the system to be solved.
 if __name__ == "__main__":
     main()

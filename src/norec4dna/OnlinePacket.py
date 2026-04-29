@@ -5,10 +5,11 @@ import typing
 from math import ceil
 
 import numpy as np
-from norec4dna.distributions.OnlineDistribution import OnlineDistribution
-from norec4dna.ErrorCorrection import nocode
-from norec4dna.helper import xor_mask
-from norec4dna.Packet import Packet
+
+from .distributions.OnlineDistribution import OnlineDistribution
+from .ErrorCorrection import nocode
+from .helper import xor_mask
+from .Packet import Packet
 
 
 class OnlinePacket(Packet):
@@ -74,7 +75,8 @@ class OnlinePacket(Packet):
         return self.epsilon
 
     def prepare_and_pack(self) -> bytes:
-        # Format = Highest possible Packetnumber for this file, quality settings, epsilon, and a (hopefully) unique checkBlock-Number
+        # Format = highest possible packet number, quality, epsilon,
+        # and a unique check-block number for this file.
         struct_format = (
             "<"
             + (self.number_of_chunks_len_format if self.save_number_of_chunks_in_packet else "")
@@ -99,7 +101,7 @@ class OnlinePacket(Packet):
             )
 
     def calculate_packed_data(self) -> bytes:
-        # Länge des Packets + Infos + Data + crc
+        # Lï¿½nge des Packets + Infos + Data + crc
         payload = struct.pack(
             "<" + str(len(self.packedInfo)) + "s" + str(len(self.data)) + "s",
             self.packedInfo,

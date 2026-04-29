@@ -4,6 +4,7 @@ import time
 from random import random
 
 import numpy as np
+from reedsolo import ReedSolomonError
 
 from ..helper.bin2Quaternary import string2QUATS
 from ..helper.quaternary2Bin import quats_to_bytes
@@ -16,7 +17,9 @@ from ..ReedSolomonSuite import (
 from ..rules.DNARules import DNARules
 
 lines = [
-    "Algorithm,CRC,A_Permutation,T_Permutation,C_Permutation,G_Permutation,dinucleotid_Runs,Homopolymers,GC_Content,Trinucleotid_Runs,Random_Permutation,Overall_Dropchance,Random_Number,Did_Drop"
+    "Algorithm,CRC,A_Permutation,T_Permutation,C_Permutation,G_Permutation,"
+    "dinucleotid_Runs,Homopolymers,GC_Content,Trinucleotid_Runs,"
+    "Random_Permutation,Overall_Dropchance,Random_Number,Did_Drop"
 ]
 
 
@@ -84,7 +87,7 @@ def blackbox(file, number_of_chunks, seed, overhead, r_symbols):
             i, res = dec.decode(elem)
             resmap[i] = res
             correct += 1
-        except:
+        except (ReedSolomonError, struct.error, TypeError, ValueError):
             result = False
     end = time.time() - start
     return name, result, number_of_chunks, number_of_chunks - correct, round(end, 4)

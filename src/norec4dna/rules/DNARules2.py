@@ -1,10 +1,12 @@
 import json
 import os
 import random
+from typing import Any, Dict, List, Optional, Union
 
 import requests
-from norec4dna.helper.bin2Quaternary import byte2QUATS
-from norec4dna.helper.quaternary2Bin import quats_to_bytes
+
+from ..helper.bin2Quaternary import byte2QUATS
+from ..helper.quaternary2Bin import quats_to_bytes
 
 # IMPORTANT: if you plan to use this, you should change the MESA_URL to a (local) instance of your own.
 MESA_URL = "http://pc12291.mathematik.uni-marburg.de:5000/api/all"
@@ -15,14 +17,14 @@ class DNARules2:
         self.active_rules = []
 
     @staticmethod
-    def sim_mutation(seq):
+    def sim_mutation(sequences):
         """
         Simulates the mutation of nucleobases with a static probability for a sequence
         :param seq: Sequence to be mutated
         :return: Mutated sequence
         """
         res_seq = []
-        for seq in seq:
+        for seq in sequences:
             mod_seq = ""
             # randint(0, x) <= y defines the chance to mutate: 1 - y/x * 100% chance to mutate
             for x in seq:
@@ -32,6 +34,38 @@ class DNARules2:
                     mod_seq += random.choice(("A", "T", "G", "C"))
             res_seq.append(mod_seq)
         return res_seq
+
+    @staticmethod
+    def _decode_mutated_sequence(seq: str) -> bytes:
+        dna_data_bin_enc = b""
+        for i in range(0, len(seq), 4):
+            try:
+                dna_data_bin_enc += quats_to_bytes(seq[i : i + 4])
+            except ValueError:
+                continue
+        return dna_data_bin_enc
+
+    @staticmethod
+    def _calculate_changes(dna_data_dec: str, seq_org: str) -> int:
+        return sum(
+            1
+            for index in range(min(len(dna_data_dec), len(seq_org)))
+            if dna_data_dec[index] != seq_org[index]
+        )
+
+    @staticmethod
+    def _get_dropchance(seq: str, seq_org: str) -> float:
+        dna_data_bin_enc = DNARules2._decode_mutated_sequence(seq)
+        dna_data_dec = "".join(byte2QUATS(value) for value in dna_data_bin_enc)
+        changes = DNARules2._calculate_changes(dna_data_dec, seq_org)
+        if changes >= 3 - abs(len(dna_data_dec) - len(seq_org)):
+            return 1.0
+
+        dropchance = 10 * changes
+        for index, value in enumerate(dna_data_bin_enc):
+            if value != dna_data_bin_enc[index] and dropchance <= 95:
+                dropchance += 5
+        return dropchance / 100
 
     @staticmethod
     def apply_all_rules(packet, from_web=True):
@@ -44,48 +78,22 @@ class DNARules2:
         #:param from_file: True: Use a config file for the websiterequest. False: Enter configurations manual in @get_mutated
         :return: The dropchance for a packet or a list of packets
         """
-        if type(packet) != list:
-            packet = [packet]
-        dna_data = []
-        for pack in packet:
-            dna_data.append(pack.get_dna_struct(True))
+        packets = packet if isinstance(packet, list) else [packet]
+        dna_data = [pack.get_dna_struct(True) for pack in packets]
         dna_data_mutated = DNARules2.get_mutated(dna_data, from_web)
-        res_err = []
-        cntr = 0
-        for seq in dna_data_mutated:
-            seq_org = dna_data[cntr]
-            cntr += 1
-            dna_data_bin_enc = b""
-            for i in range(0, len(seq), 4):
-                try:
-                    dna_data_bin_enc += quats_to_bytes(seq[i : i + 4])
-                except:
-                    pass
-            dna_data_bin_dec = dna_data_bin_enc
-            dna_data_dec = ""
-            for x in dna_data_bin_dec:
-                dna_data_dec += byte2QUATS(x)
-            changes = sum(
-                [
-                    1 if dna_data_dec[x] != seq_org[x] else 0
-                    for x in range(min(len(dna_data_dec), len(seq_org)))
-                ]
-            )
-            if changes < 3 - abs(len(dna_data_dec) - len(seq_org)):
-                dropchance = 10 * changes
-                for i in range(0, len(dna_data_bin_dec)):
-                    if dna_data_bin_dec[i] != dna_data_bin_enc[i] and dropchance <= 95:
-                        dropchance += 5
-                res_err.append(dropchance / 100)
-            else:
-                res_err.append(1.0)
-        if type(res_err) == list and len(res_err) == 1:
-            res_err = res_err[0]
-        return res_err
+        res_err = [
+            DNARules2._get_dropchance(seq, dna_data[index])
+            for index, seq in enumerate(dna_data_mutated)
+        ]
+        return res_err[0] if len(res_err) == 1 else res_err
 
     # executes requests to the website with given parameters
     @staticmethod
-    def get_mutated_from_web(seq, config=None, json_config=None):
+    def get_mutated_from_web(
+        seq: List[str],
+        config: Optional[Dict[str, Any]] = None,
+        json_config: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """
         Builds and executes the request for the website from given configurations, either a config file or manual
         added parameters
@@ -95,20 +103,22 @@ class DNARules2:
         :return: The response from the website as dictionary
         """
         header = {"content-type": "application/json;charset=UTF-8"}
-        if json_config:
-            payload = json_config
-        else:
-            payload = config
+        payload = dict(
+            json_config if json_config is not None else config if config is not None else {}
+        )
         payload["sequence"] = seq
         payload["asHTML"] = False
-        res = requests.post(MESA_URL, data=json.dumps(payload), headers=header)
-        try:
-            return res.json()
-        except:
-            print("Error")
+        res = requests.post(MESA_URL, json=payload, headers=header)
+        res.raise_for_status()
+        response = res.json()
+        if not isinstance(response, dict):
+            raise TypeError("MESA API response must be a JSON object")
+        return response
 
     @staticmethod
-    def get_mutated(seq, from_web, json_config=None):
+    def get_mutated(
+        seq: Union[str, List[str]], from_web: bool, json_config: Optional[Dict[str, Any]] = None
+    ) -> List[str]:
         """
         Takes the sequences to mutate and calls either @sim_mutation or @get_mutated_from_web. If the website is used, the
         results are also processed to get only the mutated sequences for the input
@@ -117,26 +127,26 @@ class DNARules2:
         :param json_config: If used, the manually generated json_config
         :return: A list of mutated sequences for the input
         """
-        if type(seq) == str:
-            seq = [seq]
+        seq_list = [seq] if isinstance(seq, str) else seq
         if from_web:
-            if json_config:
-                res_all = DNARules2.get_mutated_from_web(seq=seq, json=json.dumps(json_config))
+            if json_config is not None:
+                res_all = DNARules2.get_mutated_from_web(seq=seq_list, json_config=json_config)
             else:
                 try:
                     file = os.environ["dna_sim_config"]
-                except:
+                except KeyError:
                     print("Could not find ENV-Var 'dna_sim_config', falling back to 'mosla.json'")
                     file = "mosla.json"
                 with open(file) as json_file:
                     config = json.load(json_file)
-                    res_all = DNARules2.get_mutated_from_web(seq=seq, config=config)
+                    res_all = DNARules2.get_mutated_from_web(seq=seq_list, config=config)
             res_seq = []
-            for seq in seq:
-                res_seq.append(res_all[seq]["res"]["modified_sequence"])
+            for sequence in seq_list:
+                res_entry = res_all[sequence]
+                res_seq.append(res_entry["res"]["modified_sequence"])
             return res_seq
         else:
-            res_seq = DNARules2.sim_mutation(seq)
+            res_seq = DNARules2.sim_mutation(seq_list)
         return res_seq
 
 

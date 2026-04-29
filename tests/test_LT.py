@@ -49,7 +49,7 @@ def run_between_tests():
 def test_suite(as_dna, decoder_instance, distribution, use_header, implicit_mode):
     try:
         os.remove(file)
-    except:
+    except FileNotFoundError:
         print("Not deleting, File did not exists")
     shutil.copyfile(cmp_file, file)
     chunksize = 200
@@ -117,7 +117,7 @@ def test_suite(as_dna, decoder_instance, distribution, use_header, implicit_mode
 def test_erlich_zielinski_dnarules():
     try:
         os.remove(str(f"{TEST_DIR}/DEC_{os.path.basename(out_dir2)}"))
-    except:
+    except FileNotFoundError:
         print("Not deleting, File did not exists")
     shutil.copyfile(cmp_file2, file2)
     chunksize = 75
@@ -168,7 +168,7 @@ def test_erlich_zielinski_dnarules():
 def test_size_shrink():
     try:
         os.remove(file)
-    except:
+    except FileNotFoundError:
         print("Not deleting, File did not exists")
     shutil.copyfile(cmp_file, file)
     chunksize = 200

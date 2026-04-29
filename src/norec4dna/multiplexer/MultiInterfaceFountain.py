@@ -1,11 +1,11 @@
 import multiprocessing
 import socket
 
-from multiplex_OLD import Multiplexer
-from norec4dna import RU10Encoder, reed_solomon_encode
-from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-
+from ..distributions.RaptorDistribution import RaptorDistribution
+from ..Encoder import Encoder
+from ..ErrorCorrection import reed_solomon_encode
 from .MultiInterfaceBase import MultiInterfaceBase
+from .multiplex import Multiplex
 
 
 class MultiInterfaceFountain(MultiInterfaceBase):
@@ -39,6 +39,8 @@ class MultiInterfaceFountain(MultiInterfaceBase):
     def send_packets_on_interface(self, packets_socket_dest=None):
         res = []
         try:
+            if packets_socket_dest is None:
+                return res
             packets, sending_socket, dest = packets_socket_dest
             if sending_socket is None:
                 return res
@@ -78,8 +80,8 @@ class MultiInterfaceFountain(MultiInterfaceBase):
             dests = []
             for iface in interfaces:
                 try:
-                    dests.append(m.get_ip_address(iface, BROADCAST))
-                except:
+                    dests.append(self.get_ip_address(iface, True))
+                except Exception:
                     dests.append("255.255.255.255")
         elif isinstance(dest, str):
             dests = [dest] * len(interfaces)
@@ -90,7 +92,7 @@ class MultiInterfaceFountain(MultiInterfaceBase):
             self.create_ip_socket(interface=iface, broadcast=broadcast) for iface in interfaces
         ]
         p = multiprocessing.Pool(len(interfaces))
-        res = p.map(self.send_packets_on_interface, [x for x in zip(packets, sockets, dests)])
+        res = p.map(self.send_packets_on_interface, list(zip(packets, sockets, dests)))
         """
         # res = [self.send_packets_on_interface(x) for x in zip(packets, sockets, dest)]
         i = 0
@@ -104,7 +106,7 @@ class MultiInterfaceFountain(MultiInterfaceBase):
 if __name__ == "__main__":
     file = ".INFILES/logo.jpg"
     chunk_size = 100
-    number_of_chunks = RU10Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
+    number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
     INSERT_HEADER = True
     NUM_IN_PACKER = True
     dist = RaptorDistribution(number_of_chunks)
@@ -125,8 +127,13 @@ if __name__ == "__main__":
     dests = ["192.168.0.105", "192.168.0.87", "192.168.56.1"]
     print(clean_ifaces)
     channel_count = min(len(clean_ifaces), len(dests))
-    mltp = Multiplexer(".INFILES/Dorn", channel_count, factor=0.9, chunk_size=chunk_size)
-    packet_list_list = mltp.do_multiplex()
+    mltp = Multiplex(".INFILES/Dorn", chunk_size, channel_count, 0)
+    packet_list_list = [
+        channel_packets
+        for channel_no in range(channel_count)
+        for channel_packets in [mltp.get_packets_for_channel(10, channel_no)]
+        if channel_packets is not None
+    ]
     raw_packets_list_list = [[x.get_struct(True) for x in y] for y in packet_list_list]
 
     # "192.168.0.95"

@@ -7,10 +7,10 @@ import typing
 from io import BytesIO
 from pathlib import Path
 
-from norec4dna import RU10Decoder
-from norec4dna.ErrorCorrection import get_error_correction_decode
-from norec4dna.helper.quaternary2Bin import tranlate_quat_to_byte
-from norec4dna.rules.FastDNARules import FastDNARules
+from .ErrorCorrection import get_error_correction_decode
+from .helper.quaternary2Bin import tranlate_quat_to_byte
+from .RU10Decoder import RU10Decoder
+from .rules.FastDNARules import FastDNARules
 
 REED_SOLOMON_PARITY_LENGTH = 3
 _error_correction = get_error_correction_decode("reedsolomon", REED_SOLOMON_PARITY_LENGTH)
@@ -145,7 +145,7 @@ def window_parse_packets():
     correct_seqs = []
     for k in fasta.keys():
         while (window_start + PACKET_SEQ_LENGTH) <= len(fasta[k]):
-            line = fasta.get(k)[window_start : (window_start + PACKET_SEQ_LENGTH)]
+            line = fasta[k][window_start : (window_start + PACKET_SEQ_LENGTH)]
             # ensure the packet adheres to the rules
             rule_err = RULES.apply_all_rules(line)
             if rule_err < RULES_DROP_LIMIT:
@@ -222,7 +222,7 @@ def merge_files(folder: str):
 def create_match_html():
     correct_seqs = 0
     ground_truth = load_fasta(GROUND_TRUTH)
-    ground_truth = set(x for x in ground_truth.values())
+    ground_truth = set(ground_truth.values())
     in_vivoed = load_fasta(INPUT_FILE)
     in_vivoed_seq = list(in_vivoed.values())[0]
     vivo_html = copy.deepcopy(in_vivoed_seq)

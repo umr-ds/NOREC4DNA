@@ -1,5 +1,7 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
+from __future__ import annotations
+
 import argparse
 import io
 import logging
@@ -12,8 +14,8 @@ from math import ceil, floor
 from zipfile import ZipFile
 
 import numpy as np
-from numpy.typing import NDArray
 from PIL import Image
+from reedsolo import ReedSolomonError
 from typing_extensions import Callable
 
 from .Decoder import Decoder
@@ -40,6 +42,8 @@ from .RU10Packet import RU10Packet
 
 DEBUG = False
 logger = logging.getLogger(__name__)
+
+BoolArray = np.ndarray[typing.Any, np.dtype[np.bool_]]
 
 
 class RU10Decoder(Decoder):
@@ -98,6 +102,478 @@ class RU10Decoder(Decoder):
         self.packets = []
         self.config_map = config_map
 
+    def _update_number_of_chunks_format(self, number_of_chunks_len_format: str) -> str:
+        if self.static_number_of_chunks is not None:
+            self.number_of_chunks = self.static_number_of_chunks
+            return ""
+        return number_of_chunks_len_format
+
+    def _open_dna_stream(self, filepath: str) -> bool:
+        loader = (
+            quad_file_to_bytes
+            if self.error_correction.__name__ == "dna_reed_solomon_decode"
+            else quat_file_to_bin
+        )
+        try:
+            self.f = loader(filepath)
+        except TypeError:
+            logger.warning("skipping CORRUPT file - contains illegal character(s)")
+            self.corrupt += 1
+            return False
+        return True
+
+    def _open_folder_packet(self, filename: str) -> bool:
+        if self.file is None:
+            raise ValueError("self.file must be set before opening packets")
+        filepath = self.file + "/" + filename
+        if filename.endswith("DNA"):
+            return self._open_dna_stream(filepath)
+        self.f = open(filepath, "rb")
+        return True
+
+    def _decode_input_packet(
+        self,
+        from_multiple_files: bool,
+        packet_len_format: str,
+        crc_len_format: str,
+        number_of_chunks_len_format: str,
+        id_len_format: str,
+    ) -> typing.Optional[RU10Packet]:
+        new_pack = self.getNextValidPacket(
+            from_multiple_files,
+            packet_len_format=packet_len_format,
+            crc_len_format=crc_len_format,
+            number_of_chunks_len_format=number_of_chunks_len_format,
+            id_len_format=id_len_format,
+        )
+        if new_pack is None or new_pack == "CORRUPT":
+            return None
+        return new_pack
+
+    def _record_packet(self, packet: RU10Packet) -> bool:
+        self.packets.append(packet)
+        return self.input_new_packet(packet)
+
+    def _decode_zip_entry(
+        self,
+        archive: ZipFile,
+        name: str,
+        packet_len_format: str,
+        crc_len_format: str,
+        number_of_chunks_len_format: str,
+        id_len_format: str,
+    ) -> bool:
+        self.f = io.BytesIO(archive.read(name))
+        new_pack = self._decode_input_packet(
+            True,
+            packet_len_format,
+            crc_len_format,
+            number_of_chunks_len_format,
+            id_len_format,
+        )
+        if hasattr(self, "f"):
+            self.f.close()
+        return new_pack is not None and self.input_new_packet(new_pack)
+
+    def _sorted_zip_namelist(self, archive: ZipFile) -> list[str]:
+        namelist = archive.namelist()
+        try:
+            split_names = [name.split("_") for name in namelist]
+            sorted_names = sorted(split_names, key=lambda parts: float(parts[1]), reverse=False)
+            return [parts[0] + "_" + parts[1] for parts in sorted_names]
+        except Exception:
+            return namelist
+
+    def _folder_candidate_files(self) -> list[str]:
+        if self.file is None:
+            raise ValueError("self.file must be set for decodeFolder")
+        return [
+            filename
+            for filename in os.listdir(self.file)
+            if filename.endswith(".RU10") or filename.endswith("DNA")
+        ]
+
+    def _decode_folder_entry(
+        self,
+        filename: str,
+        packet_len_format: str,
+        crc_len_format: str,
+        number_of_chunks_len_format: str,
+        id_len_format: str,
+    ) -> bool:
+        self.EOF = False
+        if not self._open_folder_packet(filename):
+            return False
+        new_pack = self._decode_input_packet(
+            True,
+            packet_len_format,
+            crc_len_format,
+            number_of_chunks_len_format,
+            id_len_format,
+        )
+        return new_pack is not None and self.input_new_packet(new_pack)
+
+    def _open_file_input(self) -> None:
+        if self.file is None:
+            raise ValueError("self.file must be set for decodeFile")
+        if self.file.lower().endswith("dna") and not self._open_dna_stream(self.file):
+            return
+
+    def _open_fasta_input(self) -> None:
+        if self.file is None:
+            raise ValueError("self.file must be set for decodeFile")
+        self.f.close()
+        self.f = open(self.file, "r")
+
+    def _read_fasta_entry(self) -> typing.Optional[tuple[str, str, str]]:
+        line = self.f.readline()
+        if not line:
+            self.EOF = True
+            return None
+        if isinstance(line, bytes):
+            line = line.decode("utf-8")
+        try:
+            error_prob, seed = line[1:].replace("\n", "").split("_")
+        except ValueError:
+            error_prob, seed = "0", "0"
+        line = self.f.readline()
+        if not line:
+            self.EOF = True
+            return None
+        if isinstance(line, bytes):
+            line = line.decode("utf-8")
+        return error_prob, seed, line.replace("\n", "")
+
+    def _decode_fasta_packet(
+        self,
+        dna_str: str,
+        packet_len_format: str,
+        crc_len_format: str,
+        number_of_chunks_len_format: str,
+        id_len_format: str,
+    ) -> typing.Union[RU10Packet, str]:
+        reverted_dna_str = self.revert_seed_spacing(dna_str, id_len_format)
+        return self.parse_raw_packet(
+            BytesIO(tranlate_quat_to_byte(reverted_dna_str)).read(),
+            crc_len_format=crc_len_format,
+            number_of_chunks_len_format=number_of_chunks_len_format,
+            packet_len_format=packet_len_format,
+            id_len_format=id_len_format,
+            dna_str=dna_str,
+        )
+
+    def _decode_fasta_file(
+        self,
+        packet_len_format: str,
+        crc_len_format: str,
+        number_of_chunks_len_format: str,
+        id_len_format: str,
+    ) -> bool:
+        self._open_fasta_input()
+        decoded = False
+        while not (decoded or self.EOF):
+            entry = self._read_fasta_entry()
+            if entry is None:
+                break
+            _, _, dna_str = entry
+            try:
+                new_pack = self._decode_fasta_packet(
+                    dna_str,
+                    packet_len_format,
+                    crc_len_format,
+                    number_of_chunks_len_format,
+                    id_len_format,
+                )
+            except Exception:
+                new_pack = "CORRUPT"
+                self.packets.append(dna_str)
+            if new_pack != "CORRUPT":
+                assert isinstance(new_pack, RU10Packet), "new_pack must be RU10Packet"
+                decoded = self._record_packet(new_pack)
+                if self.progress_bar is not None:
+                    self.progress_bar.update(self.correct, Corrupt=self.corrupt)
+        return decoded
+
+    def _decode_binary_file(
+        self,
+        packet_len_format: str,
+        crc_len_format: str,
+        number_of_chunks_len_format: str,
+        id_len_format: str,
+    ) -> bool:
+        decoded = False
+        while not (decoded or self.EOF):
+            new_pack = self._decode_input_packet(
+                False,
+                packet_len_format,
+                crc_len_format,
+                number_of_chunks_len_format,
+                id_len_format,
+            )
+            if new_pack is None:
+                break
+            decoded = self._record_packet(new_pack)
+        return decoded
+
+    def _can_solve_now(self) -> bool:
+        return (
+            self.GEPP is not None
+            and self.GEPP.isPotentionallySolvable()
+            and not self.read_all_before_decode
+        )
+
+    def _finalize_decode(self, decoded: bool, eof_message: str) -> typing.Union[int, bool]:
+        logger.info("Decoded Packets: %s", self.correct)
+        logger.info("Corrupt Packets: %s", self.corrupt)
+        if self.GEPP is None:
+            logger.warning("No Packet was correctly decoded. Check your configuration.")
+            return -1
+        if self._can_solve_now():
+            decoded = self.GEPP.solve()
+        if not decoded and self.EOF:
+            logger.warning(eof_message)
+            return -1
+        return decoded
+
+    def _initialize_distribution(self, packet: RU10Packet) -> None:
+        if len(self.ldpcANDhalf) != 0 or self.distribution is not None:
+            return
+        self.distribution = RaptorDistribution(self.number_of_chunks)
+        self.number_of_chunks = packet.get_total_number_of_chunks()
+        _, self.s, self.h = intermediate_symbols(self.number_of_chunks, self.distribution)
+        self.createAuxBlocks()
+        self.progress_bar = self.create_progress_bar(
+            int(self.number_of_chunks + 0.02 * self.number_of_chunks)
+        )
+
+    def _update_counter(self, removed: BoolArray) -> None:
+        if not self.count:
+            return
+        for i in range(len(removed)):
+            if i in self.counter.keys():
+                if removed[i]:
+                    self.counter[i] += 1
+            else:
+                self.counter[i] = 1
+
+    def _store_removed_packet(self, removed: BoolArray, packet: RU10Packet) -> None:
+        packet_data = np.frombuffer(packet.get_data(), dtype="uint8")
+        if self.GEPP is None:
+            self.GEPP = GEPP(np.array([removed], dtype=bool), packet_data)
+            return
+        self.GEPP.addRow(np.array(removed, dtype=bool), packet_data)
+
+    def _packet_method_chunks(self, data: bytes) -> tuple[bytes, list[int]]:
+        if not self.use_method:
+            return data, []
+        method_data = bin(data[-1])[2:].rjust(8, "0")
+        return data[:-1], self._chunk_list_from_method_data(method_data)
+
+    def _chunk_list_from_method_data(self, method_data: str) -> list[int]:
+        if method_data.startswith("00"):
+            return [chunk for chunk in range(0, self.number_of_chunks + 1) if chunk % 2 == 0]
+        if method_data.startswith("01"):
+            return [chunk for chunk in range(0, self.number_of_chunks + 1) if chunk % 2 != 0]
+        if method_data.startswith("10"):
+            return self._window_chunk_list(method_data, 30)
+        if method_data.startswith("11"):
+            return self._window_chunk_list(method_data, 40)
+        raise RuntimeError("Not a valid start:", method_data)
+
+    def _window_chunk_list(self, method_data: str, window_size: int) -> list[int]:
+        window = int(method_data[2:], 2)
+        start = window * (window_size - 10)
+        return [
+            chunk for chunk in range(start, start + window_size) if chunk <= self.number_of_chunks
+        ]
+
+    def _update_packet_header(
+        self,
+        len_data: tuple[typing.Any, ...],
+        number_of_chunks_len_format: str,
+        id_len_format: str,
+    ) -> int:
+        if self.static_number_of_chunks is None:
+            self.number_of_chunks = xor_mask(len_data[0], number_of_chunks_len_format)
+            return xor_mask(len_data[1], id_len_format, enabled=self.mask_id)
+        return xor_mask(len_data[0], id_len_format, enabled=self.mask_id)
+
+    def _ensure_distribution_ready(self) -> None:
+        if self.distribution is None:
+            self.distribution = RaptorDistribution(self.number_of_chunks)
+            _, self.s, self.h = intermediate_symbols(self.number_of_chunks, self.distribution)
+            self.progress_bar = self.create_progress_bar(
+                int(self.number_of_chunks + 0.02 * self.number_of_chunks)
+            )
+        if self.correct == 0:
+            self.createAuxBlocks()
+        self.correct += 1
+
+    def _choose_used_packets(self, unxored_id: int, chunk_lst: list[int]) -> typing.Sequence[int]:
+        distribution = typing.cast(RaptorDistribution, self.distribution)
+        if self.use_method:
+            numbers = choose_packet_numbers(
+                len(chunk_lst), unxored_id, distribution, systematic=False, max_l=len(chunk_lst)
+            )
+            return [chunk_lst[i] for i in numbers]
+        return choose_packet_numbers(
+            self.number_of_chunks,
+            unxored_id,
+            distribution,
+            systematic=False,
+        )
+
+    def _resolve_output_file_name(self) -> str:
+        file_name = "DEC_" + os.path.basename(self.file) if self.file is not None else "RU10.BIN"
+        if self.headerChunk is None:
+            return file_name.split("\x00")[0]
+        try:
+            header_file_name = self.headerChunk.get_file_name()
+            resolved = (
+                header_file_name.decode("utf-8")
+                if isinstance(header_file_name, bytes)
+                else header_file_name
+            )
+            return resolved.split("\x00")[0]
+        except Exception as ex:
+            logger.warning("%s", ex)
+            return file_name.split("\x00")[0]
+
+    def _write_output_chunk(
+        self, gepp: GEPP_intern, x: int, null_is_terminator: bool
+    ) -> tuple[bytes, bool, bool]:
+        if x < 0:
+            return b"\x00" * len(gepp.b[x][0]), False, True
+        if self.number_of_chunks - 1 == x and self.use_headerchunk:
+            assert self.headerChunk is not None
+            output = gepp.b[x][0][0 : self.headerChunk.get_last_chunk_length()]
+            output_bytes = output if isinstance(output, bytes) else output.tobytes()
+            return output_bytes, False, False
+        if null_is_terminator:
+            splitter = gepp.b[x].tobytes().decode().split("\x00")
+            return splitter[0].encode(), len(splitter) > 1, False
+        output = gepp.b[x]
+        output_bytes = output if isinstance(output, bytes) else output.tobytes()
+        return output_bytes, False, False
+
+    def _validate_checksum(self, file_name: str, ignore_crc: bool) -> None:
+        if self.checksum_len_str is None or self.checksum_len_str == "":
+            return
+        decoded_crc = calc_file_crc(file_name, self.checksum_len_str)
+        assert self.headerChunk is not None
+        if self.headerChunk.checksum != decoded_crc:
+            logger.warning("Decoded CRC: %s", decoded_crc)
+            logger.warning("Header CRC: %s", self.headerChunk.checksum)
+            if not ignore_crc:
+                raise ValueError(
+                    "Checksum of decoded file does not match checksum in header chunk!",
+                    file_name,
+                )
+
+    def _normalize_packet_index_set(
+        self, packet_indices: typing.Union[typing.Set[int], typing.List[int], np.ndarray]
+    ) -> typing.Set[int]:
+        if isinstance(packet_indices, np.ndarray) and packet_indices.dtype == bool:
+            return set(from_true_false_list(packet_indices.tolist()))
+        return set(packet_indices)
+
+    def _split_packet_indices(
+        self, packet_set: typing.Set[int]
+    ) -> tuple[set[int], set[int], set[int]]:
+        systematic_indices: set[int] = set()
+        ldpc_indices: set[int] = set()
+        half_indices: set[int] = set()
+        for idx in packet_set:
+            if 0 <= idx < self.number_of_chunks:
+                systematic_indices.add(idx)
+            elif self.number_of_chunks <= idx < self.number_of_chunks + self.s:
+                ldpc_indices.add(idx - self.number_of_chunks)
+            elif self.number_of_chunks + self.s <= idx < self.number_of_chunks + self.s + self.h:
+                half_indices.add(idx - self.number_of_chunks - self.s)
+        return systematic_indices, ldpc_indices, half_indices
+
+    def _systematic_result(self, systematic_indices: set[int]) -> np.ndarray:
+        result = np.zeros(self.number_of_chunks, dtype=bool)
+        for chunk_idx in systematic_indices:
+            result[chunk_idx] = True
+        return result
+
+    def _pad_bool_arrays(self, arrays: list[list[bool]], target_size: int) -> list[list[bool]]:
+        padded_arrays: list[list[bool]] = []
+        for arr in arrays:
+            if len(arr) < target_size:
+                padded = [False] * target_size
+                padded[: len(arr)] = arr
+                padded_arrays.append(padded)
+            else:
+                padded_arrays.append(arr)
+        return padded_arrays
+
+    def _half_packet_arrays(self, half_indices: set[int]) -> tuple[list[list[bool]], int]:
+        half_arrays: list[list[bool]] = []
+        half_arr_size = 0
+        for half_idx in half_indices:
+            ldpc_half_idx = self.s + half_idx
+            if ldpc_half_idx in self.ldpcANDhalf:
+                half_arr = self.ldpcANDhalf[ldpc_half_idx].get_bool_array_used_and_ldpc_packets()
+                half_arr_size = max(half_arr_size, len(half_arr))
+                half_arrays.append(half_arr)
+        return half_arrays, half_arr_size
+
+    def _systematic_and_ldpc_array(
+        self, systematic_indices: set[int], ldpc_indices: set[int], half_arr_size: int
+    ) -> np.ndarray:
+        systematic_and_ldpc = np.zeros(half_arr_size, dtype=bool)
+        for chunk_idx in systematic_indices:
+            if chunk_idx < half_arr_size:
+                systematic_and_ldpc[chunk_idx] = True
+        for ldpc_idx in ldpc_indices:
+            if self.number_of_chunks + ldpc_idx < half_arr_size:
+                systematic_and_ldpc[self.number_of_chunks + ldpc_idx] = True
+        return systematic_and_ldpc
+
+    def _extract_half_result(self, combined: np.ndarray) -> tuple[np.ndarray, set[int]]:
+        result = np.zeros(self.number_of_chunks, dtype=bool)
+        new_ldpc_from_half: set[int] = set()
+        for idx in from_true_false_list(combined):
+            if 0 <= idx < self.number_of_chunks:
+                result[idx] = True
+            elif self.number_of_chunks <= idx < self.number_of_chunks + self.s:
+                new_ldpc_from_half.add(idx - self.number_of_chunks)
+        return result, new_ldpc_from_half
+
+    def _process_half_indices(
+        self, half_indices: set[int], systematic_indices: set[int], ldpc_indices: set[int]
+    ) -> tuple[np.ndarray, set[int]]:
+        result = self._systematic_result(systematic_indices)
+        new_ldpc_from_half: set[int] = set()
+        if not half_indices:
+            return result, new_ldpc_from_half
+        half_arrays, half_arr_size = self._half_packet_arrays(half_indices)
+        if not half_arrays:
+            return result, new_ldpc_from_half
+        half_result = logical_xor(self._pad_bool_arrays(half_arrays, half_arr_size))
+        systematic_and_ldpc = self._systematic_and_ldpc_array(
+            systematic_indices, ldpc_indices, half_arr_size
+        )
+        combined = logical_xor([half_result.tolist(), systematic_and_ldpc.tolist()])
+        return self._extract_half_result(combined)
+
+    def _process_ldpc_indices(self, ldpc_indices: set[int], result: np.ndarray) -> np.ndarray:
+        aux_list: list[list[bool]] = []
+        for ldpc_idx in ldpc_indices:
+            if ldpc_idx in self.ldpcANDhalf:
+                aux_arr = self.ldpcANDhalf[ldpc_idx].get_bool_array_used_packets()
+                if aux_arr is not None and len(aux_arr) < self.number_of_chunks:
+                    padded = [False] * self.number_of_chunks
+                    padded[: len(aux_arr)] = aux_arr
+                    aux_list.append(padded)
+                elif aux_arr is not None:
+                    aux_list.append(aux_arr)
+        if not aux_list:
+            return result
+        return logical_xor([logical_xor(aux_list).tolist(), result.tolist()])
+
     @staticmethod
     def from_config_map(config_map: SectionProxy) -> "RU10Decoder":
         """
@@ -137,62 +613,28 @@ class RU10Decoder(Decoder):
             self.f.close()
         decoded = False
         self.EOF = False
-        if self.static_number_of_chunks is not None:
-            self.number_of_chunks = self.static_number_of_chunks
-            number_of_chunks_len_format = (
-                ""  # if we got static number_of_chunks we do not need it in struct string
-            )
         if self.file is None:
             raise ValueError("self.file must be set for decodeZip")
+        number_of_chunks_len_format = self._update_number_of_chunks_format(
+            number_of_chunks_len_format
+        )
         archive = ZipFile(self.file, "r")
-        namelist = archive.namelist()
-        try:
-            nam = [x.split("_") for x in namelist]
-            sorted_by_second = sorted(nam, key=lambda tup: float(tup[1]), reverse=False)
-            namelist = [x[0] + "_" + x[1] for x in sorted_by_second]
-        except Exception:
-            pass
-        for name in namelist:
-            self.f = io.BytesIO(archive.read(name))
-            new_pack = self.getNextValidPacket(
-                True,
-                packet_len_format=packet_len_format,
-                crc_len_format=crc_len_format,
-                number_of_chunks_len_format=number_of_chunks_len_format,
-                id_len_format=id_len_format,
+        for name in self._sorted_zip_namelist(archive):
+            decoded = self._decode_zip_entry(
+                archive,
+                name,
+                packet_len_format,
+                crc_len_format,
+                number_of_chunks_len_format,
+                id_len_format,
             )
-            if hasattr(self, "f"):
-                self.f.close()
-            if new_pack is None:
-                break
-                # koennte durch input_new_packet ersetzt werden:
-                # self.addPacket(new_pack)
-                if new_pack != "CORRUPT":
-                    decoded = self.input_new_packet(new_pack)
-                else:
-                    if DEBUG:
-                        logger.debug("Packet with name=%s corrupt.", name)
             if decoded:
                 break
             if self.progress_bar is not None:
                 self.progress_bar.update(self.correct, Corrupt=self.corrupt)
-            ##
-        logger.info("Decoded Packets: %s", self.correct)
-        logger.info("Corrupt Packets: %s", self.corrupt)
-
-        if self.GEPP is None:
-            logger.warning("No Packet was correctly decoded. Check your configuration.")
-            return -1
-        if (
-            self.GEPP is not None
-            and self.GEPP.isPotentionallySolvable()
-            and not self.read_all_before_decode
-        ):
-            decoded = self.GEPP.solve()
-        if not decoded and self.EOF:
-            logger.warning("Unable to retrieve File from Chunks. Too many errors?")
-            return -1
-        return decoded
+        return self._finalize_decode(
+            decoded, "Unable to retrieve File from Chunks. Too many errors?"
+        )
 
     def decodeFolder(
         self,
@@ -217,64 +659,26 @@ class RU10Decoder(Decoder):
         self.EOF = False
         if self.file is None:
             raise ValueError("self.file must be set for decodeFolder")
-        if self.static_number_of_chunks is not None:
-            self.number_of_chunks = self.static_number_of_chunks
-            number_of_chunks_len_format = (
-                ""  # if we got static number_of_chunks we do not need it in struct string
+        number_of_chunks_len_format = self._update_number_of_chunks_format(
+            number_of_chunks_len_format
+        )
+        for file_in_folder in self._folder_candidate_files():
+            decoded = self._decode_folder_entry(
+                file_in_folder,
+                packet_len_format,
+                crc_len_format,
+                number_of_chunks_len_format,
+                id_len_format,
             )
-        for file_in_folder in os.listdir(self.file):
-            if file_in_folder.endswith(".RU10") or file_in_folder.endswith("DNA"):
-                self.EOF = False
-                if file_in_folder.endswith("DNA"):
-                    if self.error_correction.__name__ == "dna_reed_solomon_decode":
-                        try:
-                            self.f = quad_file_to_bytes(self.file + "/" + file_in_folder)
-                        except TypeError:
-                            logger.warning("skipping CORRUPT file - contains illegal character(s)")
-                            self.corrupt += 1
-                            continue
-                    else:
-                        try:
-                            self.f = quat_file_to_bin(self.file + "/" + file_in_folder)
-                        except TypeError:
-                            logger.warning("skipping CORRUPT file - contains illegal character(s)")
-                            self.corrupt += 1
-                            continue
-                else:
-                    self.f = open(self.file + "/" + file_in_folder, "rb")
-                new_pack = self.getNextValidPacket(
-                    True,
-                    packet_len_format=packet_len_format,
-                    crc_len_format=crc_len_format,
-                    number_of_chunks_len_format=number_of_chunks_len_format,
-                    id_len_format=id_len_format,
-                )
-                if new_pack is not None and new_pack != "CORRUPT":
-                    # koennte durch input_new_packet ersetzt werden:
-                    # self.addPacket(new_pack)
-                    decoded = self.input_new_packet(new_pack)
-                if decoded:
-                    break
+            if decoded:
+                break
             if self.progress_bar is not None:
                 self.progress_bar.update(self.correct, Corrupt=self.corrupt)
-            ##
-        logger.info("Decoded Packets: %s", self.correct)
-        logger.info("Corrupt Packets: %s", self.corrupt)
         if hasattr(self, "f"):
             self.f.close()
-        if self.GEPP is None:
-            logger.warning("No Packet was correctly decoded. Check your configuration.")
-            return -1
-        if (
-            self.GEPP is not None
-            and self.GEPP.isPotentionallySolvable()
-            and not self.read_all_before_decode
-        ):
-            decoded = self.GEPP.solve()
-        if not decoded and self.EOF:
-            logger.warning("Unable to retrieve File from Chunks. Too many errors?")
-            return -1
-        return decoded
+        return self._finalize_decode(
+            decoded, "Unable to retrieve File from Chunks. Too many errors?"
+        )
 
     def revert_seed_spacing(self, dna_str: str, id_len_format: str) -> str:
         struct_len = struct.calcsize(id_len_format) * 4
@@ -314,87 +718,28 @@ class RU10Decoder(Decoder):
         self.EOF = False
         if self.file is None:
             raise ValueError("self.file must be set for decodeFile")
-        if self.file.lower().endswith("dna"):
-            try:
-                self.f.close()
-                self.f = quat_file_to_bin(self.file)
-            except TypeError:
-                logger.warning("skipping CORRUPT file - contains illegal character(s)")
-                self.corrupt += 1
-        if self.static_number_of_chunks is not None:
-            self.number_of_chunks = self.static_number_of_chunks
-            number_of_chunks_len_format = (
-                ""  # if we got static number_of_chunks we do not need it in struct string
-            )
+        self._open_file_input()
+        number_of_chunks_len_format = self._update_number_of_chunks_format(
+            number_of_chunks_len_format
+        )
         if self.file.lower().endswith("fasta"):
-            self.f.close()
-            self.f = open(self.file, "r")
-            raw_packet_list = []
-            while not (decoded or self.EOF):
-                line = self.f.readline()
-                if not line:
-                    self.EOF = True
-                    break
-                try:
-                    error_prob, seed = line[1:].replace("\n", "").split("_")
-                except:
-                    error_prob, seed = "0", "0"
-                line = self.f.readline()
-                if not line:
-                    self.EOF = True
-                    break
-                dna_str = line.replace("\n", "")
-                # un-space the dna string:
-                reverted_dna_str = self.revert_seed_spacing(dna_str, id_len_format)
-
-                raw_packet_list.append((error_prob, seed, dna_str))
-                try:
-                    new_pack = self.parse_raw_packet(
-                        BytesIO(tranlate_quat_to_byte(reverted_dna_str)).read(),
-                        crc_len_format=crc_len_format,
-                        number_of_chunks_len_format=number_of_chunks_len_format,
-                        packet_len_format=packet_len_format,
-                        id_len_format=id_len_format,
-                        dna_str=dna_str,
-                    )
-
-                except Exception:
-                    new_pack = "CORRUPT"
-                    # TODO: as the metadata trick might invalidate the checksum, we do not want to throw this packet away!
-                    # after reverting the metadata changes, we may parse the DNA string by calling:
-                    # self.input_new_packets(self.parse_raw_packet(BytesIO(translate_quat_to_byte(repaired_dna)...)
-                    # (separate and check for exception)!
-                    self.packets.append(dna_str)
-                if new_pack != "CORRUPT":
-                    assert isinstance(new_pack, RU10Packet), "new_pack must be RU10Packet"
-                    decoded = self.input_new_packet(new_pack)
-                    self.packets.append(new_pack)
-                    if self.progress_bar is not None:
-                        self.progress_bar.update(self.correct, Corrupt=self.corrupt)
+            decoded = self._decode_fasta_file(
+                packet_len_format,
+                crc_len_format,
+                number_of_chunks_len_format,
+                id_len_format,
+            )
         else:
-            while not (decoded or self.EOF):
-                new_pack = self.getNextValidPacket(
-                    False,
-                    packet_len_format=packet_len_format,
-                    crc_len_format=crc_len_format,
-                    number_of_chunks_len_format=number_of_chunks_len_format,
-                    id_len_format=id_len_format,
-                )
-                if new_pack is None:
-                    break
-                # koennte durch input_new_packet ersetzt werden:
-                # self.addPacket(new_pack)
-                if new_pack != "CORRUPT":
-                    self.packets.append(new_pack)
-                    decoded = self.input_new_packet(new_pack)
-                #
+            decoded = self._decode_binary_file(
+                packet_len_format,
+                crc_len_format,
+                number_of_chunks_len_format,
+                id_len_format,
+            )
         logger.info("Decoded Packets: %s", self.correct)
         logger.info("Corrupt Packets : %s", self.corrupt)
-        if (
-            self.GEPP is not None
-            and self.GEPP.isPotentionallySolvable()
-            and not self.read_all_before_decode
-        ):
+        if self._can_solve_now():
+            assert self.GEPP is not None
             decoded = self.GEPP.solve()
         if not decoded and self.EOF and not self.read_all_before_decode:
             logger.warning("Unable to retrieve file from chunks. Too many errors??")
@@ -417,14 +762,7 @@ class RU10Decoder(Decoder):
         :param packet: A Packet to add to the GEPP matrix
         :return: True: If solved. False: Else.
         """
-        if len(self.ldpcANDhalf) == 0 and self.distribution is None:  # self.isPseudo and
-            self.distribution = RaptorDistribution(self.number_of_chunks)
-            self.number_of_chunks = packet.get_total_number_of_chunks()
-            _, self.s, self.h = intermediate_symbols(self.number_of_chunks, self.distribution)
-            self.createAuxBlocks()
-            self.progress_bar = self.create_progress_bar(
-                int(self.number_of_chunks + 0.02 * self.number_of_chunks)
-            )
+        self._initialize_distribution(packet)
         # we need to do it twice sine half symbols may contain ldpc symbols (which by definition are repair codes.)
         if self.debug:
             logger.debug("----")
@@ -435,23 +773,9 @@ class RU10Decoder(Decoder):
             logger.debug("%s", from_true_false_list(removed))
             logger.debug("%s", packet.get_error_correction())
             logger.debug("----")
-        if self.count:
-            for i in range(len(removed)):
-                if i in self.counter.keys():
-                    if removed[i]:
-                        self.counter[i] += 1
-                else:
-                    self.counter[i] = 1
-        if self.GEPP is None:
-            self.GEPP = GEPP(
-                np.array([removed], dtype=bool),
-                np.frombuffer(packet.get_data(), dtype="uint8"),
-            )
-        else:
-            self.GEPP.addRow(
-                np.array(removed, dtype=bool),
-                np.frombuffer(packet.get_data(), dtype="uint8"),
-            )
+        self._update_counter(removed)
+        self._store_removed_packet(removed, packet)
+        assert self.GEPP is not None
         if (
             self.isPseudo or not self.read_all_before_decode
         ) and self.GEPP.isPotentionallySolvable():
@@ -462,7 +786,7 @@ class RU10Decoder(Decoder):
         return False
 
     # Correct
-    def removeAndXorAuxPackets(self, packet: RU10Packet) -> NDArray[np.bool_]:
+    def removeAndXorAuxPackets(self, packet: RU10Packet) -> BoolArray:
         """
         Removes auxpackets (LDCP and Half) from a given packet to get the packets data.
         :param packet: Packet to remove auxpackets from
@@ -507,121 +831,15 @@ class RU10Decoder(Decoder):
         Returns:
             Boolean numpy array where index i=True means chunk i is in the result after aux removal
         """
-        import numpy as np
-
-        from .helper.helper import logical_xor
-        from .helper.RU10Helper import from_true_false_list
-
-        # Convert input to set of indices
-        if isinstance(packet_indices, np.ndarray):
-            if packet_indices.dtype == bool:
-                # Boolean array - extract True indices
-                packet_indices = from_true_false_list(packet_indices.tolist())
-            # else: integer array - use as-is
-        packet_set = set(packet_indices)
-
+        packet_set = self._normalize_packet_index_set(packet_indices)
         if not packet_set:
             return np.zeros(self.number_of_chunks, dtype=bool)
-
-        # Separate packet types
-        systematic_indices = set()
-        ldpc_indices = set()
-        half_indices = set()
-
-        for idx in packet_set:
-            if 0 <= idx < self.number_of_chunks:
-                # Systematic packet - directly represents a chunk
-                systematic_indices.add(idx)
-            elif self.number_of_chunks <= idx < self.number_of_chunks + self.s:
-                # LDPC packet
-                ldpc_indices.add(idx - self.number_of_chunks)
-            elif self.number_of_chunks + self.s <= idx < self.number_of_chunks + self.s + self.h:
-                # Half packet
-                half_indices.add(idx - self.number_of_chunks - self.s)
-
-        # Build result starting with systematic packets (each represents one chunk)
-        result = np.zeros(self.number_of_chunks, dtype=bool)
-        for chunk_idx in systematic_indices:
-            result[chunk_idx] = True
-
-        # Process Half packets first (they contain data + LDPC)
-        # Track newly discovered LDPC indices from half packet contents
-        new_ldpc_from_half = set()
-
-        if half_indices:
-            half_list = []
-            half_arr_size = 0
-
-            for half_idx in half_indices:
-                ldpc_half_idx = self.s + half_idx  # Index in ldpcANDhalf
-                if ldpc_half_idx in self.ldpcANDhalf:
-                    half_arr = self.ldpcANDhalf[
-                        ldpc_half_idx
-                    ].get_bool_array_used_and_ldpc_packets()
-                    half_arr_size = max(half_arr_size, len(half_arr))
-                    half_list.append(half_arr)
-
-            if half_list:
-                # Pad all arrays to the same size
-                padded_half_list = []
-                for arr in half_list:
-                    if len(arr) < half_arr_size:
-                        arr_padded = np.zeros(half_arr_size, dtype=bool)
-                        arr_padded[: len(arr)] = arr
-                        padded_half_list.append(arr_padded)
-                    else:
-                        padded_half_list.append(arr)
-
-                # XOR all half packets together
-                half_result = logical_xor(padded_half_list)
-
-                # Add systematic AND original LDPC packets to the XOR (to match removeAndXorAuxPackets behavior)
-                systematic_and_ldpc_arr = np.zeros(half_arr_size, dtype=bool)
-                for chunk_idx in systematic_indices:
-                    if chunk_idx < half_arr_size:
-                        systematic_and_ldpc_arr[chunk_idx] = True
-                # Also mark original LDPC indices
-                for ldpc_idx in ldpc_indices:
-                    if self.number_of_chunks + ldpc_idx < half_arr_size:
-                        systematic_and_ldpc_arr[self.number_of_chunks + ldpc_idx] = True
-
-                half_list_with_sys = [half_result, systematic_and_ldpc_arr]
-                combined = logical_xor(half_list_with_sys)
-
-                # Extract data chunks and LDPC indices from combined result
-                data_and_ldpc = from_true_false_list(combined)
-                result = np.zeros(self.number_of_chunks, dtype=bool)
-                for idx in data_and_ldpc:
-                    if 0 <= idx < self.number_of_chunks:
-                        result[idx] = True
-                    elif self.number_of_chunks <= idx < self.number_of_chunks + self.s:
-                        # LDPC index from half packet content - track for processing
-                        new_ldpc_from_half.add(idx - self.number_of_chunks)
-
-        # Process LDPC packets:
-        # - If half packets existed: only process NEW LDPC discovered from half contents (original LDPC already XORed)
-        # - If no half packets: process all original LDPC
+        systematic_indices, ldpc_indices, half_indices = self._split_packet_indices(packet_set)
+        result, new_ldpc_from_half = self._process_half_indices(
+            half_indices, systematic_indices, ldpc_indices
+        )
         ldpc_to_process = new_ldpc_from_half if half_indices else ldpc_indices
-        if ldpc_to_process:
-            aux_list = []
-            for ldpc_idx in ldpc_to_process:
-                if ldpc_idx in self.ldpcANDhalf:
-                    aux_arr = self.ldpcANDhalf[ldpc_idx].get_bool_array_used_packets()
-                    # Ensure correct size
-                    if aux_arr is not None and len(aux_arr) < self.number_of_chunks:
-                        aux_arr_padded = np.zeros(self.number_of_chunks, dtype=bool)
-                        aux_arr_padded[: len(aux_arr)] = aux_arr
-                        aux_list.append(aux_arr_padded)
-                    elif aux_arr is not None:
-                        aux_list.append(aux_arr)
-
-            if aux_list:
-                # XOR all LDPC packets together with current result
-                aux_result = logical_xor(aux_list)
-                combined_list = [aux_result, result]
-                result = logical_xor(combined_list)
-
-        return result
+        return self._process_ldpc_indices(ldpc_to_process, result)
 
     def createAuxBlocks(self):
         """
@@ -702,9 +920,12 @@ class RU10Decoder(Decoder):
         Calls GEPP.solve()
         :return: True: If GEPP was able to solve the matrix. False: Else.
         """
+        assert self.GEPP is not None, "GEPP must not be None!"
         return self.GEPP.solve(partial=partial)
 
     def getSolvedCount(self) -> int:
+        if self.GEPP is None:
+            return 0
         return self.GEPP.getSolvedCount()
 
     def is_decoded(self) -> bool:
@@ -741,17 +962,14 @@ class RU10Decoder(Decoder):
             try:
                 packet_len = struct.unpack("<" + packet_len_format, packet_len_bytes)[0]
                 packet = self.f.read(int(packet_len))
-            except:
+            except struct.error:
                 return None
         else:
             packet = self.f.read()
             packet_len = len(packet)
         if not packet or not packet_len:  # EOF
             self.EOF = True
-            try:
-                self.f.close()
-            except:
-                return None
+            self.f.close()
             return None
         # cast to bytes if packet is of type str:
         if isinstance(packet, str):
@@ -764,14 +982,16 @@ class RU10Decoder(Decoder):
             id_len_format=id_len_format,
         )
         if res == "CORRUPT" and not from_multiple_files:
-            res = self.getNextValidPacket(  # type: ignore[assignment]
+            return self.getNextValidPacket(
                 from_multiple_files,
                 packet_len_format=packet_len_format,
                 crc_len_format=crc_len_format,
                 number_of_chunks_len_format=number_of_chunks_len_format,
                 id_len_format=id_len_format,
             )
-        return res  # type: ignore[return-value]
+        if res == "CORRUPT":
+            return None
+        return res
 
     def parse_raw_packet(
         self,
@@ -781,7 +1001,7 @@ class RU10Decoder(Decoder):
         packet_len_format: str = "I",
         id_len_format: str = "L",
         dna_str: typing.Optional[str] = None,
-    ) -> typing.Union[RU10Packet, str]:
+    ) -> typing.Union[RU10Packet, typing.Literal["CORRUPT"]]:
         """
         Creates a RU10 packet from a raw given packet. Also checks if the packet is corrupted. If any method was used to
         create packets from specific chunks, set self.use_method = True. This will treat the last byte of the raw packet
@@ -799,71 +1019,20 @@ class RU10Decoder(Decoder):
         struct_len = struct.calcsize(struct_str)
         try:
             packet = self.error_correction(packet_input)
-        except:
+        except (AssertionError, ReedSolomonError, ValueError):
             self.corrupt += 1
             return "CORRUPT"
         header = typing.cast(bytes, packet)[:struct_len]
         data = typing.cast(bytes, packet)[struct_len:]
-        chunk_lst = []
-        if self.use_method:
-            method_data = bin(data[-1])[2:]
-            while len(method_data) < 8:
-                method_data = "0" + method_data
-            data = data[:-1]
-            if method_data.startswith("00"):
-                chunk_lst = [ch for ch in range(0, self.number_of_chunks + 1) if ch % 2 == 0]
-            elif method_data.startswith("01"):
-                chunk_lst = [ch for ch in range(0, self.number_of_chunks + 1) if ch % 2 != 0]
-            elif method_data.startswith("10"):
-                window = int(method_data[2:], 2)
-                window_size = 30
-                start = window * (window_size - 10)
-                chunk_lst = [
-                    ch for ch in range(start, start + window_size) if ch <= self.number_of_chunks
-                ]
-            elif method_data.startswith("11"):
-                window = int(method_data[2:], 2)
-                window_size = 40
-                start = window * (window_size - 10)
-                chunk_lst = [
-                    ch for ch in range(start, start + window_size) if ch <= self.number_of_chunks
-                ]
-            else:
-                raise RuntimeError("Not a valid start:", method_data)
+        data, chunk_lst = self._packet_method_chunks(data)
         len_data = struct.unpack(struct_str, header)
-        if self.static_number_of_chunks is None:
-            self.number_of_chunks = xor_mask(len_data[0], number_of_chunks_len_format)
-            unxored_id = xor_mask(len_data[1], id_len_format, enabled=self.mask_id)
-        else:
-            unxored_id = xor_mask(len_data[0], id_len_format, enabled=self.mask_id)
+        unxored_id = self._update_packet_header(
+            len_data, number_of_chunks_len_format, id_len_format
+        )
         if self.xor_by_seed:
             data = xor_with_seed(data, unxored_id)
-        if self.distribution is None:
-            self.distribution = RaptorDistribution(self.number_of_chunks)
-            _, self.s, self.h = intermediate_symbols(self.number_of_chunks, self.distribution)
-            self.progress_bar = self.create_progress_bar(
-                int(self.number_of_chunks + 0.02 * self.number_of_chunks)
-            )
-
-        if self.correct == 0:
-            self.createAuxBlocks()
-        self.correct += 1
-        if self.use_method:
-            numbers = choose_packet_numbers(
-                len(chunk_lst),
-                unxored_id,
-                typing.cast(RaptorDistribution, self.distribution),  # type: ignore[arg-type]
-                systematic=False,
-                max_l=len(chunk_lst),
-            )
-            used_packets = [chunk_lst[i] for i in numbers]
-        else:
-            used_packets = choose_packet_numbers(
-                self.number_of_chunks,
-                unxored_id,
-                typing.cast(RaptorDistribution, self.distribution),
-                systematic=False,  # type: ignore[arg-type]
-            )
+        self._ensure_distribution_ready()
+        used_packets = self._choose_used_packets(unxored_id, chunk_lst)
         res = RU10Packet(
             data,
             used_packets,
@@ -959,57 +1128,25 @@ class RU10Decoder(Decoder):
             self.solve(partial=True)
         dirty = False
         self.populate_header_chunk(last_chunk_len_str=last_chunk_len_format)
-        file_name = "DEC_" + os.path.basename(self.file) if self.file is not None else "RU10.BIN"
+        if self.GEPP is None:
+            raise RuntimeError("GEPP not initialized")
+        gepp = self.GEPP
+        file_name = self._resolve_output_file_name()
         output_concat = b""
-        if self.headerChunk is not None:
-            try:
-                file_name = self.headerChunk.get_file_name().decode("utf-8")
-            except Exception as ex:
-                logger.warning("%s", ex)
-        file_name = file_name.split("\x00")[0]
-        assert self.GEPP is not None
         with open(file_name, "wb") as f:
-            for x in self.GEPP.result_mapping:
-                if x < 0:
-                    f.write(b"\x00" * len(self.GEPP.b[x][0]))
-                    dirty = True
+            for x in gepp.result_mapping:
+                if x == 0 and self.use_headerchunk:
                     continue
-                if 0 != x or not self.use_headerchunk:
-                    if self.number_of_chunks - 1 == x and self.use_headerchunk:
-                        assert self.headerChunk is not None
-                        output = self.GEPP.b[x][0][0 : self.headerChunk.get_last_chunk_length()]
-                        output_concat += output.tobytes()
-                        f.write(output)
-                    else:
-                        if null_is_terminator:
-                            splitter = self.GEPP.b[x].tostring().decode().split("\x00")
-                            output = splitter[0].encode()
-                            if type(output) == bytes:
-                                output_concat += output
-                            else:
-                                output_concat += output.tobytes()
-                            f.write(output)
-                            if len(splitter) > 1:
-                                break  # since we are in null-terminator mode, we exit once we see the first 0-byte
-                        else:
-                            output = self.GEPP.b[x]
-                            if isinstance(output, bytes):
-                                output_concat += output
-                            else:
-                                output_concat += output.tobytes()
-                            f.write(output)
+                output_bytes, stop_writing, marked_dirty = self._write_output_chunk(
+                    gepp, x, null_is_terminator
+                )
+                output_concat += output_bytes
+                f.write(output_bytes)
+                dirty = dirty or marked_dirty
+                if stop_writing:
+                    break
         logger.info("Saved file as '%s'", file_name)
-        if self.checksum_len_str is not None and self.checksum_len_str != "":
-            decoded_crc = calc_file_crc(file_name, self.checksum_len_str)
-            assert self.headerChunk is not None
-            if self.headerChunk.checksum != decoded_crc:
-                logger.warning("Decoded CRC: %s", decoded_crc)
-                logger.warning("Header CRC: %s", self.headerChunk.checksum)
-                if not ignore_crc:
-                    raise ValueError(
-                        "Checksum of decoded file does not match checksum in header chunk!",
-                        file_name,
-                    )
+        self._validate_checksum(file_name, ignore_crc)
         if dirty:
             logger.warning(
                 "Some parts could not be restored, file WILL contain sections with \\x00 !"
@@ -1051,10 +1188,12 @@ class RU10Decoder(Decoder):
 
     @staticmethod
     def draw_img(
-        unpacked_flipped_bits: NDArray[typing.Any], width: int, height: int
+        unpacked_flipped_bits: np.ndarray[typing.Any, np.dtype[typing.Any]], width: int, height: int
     ) -> "Image.Image":
         new_img = Image.new("1", (width, height))
         pixels = new_img.load()
+        if pixels is None:
+            raise RuntimeError("Failed to load image pixel buffer")
 
         for i in range(new_img.size[0]):
             for j in range(new_img.size[1]):

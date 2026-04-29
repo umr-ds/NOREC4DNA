@@ -5,14 +5,14 @@ from operator import add
 
 import numpy
 
-from .Distribution import Distribution
+from .Distribution import Distribution, RandomWithChoice
 
 
 class RobustSolitonDistribution(Distribution):
     def __init__(self, S=10, K=8, delta=1.0, seed=0):
         # delta = failure probability # K = Grenze (position des hoehepunkts) , S = Anzahl der Bloecke
         super().__init__()
-        self.rng: numpy.random = numpy.random  # type: ignore
+        self.rng: RandomWithChoice = numpy.random
         self.rng.seed(seed)
         self.S: int = S
         self.K: int = K
@@ -50,7 +50,7 @@ class RobustSolitonDistribution(Distribution):
     def preCompute(self, S: int, k: int, delta: float) -> typing.List[float]:
         ideal = self.idealSolitonDist(S)
         robust = self.robustSolitonDist(S, k, delta)
-        return self.normalize([i for i in map(add, ideal, robust)])
+        return self.normalize(list(map(add, ideal, robust)))
 
     def update_number_of_chunks(self, num_chunks: int):
         self.S = num_chunks

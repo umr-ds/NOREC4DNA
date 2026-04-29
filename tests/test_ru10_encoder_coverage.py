@@ -85,13 +85,13 @@ class TestRU10EncoderInit:
         """Test RU10Encoder with xor_by_seed"""
         dist = RaptorDistribution(100)
         encoder = RU10Encoder(str(TEST_FILE), 100, dist, xor_by_seed=True)
-        assert encoder.xor_by_seed == True
+        assert encoder.xor_by_seed
 
     def test_ru10encoder_with_mask_id_false(self):
         """Test RU10Encoder with mask_id=False"""
         dist = RaptorDistribution(100)
         encoder = RU10Encoder(str(TEST_FILE), 100, dist, mask_id=False)
-        assert encoder.mask_id == False
+        assert not encoder.mask_id
 
     def test_ru10encoder_with_id_spacing(self):
         """Test RU10Encoder with id_spacing"""
@@ -302,7 +302,7 @@ class TestRU10EncoderIntermediateBlocks:
         encoder.prepare()
         blocks = encoder.generate_intermediate_blocks()
         assert len(blocks) > 10
-        assert encoder.intemediate_blocks_generated == True
+        assert encoder.intemediate_blocks_generated
 
     def test_generate_intermediate_blocks_already_generated(self):
         """Test generate_intermediate_blocks when already generated"""
@@ -312,8 +312,8 @@ class TestRU10EncoderIntermediateBlocks:
         # Generate once
         encoder.generate_intermediate_blocks()
         # Generate again - should return cached
-        blocks = encoder.generate_intermediate_blocks()
-        assert encoder.intemediate_blocks_generated == True
+        encoder.generate_intermediate_blocks()
+        assert encoder.intemediate_blocks_generated
 
     def test_generate_intermediate_blocks_debug(self):
         """Test generate_intermediate_blocks with debug=True"""

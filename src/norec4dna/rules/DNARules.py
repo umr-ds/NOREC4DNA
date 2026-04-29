@@ -386,44 +386,42 @@ class DNARules:
         return (
             1.0
             if any(
-                [
-                    x in data
-                    for x in DNARules.add_complementary(
-                        [
-                            "ATAACTTCGTATAGCATACATTATACGAAGTTAT",
-                            "ATAACTTCGTATAGCATACATTATACGAACGGTA",
-                            "TACCGTTCGTATAGCATACATTATACGAAGTTAT",
-                            "TACCGTTCGTATAGCATACATTATACGAACGGTA",
-                            "TACCGTTCGTATATGGTATTATATACGAAGTTAT",
-                            "TACCGTTCGTATATTCTATCTTATACGAAGTTAT",
-                            "TACCGTTCGTATAGGATACTTTATACGAAGTTAT",
-                            "TACCGTTCGTATATACTATACTATACGAAGTTAT",
-                            "TACCGTTCGTATACTATAGCCTATACGAAGTTAT",
-                            "ATAACTTCGTATATGGTATTATATACGAACGGTA",
-                            "ATAACTTCGTATAGTATACCTTATACGAAGTTAT",
-                            "ATAACTTCGTATAGTATACATTATACGAAGTTAT",
-                            "ATAACTTCGTATAGTACACATTATACGAAGTTAT",
-                            "GCATACAT",
-                            "TGGTATTA",
-                            "TTCTATCT",
-                            "GGATACTT",
-                            "TACTATAC",
-                            "CTATAGCC",
-                            "AGGTATGC",
-                            "TTGTATGG",
-                            "GGATAGTA",
-                            "GTGTATTT",
-                            "GGTTACGG",
-                            "TTTTAGGT",
-                            "GTATACCT",
-                            "GTACACAT",
-                            "GAAGAC",
-                            "CTTCTG",
-                            "GGTCTC",
-                            "CCAGAG",
-                        ]
-                    )
-                ]
+                x in data
+                for x in DNARules.add_complementary(
+                    [
+                        "ATAACTTCGTATAGCATACATTATACGAAGTTAT",
+                        "ATAACTTCGTATAGCATACATTATACGAACGGTA",
+                        "TACCGTTCGTATAGCATACATTATACGAAGTTAT",
+                        "TACCGTTCGTATAGCATACATTATACGAACGGTA",
+                        "TACCGTTCGTATATGGTATTATATACGAAGTTAT",
+                        "TACCGTTCGTATATTCTATCTTATACGAAGTTAT",
+                        "TACCGTTCGTATAGGATACTTTATACGAAGTTAT",
+                        "TACCGTTCGTATATACTATACTATACGAAGTTAT",
+                        "TACCGTTCGTATACTATAGCCTATACGAAGTTAT",
+                        "ATAACTTCGTATATGGTATTATATACGAACGGTA",
+                        "ATAACTTCGTATAGTATACCTTATACGAAGTTAT",
+                        "ATAACTTCGTATAGTATACATTATACGAAGTTAT",
+                        "ATAACTTCGTATAGTACACATTATACGAAGTTAT",
+                        "GCATACAT",
+                        "TGGTATTA",
+                        "TTCTATCT",
+                        "GGATACTT",
+                        "TACTATAC",
+                        "CTATAGCC",
+                        "AGGTATGC",
+                        "TTGTATGG",
+                        "GGATAGTA",
+                        "GTGTATTT",
+                        "GGTTACGG",
+                        "TTTTAGGT",
+                        "GTATACCT",
+                        "GTACACAT",
+                        "GAAGAC",
+                        "CTTCTG",
+                        "GGTCTC",
+                        "CCAGAG",
+                    ]
+                )
             )
             else 0.0
         )
@@ -446,7 +444,7 @@ class DNARules:
         """
         try:
             dna_data = packet.get_dna_struct(True)
-        except:
+        except AttributeError:
             dna_data = packet
         res_arr = [
             x(dna_data)

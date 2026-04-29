@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import bisect
 import glob
@@ -9,7 +11,7 @@ from math import ceil, floor
 
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.Encoder import Encoder
-from norec4dna.ErrorCorrection import crc32, dna_reed_solomon_encode, nocode, reed_solomon_encode
+from norec4dna.ErrorCorrection import get_error_correction_encode, nocode, reed_solomon_encode
 from norec4dna.helper import (
     find_ceil_power_of_four,
     merge_folder_content,
@@ -29,7 +31,6 @@ DEFAULT_SAVE_AS_FASTA = True
 NUMBER_OF_PACKETS_TO_CREATE = 655360
 
 
-@DeprecationWarning
 def old_main(
     file=".INFILES/logo.jpg",
     asdna=True,
@@ -37,11 +38,9 @@ def old_main(
     error_correction=nocode,
     save_number_of_chunks_in_packet=False,
 ):
-    chunk_size = DEFAULT_CHUNK_SIZE  # Chunksize 50, mit reedsolomon auf 6 repair_symbols
-    number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
+    _ = DEFAULT_CHUNK_SIZE  # Chunksize 50, mit reedsolomon auf 6 repair_symbols
 
 
-@DeprecationWarning
 def run(
     seq_seed=None,
     file=".INFILES/logo.jpg",
@@ -57,6 +56,9 @@ def run(
     append="",
     seed_len_format=ID_LEN_FORMAT,
     drop_above=1.0,
+    e_correction_name="nocode",
+    repair_symbols=2,
+    number_of_splits=1,
 ):
     if chunk_size != 0:
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
@@ -99,7 +101,7 @@ def run(
                 bisect.insort_left(tmp_list, packet)
             else:
                 elem = next((x for x in tmp_list if x == packet), None)
-                if packet < elem:
+                if elem is not None and packet < elem:
                     tmp_list.remove(elem)
                     bisect.insort_left(tmp_list, packet)
             if len(tmp_list) > l_size:
@@ -107,10 +109,10 @@ def run(
         i += 1
     print([x.error_prob for x in tmp_list])
     conf = {
-        "error_correction": e_correction,
-        "repair_symbols": _repair_symbols,
+        "error_correction": e_correction_name,
+        "repair_symbols": repair_symbols,
         "asdna": asdna,
-        "number_of_splits": _number_of_splits,
+        "number_of_splits": number_of_splits,
         "find_minimum_mode": True,
         "seq_seed": seq_seed,
     }
@@ -118,7 +120,6 @@ def run(
     return [ParallelPacket.from_packet(p) for p in tmp_list]
 
 
-@DeprecationWarning
 def save_packets(packets, out_file, clear_output=True, seed_is_filename=True):
     if not out_file.endswith("/"):
         files = glob.glob(out_file + "/*")
@@ -140,7 +141,6 @@ def save_packets(packets, out_file, clear_output=True, seed_is_filename=True):
         i += 1
 
 
-@DeprecationWarning
 def save_packets_fasta(packets, out_file, file_ending, clear_output=True, seed_is_filename=True):
     if not out_file.endswith("/"):
         files = glob.glob(out_file + "/*")
@@ -150,7 +150,7 @@ def save_packets_fasta(packets, out_file, file_ending, clear_output=True, seed_i
         for f in files:
             try:
                 os.remove(f)
-            except:
+            except FileNotFoundError:
                 print("Error while removing file: {}".format(f))
     i = 0
     e_prob = ""
@@ -177,19 +177,20 @@ def save_packets_fasta(packets, out_file, file_ending, clear_output=True, seed_i
             i += 1
 
 
-@DeprecationWarning
 def reduceLists(base, input_list=None, l_size=100):
     if input_list is None and len(base) == 2:
         input_list = base[1]
         base = base[0]
     base = base[:l_size]
+    if input_list is None:
+        return base
     for packet in input_list:
         if packet.error_prob < base[-1].error_prob:
             if packet not in base:
                 bisect.insort_left(base, packet)
             else:
                 elem = next((x for x in base if x == packet), None)
-                if packet < elem:
+                if elem is not None and packet < elem:
                     # print("new packet is better")
                     base.remove(elem)
                     bisect.insort_left(base, packet)
@@ -220,6 +221,9 @@ def main(
     drop_above=1.0,
     save_as_fasta=DEFAULT_SAVE_AS_FASTA,
     error_correction=nocode,
+    e_correction_name="nocode",
+    repair_symbols=2,
+    number_of_splits=1,
 ):
     cores = multiprocessing.cpu_count()
     if spare1core:
@@ -244,6 +248,9 @@ def main(
             seed_len_format=seed_size_str,
             drop_above=drop_above,
             error_correction=error_correction,
+            e_correction_name=e_correction_name,
+            repair_symbols=repair_symbols,
+            number_of_splits=number_of_splits,
         ),
         param,
     )
@@ -261,17 +268,24 @@ def main(
     if save_as_fasta:
         save_packets_fasta(
             a,
-            os.path.dirname(os.path.realpath(_file)) + "/RU10_" + os.path.basename(_file) + "/",
+            os.path.dirname(os.path.realpath(filename))
+            + "/RU10_"
+            + os.path.basename(filename)
+            + "/",
             ".RU10_DNA",
         )
     else:
         save_packets(
-            a, os.path.dirname(os.path.realpath(_file)) + "/RU10_" + os.path.basename(_file) + "/"
+            a,
+            os.path.dirname(os.path.realpath(filename))
+            + "/RU10_"
+            + os.path.basename(filename)
+            + "/",
         )
     return a
 
 
-if __name__ == "__main__":
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument("filename", metavar="file", type=str, help="the file to Encode")
     parser.add_argument(
@@ -346,7 +360,10 @@ if __name__ == "__main__":
         required=False,
         type=str,
         default="I",
-        help="struct-string for seed - possible values: I,H,B (see struct) This impacts the amount of generated packets on sequential mode",
+        help=(
+            "struct-string for seed - possible values: I,H,B (see struct). "
+            "This impacts the amount of generated packets in sequential mode"
+        ),
     )
     parser.add_argument(
         "--store_as_fasta",
@@ -355,8 +372,30 @@ if __name__ == "__main__":
         action="store_true",
         help="if set, store result as fasta file",
     )
+    return parser
 
-    args = parser.parse_args()
+
+def _prepare_input_files(
+    input_file: str, number_of_splits: int
+) -> tuple[list[str], dict[str, str]]:
+    if number_of_splits <= 1:
+        return [input_file], {input_file: ""}
+
+    input_files = split_file(input_file, number_of_splits)
+    power_of_four = find_ceil_power_of_four(len(input_files))
+    print(
+        "Spltting input into {} sub files. We need to prepend/append {} base(s)".format(
+            len(input_files), power_of_four
+        )
+    )
+    prepend_matching = {
+        input_files[i]: number_to_base_str(i, power_of_four) for i in range(len(input_files))
+    }
+    return input_files, prepend_matching
+
+
+def _run_cli() -> None:
+    args = _build_parser().parse_args()
     _input_file = args.filename
     _repair_symbols = args.repair_symbols
     _list_size = args.list_size
@@ -371,43 +410,8 @@ if __name__ == "__main__":
     _drop_above = args.drop_above
     seed_size_str = args.seed_size_str
     store_as_fasta = args.store_as_fasta
-    if e_correction == "nocode":
-        _error_correction = nocode
-    elif e_correction == "crc":
-        _error_correction = crc32
-    elif e_correction == "reedsolomon":
-        if _repair_symbols != 2:
-            _error_correction = lambda x: reed_solomon_encode(x, _repair_symbols)
-        else:
-            _error_correction = reed_solomon_encode
-    elif e_correction == "dna_reedsolomon":
-        if _repair_symbols != 2:
-            _error_correction = lambda x: dna_reed_solomon_encode(x, _repair_symbols)
-        else:
-            _error_correction = dna_reed_solomon_encode
-    else:
-        print(
-            "Selected Error Correction not supported, choose: 'nocode', 'crc', 'reedsolomon' or 'dna_reedsolomon"
-        )
-        _error_correction = (
-            nocode  # LSP wants this to validate all branches define error_correction
-        )
-        exit()
-
-    if _number_of_splits > 1:
-        input_files = split_file(_input_file, _number_of_splits)
-        power_of_four = find_ceil_power_of_four(len(input_files))
-        print(
-            "Spltting input into {} sub files. We need to prepend/append {} base(s)".format(
-                len(input_files), power_of_four
-            )
-        )
-        prepend_matching = {
-            input_files[i]: number_to_base_str(i, power_of_four) for i in range(len(input_files))
-        }
-    else:
-        input_files = [_input_file]
-        prepend_matching = {_input_file: ""}
+    _error_correction = get_error_correction_encode(e_correction, _repair_symbols)
+    input_files, prepend_matching = _prepare_input_files(_input_file, _number_of_splits)
     for _file in input_files:
         print("File to encode: " + str(_file))
         main(
@@ -424,6 +428,9 @@ if __name__ == "__main__":
             drop_above=_drop_above,
             save_as_fasta=store_as_fasta,
             error_correction=_error_correction,
+            e_correction_name=e_correction,
+            repair_symbols=_repair_symbols,
+            number_of_splits=_number_of_splits,
         )
     if len(input_files) > 1:
         merge_folder_content(
@@ -432,3 +439,7 @@ if __name__ == "__main__":
             append_folder_name=True,
             clear_dest_folder=True,
         )
+
+
+if __name__ == "__main__":
+    _run_cli()

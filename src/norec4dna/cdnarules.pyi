@@ -8,10 +8,14 @@ Author: DR4DNA Team
 License: MIT
 """
 
-from typing import Tuple
+from typing import Any, Tuple
 
 import numpy as np
-from numpy.typing import NDArray
+
+UInt64Array = np.ndarray[Any, np.dtype[np.uint64]]
+UInt8Array = np.ndarray[Any, np.dtype[np.uint8]]
+BoolArray = np.ndarray[Any, np.dtype[np.bool_]]
+IntpArray = np.ndarray[Any, np.dtype[np.intp]]
 
 # ============================================================================
 # DNA Sequence Analysis Functions
@@ -227,7 +231,7 @@ def grayCode(x: int) -> int:
     """
     ...
 
-def buildGraySequence(length: int, b: int) -> NDArray[np.uint64]:
+def buildGraySequence(length: int, b: int) -> UInt64Array:
     """
     Generate Gray code sequence of given length with exactly b bits set.
 
@@ -303,7 +307,7 @@ def byte2QUATS(byte: int) -> str:
 # Array Operations
 # ============================================================================
 
-def xorArray(X: NDArray[np.uint8], Y: NDArray[np.uint8]) -> NDArray[np.uint8]:
+def xorArray(X: UInt8Array, Y: UInt8Array) -> UInt8Array:
     """
     Perform element-wise XOR on two uint8 numpy arrays.
 
@@ -333,10 +337,10 @@ def xorArray(X: NDArray[np.uint8], Y: NDArray[np.uint8]) -> NDArray[np.uint8]:
 # ============================================================================
 
 def elimination(
-    A: NDArray[np.bool_],
-    b: NDArray[np.uint8],
-    packet_mapping: NDArray[np.intp],
-    chunk_to_used_packets: NDArray[np.bool_],
+    A: BoolArray,
+    b: UInt8Array,
+    packet_mapping: IntpArray,
+    chunk_to_used_packets: BoolArray,
 ) -> bool:
     """
     Perform Gaussian elimination with partial pivoting on matrix system.
@@ -374,10 +378,10 @@ def elimination(
     ...
 
 def elimination_with_first_row(
-    A: NDArray[np.bool_],
-    b: NDArray[np.uint8],
-    packet_mapping: NDArray[np.intp],
-    chunk_to_used_packets: NDArray[np.bool_],
+    A: BoolArray,
+    b: UInt8Array,
+    packet_mapping: IntpArray,
+    chunk_to_used_packets: BoolArray,
     first_row_idx: int = -1,
 ) -> bool:
     """

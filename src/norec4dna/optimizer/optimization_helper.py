@@ -1,14 +1,26 @@
 import copy
 import csv
+import importlib
+import importlib.util
 import math
+import typing
 
-import matplotlib.pyplot as plt
 import numpy as np
-from norec4dna import Encoder, RU10Decoder, RU10Encoder, nocode
-from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.helper import should_drop_packet
-from norec4dna.helper.RU10Helper import intermediate_symbols
-from norec4dna.rules.FastDNARules import FastDNARules
+
+from ..distributions.RaptorDistribution import RaptorDistribution
+from ..Encoder import Encoder
+from ..ErrorCorrection import nocode
+from ..helper import should_drop_packet
+from ..helper.RU10Helper import intermediate_symbols
+from ..RU10Decoder import RU10Decoder
+from ..RU10Encoder import RU10Encoder
+from ..rules.FastDNARules import FastDNARules
+
+plt: typing.Any = (
+    importlib.import_module("matplotlib.pyplot")
+    if importlib.util.find_spec("matplotlib.pyplot") is not None
+    else None
+)
 
 
 def list_to_diff_list(x):
@@ -52,6 +64,8 @@ def plot_dist(diff_lst):
     :param diff_lst:
     :return:
     """
+    if plt is None:
+        raise ImportError("matplotlib is required for plotting")
     plt.plot(diff_lst)
     plt.xlabel("Grade")
     plt.ylabel("Probability")
@@ -113,7 +127,7 @@ def merge_best_dist(dist_1, dist_2):
     :param dist_2: Tuple of distribution 2.
     :return: Merged difflist.
     """
-    new_dist = [0] * len(dist_1[0])
+    new_dist = [0.0] * len(dist_1[0])
     zer_ents = []
     for i in range(0, len(dist_1[0])):
         if dist_1[1][i] < dist_2[1][i]:
@@ -122,7 +136,7 @@ def merge_best_dist(dist_1, dist_2):
             min_prob = max(dist_2[0][i], 0.0)
         if min_prob < 0.0005:
             zer_ents.append(i)
-            min_prob = 0
+            min_prob = 0.0
         new_dist[i] = min_prob
     n_zer_cnt = 40 - len(zer_ents)
     # TODO only fill empty probs with average
@@ -130,7 +144,7 @@ def merge_best_dist(dist_1, dist_2):
         ind = np.random.choice(zer_ents, size=4 - n_zer_cnt)
         avg_prob = sum([x if x > 0.0005 else 0 for x in new_dist]) / n_zer_cnt
         for j in ind:
-            new_dist[j] = avg_prob
+            new_dist[int(j)] = avg_prob
     return norm_list(new_dist)
 
 
@@ -240,7 +254,7 @@ def compute_population_fitness(pop, fast=False):
     :param fast:
     :return:
     """
-    pop_fitness = list()
+    pop_fitness = []
     for dist in pop:
         avg_err_list, avg_err = compute_cost(dist, diff_list=True, fast=fast)
         pop_fitness.append((dist, avg_err_list[1:], avg_err))
@@ -256,8 +270,8 @@ def compute_distribution_fitness(raptor_lst, file_lst, runs=25, chunksize=50):
     :param chunksize: Chunksize to use.
     :return:
     """
-    overhead_lst = list()
-    degree_lst = list()
+    overhead_lst = []
+    degree_lst = []
     for file in file_lst:
         res = encode(file, chunksize, raptor_lst, repeats=runs)
         overhead_lst.append(res[0])
@@ -299,8 +313,8 @@ def encode(file, chunk_size, dist, as_dna=True, repeats=15):
         file, chunk_size, insert_header=False
     )
     distribution = RaptorDistribution(number_of_chunks)
-    distribution.f = dist
-    distribution.d = [x for x in range(0, 41)]
+    distribution.f = np.asarray(dist, dtype=np.int32)
+    distribution.d = np.arange(41, dtype=np.int8)
     if as_dna:
         rules = FastDNARules()
     else:
@@ -329,8 +343,9 @@ def encode(file, chunk_size, dist, as_dna=True, repeats=15):
             pseudo_decoder.input_new_packet(packet)
             should_drop_packet(rules, packet)
             if packet.get_degree() not in degree_dict:
-                degree_dict[packet.get_degree()] = list()
-            degree_dict[packet.get_degree()].append(min(packet.error_prob, 1.0))
+                degree_dict[packet.get_degree()] = []
+            error_prob = packet.error_prob if packet.error_prob is not None else 1.0
+            degree_dict[packet.get_degree()].append(min(error_prob, 1.0))
         overhead = (needed_packets - encoder.number_of_chunks) / 100.0
         overhead_lst.append(overhead)
     return sum(overhead_lst) / len(overhead_lst), degree_dict
@@ -346,7 +361,7 @@ def create_pseudo_decoder(number_of_chunks, distribution):
     pseudo_decoder = RU10Decoder.pseudo_decoder(number_of_chunks, False)
     if pseudo_decoder.distribution is None:
         pseudo_decoder.distribution = distribution
-        pseudo_decoder.numberOfChunks = number_of_chunks
+        pseudo_decoder.number_of_chunks = number_of_chunks
         _, pseudo_decoder.s, pseudo_decoder.h = intermediate_symbols(
             number_of_chunks, pseudo_decoder.distribution
         )
@@ -366,42 +381,68 @@ def compute_cost(dist_lst, c_size_list=None, file_list=None, fast=False, diff_li
     :return:
     """
     tmp_list = copy.deepcopy(dist_lst)
-    if c_size_list is None:
-        c_size_list = [50, 75, 100]
-        if fast:
-            c_size_list = [100]
-    if file_list is None:
-        file_list = [".INFILES/Dorn", ".INFILES/Dorn.tar.gz", "umr_logo_sw_scaled.png"]
-        if fast:
-            file_list = [".INFILES/Dorn"]
+    c_size_list, file_list = _resolve_cost_inputs(c_size_list, file_list, fast)
     if diff_list:
         dist_lst = scale_to(diff_list_to_list(dist_lst), 1048576)
-    degree_packet_costs = dict()
-    n = 0
-    for p_tmp in range(45):
-        degree_packet_costs[p_tmp] = list()
-    for enc_file in file_list:
-        for c_size in c_size_list:
-            degree_packet_costs1, n1 = encode(enc_file, dist_lst, True, chunk_size=c_size)
-            [y.extend(degree_packet_costs1[x]) for x, y in degree_packet_costs.items()]
-            n += n1
+    degree_packet_costs, n = _collect_degree_packet_costs(dist_lst, c_size_list, file_list)
     n = 1.0 * n / (len(c_size_list) + 1)
-    avg_err_per_degree = np.zeros(41)
-    for deg in degree_packet_costs.keys():
-        if len(degree_packet_costs[deg]) > 0:
-            avg_err_per_degree[deg] = sum(degree_packet_costs[deg]) / len(degree_packet_costs[deg])
+    avg_err_per_degree = _compute_avg_err_per_degree(degree_packet_costs)
     avg_err_per_degree[0] -= n
-    rel_degs = [0] * len(avg_err_per_degree)
-    no_rel_degs = 0
-    for x in range(1, len(avg_err_per_degree)):
-        if tmp_list[x - 1] >= 0.0001:
-            rel_degs[x - 1] = avg_err_per_degree[x - 1]
-            no_rel_degs += 1
-    summed_error = sum(rel_degs) / no_rel_degs
+    summed_error = _compute_relevant_error(avg_err_per_degree, tmp_list)
     return avg_err_per_degree + n, max(0.0, summed_error)
 
 
-def encode(file, dist_lst, asdna=True, chunk_size=50):
+def _resolve_cost_inputs(c_size_list, file_list, fast):
+    if c_size_list is None:
+        c_size_list = [100] if fast else [50, 75, 100]
+    if file_list is None:
+        file_list = (
+            [".INFILES/Dorn"]
+            if fast
+            else [
+                ".INFILES/Dorn",
+                ".INFILES/Dorn.tar.gz",
+                "umr_logo_sw_scaled.png",
+            ]
+        )
+    return c_size_list, file_list
+
+
+def _init_degree_packet_costs():
+    return {p_tmp: [] for p_tmp in range(45)}
+
+
+def _collect_degree_packet_costs(dist_lst, c_size_list, file_list):
+    degree_packet_costs = _init_degree_packet_costs()
+    total_packets = 0
+    for enc_file in file_list:
+        for c_size in c_size_list:
+            degree_packet_costs1, n1 = encode_packets(enc_file, dist_lst, True, chunk_size=c_size)
+            for degree, costs in degree_packet_costs.items():
+                costs.extend(degree_packet_costs1[degree])
+            total_packets += n1
+    return degree_packet_costs, total_packets
+
+
+def _compute_avg_err_per_degree(degree_packet_costs):
+    avg_err_per_degree = np.zeros(41)
+    for degree, costs in degree_packet_costs.items():
+        if len(costs) > 0:
+            avg_err_per_degree[degree] = sum(costs) / len(costs)
+    return avg_err_per_degree
+
+
+def _compute_relevant_error(avg_err_per_degree, tmp_list):
+    rel_degs = [0] * len(avg_err_per_degree)
+    no_rel_degs = 0
+    for index in range(1, len(avg_err_per_degree)):
+        if tmp_list[index - 1] >= 0.0001:
+            rel_degs[index - 1] = avg_err_per_degree[index - 1]
+            no_rel_degs += 1
+    return sum(rel_degs) / no_rel_degs
+
+
+def encode_packets(file, dist_lst, asdna=True, chunk_size=50):
     """
 
     :param file:
@@ -411,10 +452,10 @@ def encode(file, dist_lst, asdna=True, chunk_size=50):
     :return:
     """
     packets_needed = 0
-    packets = dict()
+    packets = {}
     number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
     dist = RaptorDistribution(number_of_chunks)
-    dist.f = dist_lst
+    dist.f = np.asarray(dist_lst, dtype=np.int32)
     d = [
         0,
         1,
@@ -458,7 +499,7 @@ def encode(file, dist_lst, asdna=True, chunk_size=50):
         39,
         40,
     ]
-    dist.d = d
+    dist.d = np.asarray(d, dtype=np.int8)
     dna_rules = FastDNARules()
     if asdna:
         rules = dna_rules
@@ -480,29 +521,30 @@ def encode(file, dist_lst, asdna=True, chunk_size=50):
     x.prepare()
     y = RU10Decoder.pseudo_decoder(x.number_of_chunks, False)
     if y.distribution is None:  # self.isPseudo and
-        y.distribution = RaptorDistribution(x.number_of_chunks)
-        y.distribution.f = dist_lst
-        y.distribution.d = d
+        y_distribution = RaptorDistribution(x.number_of_chunks)
+        y_distribution.f = np.asarray(dist_lst, dtype=np.int32)
+        y_distribution.d = np.asarray(d, dtype=np.int8)
+        y.distribution = y_distribution
         y.number_of_chunks = x.number_of_chunks
-        _, y.s, y.h = intermediate_symbols(x.number_of_chunks, y.distribution)
+        _, y.s, y.h = intermediate_symbols(x.number_of_chunks, y_distribution)
         y.createAuxBlocks()
     n = 0
     for p_tmp in range(45):
-        packets[p_tmp] = list()
+        packets[p_tmp] = []
     while n < number_of_chunks * 50:
         pack = x.create_new_packet()
         if packets_needed == 0:
             y.input_new_packet(pack)
         should_drop_packet(dna_rules, pack)
         if pack.get_degree() not in packets:
-            packets[pack.get_degree()] = list()
+            packets[pack.get_degree()] = []
         packets[pack.get_degree()].append(pack.error_prob)
         n += 1
         if n >= number_of_chunks and y.is_decoded() and packets_needed == 0:
             packets_needed = n
             # we dont want to break, we want to generate #chunks * XXX packets!
             # break
-    print("Packets created: " + str(sum([len(x) for x in packets.values()])))
+    print("Packets created: " + str(sum(len(x) for x in packets.values())))
     return packets, (packets_needed - number_of_chunks) / 100.0
 
 
@@ -521,7 +563,7 @@ def generate_plot(file_con, file, max_gen):
     fig = plt.figure()
     axis1 = fig.add_subplot(211)
     axis1.plot(avg_errs)
-    x = [x for x in range(0, max_gen + 1)]
+    x = list(range(0, max_gen + 1))
     z = np.polyfit(x, avg_errs, 1)
     p = np.poly1d(z)
     axis1.plot(x, p(x), "r--")

@@ -24,6 +24,57 @@ READ_ALL_BEFORE_DECODER = True
 
 class demo_decode:
     @staticmethod
+    def _save_partial_decode(decoder: RU10Decoder, null_is_terminator: bool):
+        return decoder.saveDecodedFile(
+            null_is_terminator=null_is_terminator,
+            print_to_output=False,
+            return_file_name=True,
+            partial_decoding=True,
+        )
+
+    @staticmethod
+    def _cleanup_decoded_output(decoder: RU10Decoder) -> None:
+        if decoder.headerChunk is None:
+            return
+        try:
+            raw_file_name = decoder.headerChunk.get_file_name()
+            file_name = (
+                raw_file_name.decode("utf-8") if isinstance(raw_file_name, bytes) else raw_file_name
+            )
+            os.remove(file_name.split("\x00")[0])
+        except FileNotFoundError:
+            pass
+
+    @staticmethod
+    def _retry_partial_decode(
+        decoder: RU10Decoder,
+        tmp_A,
+        tmp_B,
+        null_is_terminator: bool,
+        failed_repeats: int,
+    ):
+        res = False
+        attempts = 0
+        while not res and attempts < failed_repeats:
+            print("failed " + str(attempts))
+            assert decoder.GEPP is not None
+            gepp = decoder.GEPP
+            assert len(gepp.A) == len(gepp.b)
+            permutation = np.random.permutation(len(gepp.A))
+            gepp.A = np.copy(tmp_A[permutation])
+            gepp.b = np.copy(tmp_B[permutation])
+            decoder.solve(partial=True)
+            attempts += 1
+            try:
+                res = demo_decode._save_partial_decode(decoder, null_is_terminator)
+            except ValueError:
+                demo_decode._cleanup_decoded_output(decoder)
+                res = False
+        if not res:
+            raise ValueError
+        return res
+
+    @staticmethod
     def decode(
         file: str,
         error_correction: typing.Callable[[bytes], bytes] = nocode,
@@ -75,193 +126,154 @@ class demo_decode:
             x.solve(partial=True)
         if mode_1_bmp:
             return x.mode_1_bmp_decode()
-        elif return_decoder:
+        if return_decoder:
             return x
-        else:
-            try:
-                return x.saveDecodedFile(
-                    null_is_terminator=null_is_terminator,
-                    print_to_output=False,
-                    return_file_name=True,
-                    partial_decoding=True,
-                )
 
-            except:  # FileNotFoundError: #ValueError
-                if x.headerChunk is not None:
-                    try:
-                        file_name: str = x.headerChunk.get_file_name().decode("utf-8")
-                        file_name = file_name.split("\x00")[0]
-                        os.remove(file_name)
-                    except:
-                        pass
-                res = False
-                i = 0
-                while not res and i < failed_repeats:
-                    print("failed " + str(i))
-                    assert len(x.GEPP.A) == len(x.GEPP.b)
-                    p = np.random.permutation(len(x.GEPP.A))
-                    x.GEPP.A = np.copy(tmp_A[p])
-                    x.GEPP.b = np.copy(tmp_B[p])
-                    x.solve(partial=True)
-                    i += 1
-                    try:
-                        res = x.saveDecodedFile(
-                            null_is_terminator=null_is_terminator,
-                            print_to_output=False,
-                            return_file_name=True,
-                            partial_decoding=True,
-                        )
-                    except ValueError:
-                        if x.headerChunk is not None:
-                            try:
-                                file_name = x.headerChunk.get_file_name().decode("utf-8")
-                                file_name = file_name.split("\x00")[0]
-                                os.remove(file_name)
-                            except:
-                                pass
-                        res = False
-                if not res:
-                    raise ValueError
-                else:
-                    return res
+        try:
+            return demo_decode._save_partial_decode(x, null_is_terminator)
+        except (FileNotFoundError, ValueError):
+            demo_decode._cleanup_decoded_output(x)
+            return demo_decode._retry_partial_decode(
+                x, tmp_A, tmp_B, null_is_terminator, failed_repeats
+            )
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("filename", metavar="file", type=str, help="the file / folder to Decode")
+    parser.add_argument(
+        "--error_correction",
+        metavar="error_correction",
+        type=str,
+        required=False,
+        default="nocode",
+        help="Error Correction Method to use; possible values: \
+                                                    nocode, crc, reedsolomon, dna_reedsolomon (default=nocode)",
+    )
+    parser.add_argument(
+        "--repair_symbols",
+        metavar="repair_symbols",
+        type=int,
+        required=False,
+        default=2,
+        help="number of repair_symbols for ReedSolomon (default=2)",
+    )
+    parser.add_argument("--as_mode_1_bmp", required=False, action="store_true")
+    parser.add_argument(
+        "--number_of_splits",
+        metavar="number_of_splits",
+        required=False,
+        type=int,
+        default=0,
+        help="(optional) number of parts the file has bin split into",
+    )
+    parser.add_argument(
+        "--split_index_position",
+        metavar="split_index_position",
+        required=False,
+        type=str,
+        default="end",
+        help="position of the split index. can be 'start' or 'end",
+    )
+    parser.add_argument(
+        "--split_index_length",
+        metavar="split_index_length",
+        required=False,
+        type=int,
+        default=0,
+        help="number of bases storing the split index",
+    )
+    parser.add_argument(
+        "--last_split_smaller",
+        required=False,
+        action="store_true",
+        help="If set, the number of chunks for the last split will be reduced by 1",
+    )
+    parser.add_argument(
+        "--number_of_chunks",
+        metavar="number_of_chunks",
+        required=False,
+        type=int,
+        default=STATIC_NUM_CHUNKS,
+        help="static number of chunks (only set this if not stored in each packet)",
+    )
+    parser.add_argument("--is_null_terminated", required=False, action="store_true")
+    parser.add_argument(
+        "--header_crc_str", metavar="header_crc_str", required=False, type=str, default=""
+    )
+    parser.add_argument("--use_header_chunk", required=False, action="store_true")
+    parser.add_argument(
+        "--failed_repeats",
+        metavar="failed_repeats",
+        default=1000,
+        help="Number of permutations to try if the decoding fails",
+        required=False,
+        type=int,
+    )
+    parser.add_argument("--xor_by_seed", required=False, action="store_true")
+    parser.add_argument("--id_spacing", metavar="id_spacing", required=False, type=int, default=0)
+    return parser
+
+
+def _prepare_folders(args) -> typing.Tuple[typing.List[str], typing.Optional[str], int]:
+    split_index_length = args.split_index_length
+    if args.number_of_splits != 0:
+        split_index_length = find_ceil_power_of_four(args.number_of_splits)
+    last_split_folder = None
+    if split_index_length == 0:
+        return [args.filename], None, split_index_length
+
+    if args.filename.lower().endswith("fasta"):
+        folders, last_split_folder = fasta_cluster_and_remove_index(
+            args.split_index_position, split_index_length, args.filename
+        )
+    else:
+        folders, last_split_folder = cluster_and_remove_index(
+            args.split_index_position, split_index_length, args.filename
+        )
+    if args.number_of_splits > 0 and args.number_of_splits != len(folders):
+        print("[WARNING] Number of Splits given by user differs from number of splits found!")
+    return folders, last_split_folder, split_index_length
+
+
+def _number_of_chunks_for_folder(
+    args, folder: str, last_split_folder: typing.Optional[str]
+) -> typing.Optional[int]:
+    if args.number_of_chunks is None:
+        return None
+    return args.number_of_chunks + (
+        -1 if folder == last_split_folder and args.last_split_smaller else 0
+    )
+
+
+def _run_cli() -> None:
+    args = _build_parser().parse_args()
+    folders, last_split_folder, _ = _prepare_folders(args)
+    error_correction = get_error_correction_decode(args.error_correction, args.repair_symbols)
+    decoded_files = []
+    demo = demo_decode()
+    for folder in folders:
+        print("File / Folder to decode: " + str(folder))
+        try:
+            decoded_files.append(
+                demo.decode(
+                    folder,
+                    error_correction=error_correction,
+                    null_is_terminator=args.is_null_terminated,
+                    mode_1_bmp=args.as_mode_1_bmp,
+                    number_of_chunks=_number_of_chunks_for_folder(args, folder, last_split_folder),
+                    use_header_chunk=args.use_header_chunk,
+                    checksum_len_str=args.header_crc_str,
+                    failed_repeats=args.failed_repeats,
+                    xor_by_seed=args.xor_by_seed,
+                    id_spacing=args.id_spacing,
+                )
+            )
+        except (FileNotFoundError, ValueError):
+            continue
+    if len(folders) > 1:
+        merge_parts(decoded_files, remove_tmp_on_success=True)
 
 
 if __name__ == "__main__":
-    try:
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            "filename", metavar="file", type=str, help="the file / folder to Decode"
-        )
-        parser.add_argument(
-            "--error_correction",
-            metavar="error_correction",
-            type=str,
-            required=False,
-            default="nocode",
-            help="Error Correction Method to use; possible values: \
-                                                    nocode, crc, reedsolomon, dna_reedsolomon (default=nocode)",
-        )
-        parser.add_argument(
-            "--repair_symbols",
-            metavar="repair_symbols",
-            type=int,
-            required=False,
-            default=2,
-            help="number of repair_symbols for ReedSolomon (default=2)",
-        )
-        parser.add_argument("--as_mode_1_bmp", required=False, action="store_true")
-        parser.add_argument(
-            "--number_of_splits",
-            metavar="number_of_splits",
-            required=False,
-            type=int,
-            default=0,
-            help="(optional) number of parts the file has bin split into",
-        )
-        parser.add_argument(
-            "--split_index_position",
-            metavar="split_index_position",
-            required=False,
-            type=str,
-            default="end",
-            help="position of the split index. can be 'start' or 'end",
-        )
-        parser.add_argument(
-            "--split_index_length",
-            metavar="split_index_length",
-            required=False,
-            type=int,
-            default=0,
-            help="number of bases storing the split index",
-        )
-        parser.add_argument(
-            "--last_split_smaller",
-            required=False,
-            action="store_true",
-            help="If set, the number of chunks for the last split will be reduced by 1",
-        )
-        parser.add_argument(
-            "--number_of_chunks",
-            metavar="number_of_chunks",
-            required=False,
-            type=int,
-            default=STATIC_NUM_CHUNKS,
-            help="static number of chunks (only set this if not stored in each packet)",
-        )
-        parser.add_argument("--is_null_terminated", required=False, action="store_true")
-        parser.add_argument(
-            "--header_crc_str", metavar="header_crc_str", required=False, type=str, default=""
-        )
-        parser.add_argument("--use_header_chunk", required=False, action="store_true")
-        parser.add_argument(
-            "--failed_repeats",
-            metavar="failed_repeats",
-            default=1000,
-            help="Number of permutations to try if the decoding fails",
-            required=False,
-            type=int,
-        )
-        parser.add_argument("--xor_by_seed", required=False, action="store_true")
-        parser.add_argument(
-            "--id_spacing", metavar="id_spacing", required=False, type=int, default=0
-        )
-        args = parser.parse_args()
-        _file = args.filename
-        _repair_symbols = args.repair_symbols
-        _mode_1_bmp = args.as_mode_1_bmp
-        _number_of_chunks = args.number_of_chunks
-        _last_split_smaller = args.last_split_smaller
-        _split_index_position = args.split_index_position
-        _split_index_length = args.split_index_length
-        _number_of_splits = args.number_of_splits
-        _is_null_terminated = args.is_null_terminated
-        _use_header_chunk = args.use_header_chunk
-        _header_crc_str = args.header_crc_str
-        _failed_repeats = args.failed_repeats
-        _xor_by_seed = args.xor_by_seed
-        _id_spacing = args.id_spacing
-        if _number_of_splits != 0:
-            _split_index_length = find_ceil_power_of_four(_number_of_splits)
-        _last_split_folder = None
-        if _split_index_length != 0:
-            if _file.lower().endswith("fasta"):
-                folders, _last_split_folder = fasta_cluster_and_remove_index(
-                    _split_index_position, _split_index_length, _file
-                )
-            else:
-                folders, _last_split_folder = cluster_and_remove_index(
-                    _split_index_position, _split_index_length, _file
-                )
-            if _number_of_splits > 0 and _number_of_splits != len(folders):
-                print(
-                    "[WARNING] Number of Splits given by user differs from number of splits found!"
-                )
-        else:
-            folders = [_file]
-        _error_correction = get_error_correction_decode(args.error_correction, _repair_symbols)
-        decoded_files = []
-        for _file in folders:
-            print("File / Folder to decode: " + str(_file))
-            demo = demo_decode()
-            try:
-                decoded_files.append(
-                    demo.decode(
-                        _file,
-                        error_correction=_error_correction,
-                        null_is_terminator=_is_null_terminated,
-                        mode_1_bmp=_mode_1_bmp,
-                        number_of_chunks=_number_of_chunks
-                        + (-1 if _file == _last_split_folder and _last_split_smaller else 0),
-                        use_header_chunk=_use_header_chunk,
-                        checksum_len_str=_header_crc_str,
-                        failed_repeats=_failed_repeats,
-                        xor_by_seed=_xor_by_seed,
-                        id_spacing=_id_spacing,
-                    )
-                )
-            except:
-                pass
-        if len(folders) > 1:
-            merge_parts(decoded_files, remove_tmp_on_success=True)
-    except Exception as e:
-        raise e
+    _run_cli()

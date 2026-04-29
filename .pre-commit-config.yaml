@@ -59,6 +59,14 @@ repos:
           - reedsolo
           - crccheck
           - bitarray
+          - bitstring
+          - crcmod
+          - matplotlib
+          - numba
+          - pandas
+          - pycryptodomex
+          - python-magic
+          - scipy
           - pytest
           - setuptools
 

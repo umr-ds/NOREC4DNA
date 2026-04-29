@@ -4,18 +4,15 @@ import os
 import typing
 
 import numpy as np
-from norec4dna.HeaderChunk import HeaderChunk
-from norec4dna.Packet import Packet
 
-from . import (
-    Encoder,
-    OnlineDecoder,
-    OnlineDistribution,
-    OnlineEncoder,
-    get_error_correction_decode,
-    get_error_correction_encode,
-)
+from .distributions.OnlineDistribution import OnlineDistribution
+from .Encoder import Encoder
+from .ErrorCorrection import get_error_correction_decode, get_error_correction_encode
+from .HeaderChunk import HeaderChunk
 from .helper.quaternary2Bin import tranlate_quat_to_byte
+from .OnlineDecoder import OnlineDecoder
+from .OnlineEncoder import OnlineEncoder
+from .Packet import Packet
 from .rules.FastDNARules import FastDNARules
 
 # INPUT_FILE = "Dorn"
@@ -76,6 +73,23 @@ def _p1_from_eps_s(eps: float, s: int) -> float:
     return 1.0 - (1.0 + 1.0 / s) / (1.0 + eps)
 
 
+def _evaluate_online_epsilon(
+    eps: float, k_value: int, s_max: int, p1_min: float
+) -> typing.Optional[typing.Tuple[float, int, int, int, float]]:
+    s_value = _s_from_eps(eps)
+    if s_value is None or s_value > s_max:
+        return None
+
+    extra = math.ceil(eps * k_value)
+    if extra < s_value:
+        return None
+
+    p1 = _p1_from_eps_s(eps, s_value)
+    if not (0.0 <= p1 <= 1.0) or p1 < p1_min:
+        return None
+    return eps, extra, k_value, s_value, p1
+
+
 def best_epsilon_online(
     file_size_bytes: int,
     droplet_len_bytes: int,
@@ -106,44 +120,18 @@ def best_epsilon_online(
     s_max = max(1, int(math.floor(s_max_frac * K)))
 
     # Monotone grid from small to larger eps (s decreases with increasing eps).
-    best = None
     for i in range(steps + 1):
         eps = eps_min + (eps_max - eps_min) * (i / steps)
-        s = _s_from_eps(eps)
-        if s is None:
-            continue
+        best = _evaluate_online_epsilon(eps, K, s_max, p1_min)
+        if best is not None:
+            return best
 
-        # Basic feasibility: s must be well below K
-        if s > s_max:
-            continue
-
-        # Budget feasibility: need at least s extras
-        extra = math.ceil(eps * K)
-        if extra < s:
-            continue
-
-        # Degree-1 mass constraint for peeling stability
-        p1 = _p1_from_eps_s(eps, s)
-        if not (0.0 <= p1 <= 1.0):
-            continue
-        if p1 < p1_min:
-            continue
-
-        # First feasible eps is the minimal one due to monotone search
-        best = (eps, extra, K, s, p1)
-        break
-
-    if best is None:
-        # If nothing feasible was found, fall back to eps_max and report what it yields.
-        eps = eps_max
-        s = _s_from_eps(eps)
-        if s is None:
-            raise RuntimeError("Unable to derive s from the provided eps_max; widen search bounds.")
-        extra = math.ceil(eps * K)
-        p1 = _p1_from_eps_s(eps, s)
-        return eps, extra, K, s, p1
-
-    return best
+    s_value = _s_from_eps(eps_max)
+    if s_value is None:
+        raise RuntimeError("Unable to derive s from the provided eps_max; widen search bounds.")
+    extra = math.ceil(eps_max * K)
+    p1 = _p1_from_eps_s(eps_max, s_value)
+    return eps_max, extra, K, s_value, p1
 
 
 def encode(string_file_name):
@@ -174,16 +162,7 @@ def encode(string_file_name):
     return [x.get_dna_struct(True) for x in encoder.encodedPackets], encoder
 
 
-def decode(string_file_name, list_of_dna_strings):
-    # make sure that the dist is freshly initialized...
-    decoder = OnlineDecoder(
-        string_file_name,
-        error_correction=error_correction_func_dec,
-        use_headerchunk=INSERT_HEADER,
-        static_number_of_chunks=NUMBER_OF_CHUNKS,
-    )
-    decoder.read_all_before_decode = READ_ALL
-
+def _iter_online_packets(decoder: OnlineDecoder, list_of_dna_strings):
     for dna_str in list_of_dna_strings:
         new_pack = decoder.parse_raw_packet(
             io.BytesIO(tranlate_quat_to_byte(dna_str)).read(),
@@ -192,38 +171,69 @@ def decode(string_file_name, list_of_dna_strings):
             check_block_number_len_format=SEED_LEN_FORMAT,
         )
         if new_pack is not None and new_pack != "CORRUPT":
-            decoder.input_new_packet(new_pack)
+            yield new_pack
+
+
+def _ensure_online_header_chunk(decoder: OnlineDecoder, gepp, row_index: int) -> None:
+    if not INSERT_HEADER or decoder.headerChunk is not None:
+        return
+    header_row = gepp.result_mapping[0]
+    decoder.headerChunk = HeaderChunk(
+        Packet(gepp.b[header_row], {0}, decoder.number_of_chunks, read_only=True),
+        checksum_len_format=CHECKSUM_LEN_STR,
+    )
+
+
+def _write_online_row(
+    decoder: OnlineDecoder, gepp, row_index: int, output_buffer: io.BytesIO
+) -> bool:
+    if row_index < 0:
+        output_buffer.write(b"\x00" * len(gepp.b[row_index][0]))
+        return False
+
+    _ensure_online_header_chunk(decoder, gepp, row_index)
+    if row_index == 0 and INSERT_HEADER:
+        return False
+
+    if decoder.number_of_chunks - 1 == row_index and INSERT_HEADER:
+        header_chunk = decoder.headerChunk
+        if header_chunk is None:
+            raise RuntimeError("Header chunk missing during Online decode")
+        output_buffer.write(gepp.b[row_index][0][0 : header_chunk.get_last_chunk_length()])
+        return False
+
+    if NULL_IS_TERMINATOR:
+        splitter = gepp.b[row_index].tobytes().decode().split("\x00")
+        output_buffer.write(splitter[0].encode())
+        return len(splitter) > 1
+
+    output_buffer.write(gepp.b[row_index].tobytes())
+    return False
+
+
+def decode(string_file_name, list_of_dna_strings):
+    # make sure that the dist is freshly initialized...
+    assert NUMBER_OF_CHUNKS is not None
+    decoder = OnlineDecoder(
+        string_file_name,
+        error_correction=error_correction_func_dec,
+        use_headerchunk=INSERT_HEADER,
+        static_number_of_chunks=NUMBER_OF_CHUNKS,
+    )
+    decoder.read_all_before_decode = READ_ALL
+
+    for new_pack in _iter_online_packets(decoder, list_of_dna_strings):
+        decoder.input_new_packet(new_pack)
 
     decoder.solve()
+    gepp = decoder.GEPP
+    if gepp is None:
+        raise RuntimeError("Decoder GEPP was not initialized")
     __byte_io = io.BytesIO()
     with __byte_io as f:
-        for x in decoder.GEPP.result_mapping:
-            if x < 0:
-                f.write(b"\x00" * len(decoder.GEPP.b[x][0]))
-                dirty = True
-                continue
-            if INSERT_HEADER and decoder.headerChunk is None:
-                header_row = decoder.GEPP.result_mapping[0]
-                decoder.headerChunk = HeaderChunk(
-                    Packet(
-                        decoder.GEPP.b[header_row], {0}, decoder.number_of_chunks, read_only=True
-                    ),
-                    checksum_len_format=CHECKSUM_LEN_STR,
-                )
-            if 0 != x or not INSERT_HEADER:
-                if decoder.number_of_chunks - 1 == x and INSERT_HEADER:
-                    output = decoder.GEPP.b[x][0][0 : decoder.headerChunk.get_last_chunk_length()]
-                    f.write(output)
-                else:
-                    if NULL_IS_TERMINATOR:
-                        splitter: str = decoder.GEPP.b[x].tostring().decode().split("\x00")
-                        output = splitter[0].encode()
-                        f.write(output)
-                        if len(splitter) > 1:
-                            break  # since we are in null-terminator mode, we exit once we see the first 0-byte
-                    else:
-                        output = decoder.GEPP.b[x]
-                        f.write(output)
+        for x in gepp.result_mapping:
+            if _write_online_row(decoder, gepp, x, f):
+                break
         # convert the byte array __ByteIO to a numpy bool array
         numpy_boolean_array = np.unpackbits(np.frombuffer(f.getvalue(), dtype=np.uint8))
         return numpy_boolean_array
@@ -247,5 +257,5 @@ if __name__ == "__main__":
                 org = np.unpackbits(np.frombuffer(f.read(), dtype=np.uint8))
                 decoded = decode(None, res)
                 print(f"{INPUT_FILE}, {np.all(np.equal(org, decoded))}")
-        except:
+        except Exception:
             print(f"{INPUT_FILE}, False")

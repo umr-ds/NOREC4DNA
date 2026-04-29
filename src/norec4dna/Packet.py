@@ -1,13 +1,17 @@
+from __future__ import annotations
+
 import struct
 import typing
-from typing import Any, Callable, List, Optional, Set, Union
+from typing import Any, List, Optional, Set, Union
 
 import numpy as np
-from numpy.typing import NDArray
 
-from .ErrorCorrection import nocode
+from .ErrorCorrection import ErrorCorrectionCallable, nocode
 from .helper import xor_mask, xor_numpy
 from .helper.bin2Quaternary import quads2dna, string2QUATS
+
+UInt8Array = np.ndarray[Any, np.dtype[np.uint8]]
+BoolArray = np.ndarray[Any, np.dtype[np.bool_]]
 
 
 def interleave_spacing(input_str: str, spacing: int, spacing_length: int) -> str:
@@ -62,13 +66,13 @@ def deinterleave_spacing(interleaved_str: str, spacing: int, spacing_length: int
 class Packet:
     def __init__(
         self,
-        data: Union[bytes, NDArray[np.uint8]],
+        data: Union[bytes, UInt8Array],
         used_packets: Set[int],
         total_number_of_chunks: int,
         read_only: bool = False,
         seed: int = 0,
         implicit_mode: bool = True,
-        error_correction: Callable[[bytes], bytes] = nocode,  # type: ignore[assignment]
+        error_correction: ErrorCorrectionCallable = nocode,
         packet_len_format: str = "I",
         crc_len_format: str = "L",
         number_of_chunks_len_format: str = "I",
@@ -78,8 +82,8 @@ class Packet:
         prepend: str = "",
         append: str = "",
     ):
-        self.data: Union[bytes, NDArray[np.uint8]] = data
-        self.error_correction: Callable[[bytes], bytes] = error_correction
+        self.data: Union[bytes, UInt8Array] = data
+        self.error_correction: ErrorCorrectionCallable = error_correction
         self.total_number_of_chunks: int = total_number_of_chunks
         self.used_packets: Set[int] = set()
         self.set_used_packets(used_packets)
@@ -208,16 +212,16 @@ class Packet:
         self.internal_hash = None  # enforce recalculation of hash
         return self.dna_data
 
-    def get_data(self) -> Union[bytes, NDArray[np.uint8]]:
+    def get_data(self) -> Union[bytes, UInt8Array]:
         return self.data
 
-    def set_data(self, data: Union[bytes, NDArray[np.uint8]]) -> None:
+    def set_data(self, data: Union[bytes, UInt8Array]) -> None:
         self.data = data
 
     def get_used_packets(self) -> Set[int]:
         return self.used_packets
 
-    def get_bool_array_used_packets(self) -> NDArray[np.bool_]:
+    def get_bool_array_used_packets(self) -> BoolArray:
         return np.array(
             [x in self.used_packets for x in range(self.total_number_of_chunks)], dtype=bool
         )
@@ -229,7 +233,7 @@ class Packet:
     def get_total_number_of_chunks(self) -> int:
         return self.total_number_of_chunks
 
-    def get_error_correction(self) -> Callable[[bytes], bytes]:
+    def get_error_correction(self) -> ErrorCorrectionCallable:
         return self.error_correction
 
     def update_degree(self) -> None:
@@ -272,11 +276,13 @@ class Packet:
         # if self.error_prob is not None and other.error_prob is not None:
         #    return self.error_prob == other.error_prob
         # else:
-        return (
-            isinstance(other, self.__class__)
-            and hash(self) == hash(other)
-            and bool(np.all(np.equal(self.data, other.data)))
+        if not isinstance(other, self.__class__):
+            return False
+        self_data = self.data.tobytes() if isinstance(self.data, np.ndarray) else bytes(self.data)
+        other_data = (
+            other.data.tobytes() if isinstance(other.data, np.ndarray) else bytes(other.data)
         )
+        return hash(self) == hash(other) and self_data == other_data
 
     def __lt__(self, other: "Packet") -> bool:
         if self.error_prob is not None and other.error_prob is not None:
@@ -286,12 +292,15 @@ class Packet:
 
     def __hash__(self) -> int:
         if self.internal_hash is None:
+            normalized_data = (
+                self.data.tobytes() if isinstance(self.data, np.ndarray) else bytes(self.data)
+            )
             self.internal_hash = hash(
                 str(self.total_number_of_chunks)
                 + str(self.id)
                 + str("" if self.error_prob is None else self.error_prob)
                 + self.__module__
-                + (str(self.data) if self.dna_data is None else self.dna_data)
+                + (normalized_data.hex() if self.dna_data is None else self.dna_data)
             )
         assert self.internal_hash is not None
         return self.internal_hash
@@ -303,7 +312,7 @@ class ParallelPacket:
         used_packets: Set[int],
         total_number_of_chunks: int,
         p_id: int,
-        data: Union[bytes, NDArray[np.uint8]],
+        data: Union[bytes, UInt8Array],
         dna_data: typing.Optional[str],
         packed: bytes,
         error_prob: typing.Optional[int],
@@ -320,7 +329,7 @@ class ParallelPacket:
         self.used_packets: Set[int] = used_packets
         self.total_number_of_chunks: int = total_number_of_chunks
         self.id: int = p_id
-        self.datadata: Union[bytes, NDArray[np.uint8]] = data
+        self.datadata: Union[bytes, UInt8Array] = data
         self.dna_data: typing.Optional[str] = dna_data
         self.packed: bytes = packed
         self.error_prob: typing.Optional[int] = error_prob

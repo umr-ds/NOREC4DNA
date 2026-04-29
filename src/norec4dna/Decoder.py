@@ -11,6 +11,10 @@ T = TypeVar("T", bound="Decoder")
 class Decoder(ABC):
     """Common decoder API used by the concrete LT, Online, and RU10 decoders."""
 
+    _PSEUDO_BLOCKED_METHODS = frozenset(
+        {"decode", "decodeFile", "getNextValidPacket", "saveDecodedFile"}
+    )
+
     def __init__(self, file: Optional[str] = None) -> None:
         self.file: Optional[str] = file
         self.read_all_before_decode: bool = False
@@ -44,20 +48,22 @@ class Decoder(ABC):
         number_of_chunks: Optional[int] = None,
         read_all_before_decode: bool = False,
     ) -> T:
-
-        def warn_pseudo() -> None:
-            print("This method is not allowed while using pseudo Decoder")
-
         pseudo = cls(None)
-        pseudo.decodeFile = warn_pseudo  # type: ignore[assignment]
-        pseudo.decode = warn_pseudo  # type: ignore[assignment]
-        pseudo.getNextValidPacket = warn_pseudo  # type: ignore[assignment]
-        pseudo.saveDecodedFile = warn_pseudo  # type: ignore[assignment]
         pseudo.read_all_before_decode = read_all_before_decode
         if number_of_chunks is not None:
             pseudo.number_of_chunks = number_of_chunks
         pseudo.isPseudo = True
         return pseudo
+
+    def __getattribute__(self, name: str) -> Any:
+        attr = super().__getattribute__(name)
+        if name in Decoder._PSEUDO_BLOCKED_METHODS and super().__getattribute__("isPseudo"):
+            return self._warn_pseudo_operation
+        return attr
+
+    def _warn_pseudo_operation(self, *args: Any, **kwargs: Any) -> None:
+        del args, kwargs
+        print("This method is not allowed while using pseudo Decoder")
 
     @abstractmethod
     def input_new_packet(self, packet: Any, *args: Any, **kwargs: Any) -> bool:

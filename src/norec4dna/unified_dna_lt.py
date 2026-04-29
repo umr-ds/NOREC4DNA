@@ -2,20 +2,17 @@ import functools
 import io
 
 import numpy as np
-from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import (
+
+from .distributions.ErlichZielinskiRobustSolitonDisribution import (
     ErlichZielinskiRobustSolitonDistribution,
 )
-from norec4dna.HeaderChunk import HeaderChunk
-from norec4dna.Packet import Packet
-
-from . import (
-    Encoder,
-    LTDecoder,
-    LTEncoder,
-    get_error_correction_decode,
-    get_error_correction_encode,
-)
+from .Encoder import Encoder
+from .ErrorCorrection import get_error_correction_decode, get_error_correction_encode
+from .HeaderChunk import HeaderChunk
 from .helper.quaternary2Bin import tranlate_quat_to_byte
+from .LTDecoder import LTDecoder
+from .LTEncoder import LTEncoder
+from .Packet import Packet
 from .rules.DNARules_ErlichZielinski import DNARules_ErlichZielinski
 
 # INPUT_FILE = "data_2mb.test"
@@ -94,8 +91,55 @@ def encode(string_file_name, numpy_boolean_array):
     return [x.get_dna_struct(True) for x in encoder.encodedPackets], encoder
 
 
+def _iter_lt_packets(decoder, list_of_dna_strings):
+    for dna_str in list_of_dna_strings:
+        new_pack = decoder.parse_raw_packet(
+            io.BytesIO(tranlate_quat_to_byte(dna_str)).read(),
+            crc_len_format=CHECKSUM_LEN_STR,
+            number_of_chunks_len_format=NUM_CHUNK_LEN_FORMAT,
+            degree_len_format=DEGREE_LEN_STR,
+            seed_len_format=ID_LEN_STR,
+        )
+        if new_pack is not None and new_pack != "CORRUPT":
+            yield new_pack
+
+
+def _ensure_lt_header_chunk(decoder, gepp) -> None:
+    if not INSERT_HEADER or decoder.headerChunk is not None:
+        return
+    decoder.headerChunk = HeaderChunk(
+        Packet(gepp.b[0], {0}, decoder.number_of_chunks, read_only=True)
+    )
+
+
+def _write_lt_row(decoder, gepp, row_index: int, output_buffer: io.BytesIO) -> bool:
+    if row_index < 0:
+        output_buffer.write(b"\x00" * len(gepp.b[row_index][0]))
+        return False
+
+    _ensure_lt_header_chunk(decoder, gepp)
+    if row_index == 0 and INSERT_HEADER:
+        return False
+
+    if decoder.number_of_chunks - 1 == row_index and INSERT_HEADER:
+        header_chunk = decoder.headerChunk
+        if header_chunk is None:
+            raise RuntimeError("Header chunk missing during LT decode")
+        output_buffer.write(gepp.b[row_index][0][0 : header_chunk.get_last_chunk_length()])
+        return False
+
+    if NULL_IS_TERMINATOR:
+        splitter = gepp.b[row_index].tobytes().decode().split("\x00")
+        output_buffer.write(splitter[0].encode())
+        return len(splitter) > 1
+
+    output_buffer.write(gepp.b[row_index].tobytes())
+    return False
+
+
 def decode(string_file_name, list_of_dna_strings):
     # make sure that the dist is freshly initialized...
+    assert NUMBER_OF_CHUNKS is not None
     decoder = DECODER_CLASS(
         string_file_name,
         error_correction=error_correction_func_dec,
@@ -106,16 +150,8 @@ def decode(string_file_name, list_of_dna_strings):
     )
     decoder.read_all_before_decode = READ_ALL
 
-    for dna_str in list_of_dna_strings:
-        new_pack = decoder.parse_raw_packet(
-            io.BytesIO(tranlate_quat_to_byte(dna_str)).read(),
-            crc_len_format=CHECKSUM_LEN_STR,
-            number_of_chunks_len_format=NUM_CHUNK_LEN_FORMAT,
-            degree_len_format=DEGREE_LEN_STR,
-            seed_len_format=ID_LEN_STR,
-        )
-        if new_pack is not None and new_pack != "CORRUPT":
-            decoder.input_new_packet(new_pack)
+    for new_pack in _iter_lt_packets(decoder, list_of_dna_strings):
+        decoder.input_new_packet(new_pack)
 
     solved = decoder.solve()
     if RAISE_ON_UNSOLVED and not solved:
@@ -124,30 +160,14 @@ def decode(string_file_name, list_of_dna_strings):
         )
     if not solved:
         print("Could not solve the system of equations. A partial recovery will be performed:")
+    gepp = decoder.GEPP
+    if gepp is None:
+        raise RuntimeError("Decoder GEPP was not initialized")
     __byte_io = io.BytesIO()
     with __byte_io as f:
-        for x in decoder.GEPP.result_mapping:
-            if x < 0:
-                f.write(b"\x00" * len(decoder.GEPP.b[x][0]))
-                continue
-            if INSERT_HEADER and decoder.headerChunk is None:
-                decoder.headerChunk = HeaderChunk(
-                    Packet(decoder.GEPP.b[0], {0}, decoder.number_of_chunks, read_only=True)
-                )
-            if 0 != x or not INSERT_HEADER:
-                if decoder.number_of_chunks - 1 == x and INSERT_HEADER:
-                    output = decoder.GEPP.b[x][0][0 : decoder.headerChunk.get_last_chunk_length()]
-                    f.write(output)
-                else:
-                    if NULL_IS_TERMINATOR:
-                        splitter: str = decoder.GEPP.b[x].tostring().decode().split("\x00")
-                        output = splitter[0].encode()
-                        f.write(output)
-                        if len(splitter) > 1:
-                            break  # since we are in null-terminator mode, we exit once we see the first 0-byte
-                    else:
-                        output = decoder.GEPP.b[x]
-                        f.write(output)
+        for x in gepp.result_mapping:
+            if _write_lt_row(decoder, gepp, x, f):
+                break
         # convert the byte array __ByteIO to a numpy bool array
         numpy_boolean_array = np.unpackbits(np.frombuffer(f.getvalue(), dtype=np.uint8))
         return numpy_boolean_array

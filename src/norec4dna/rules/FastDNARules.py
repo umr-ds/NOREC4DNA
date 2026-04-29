@@ -1,12 +1,10 @@
 import copy
 import math
+from collections.abc import Callable, Iterable
 from functools import partial
+from typing import List, Optional, Set, Tuple
 
-try:
-    pass
-except:
-    pass  # code for windows...
-
+from ..helper.fallback_code import r_region, small_r_region
 from .RuleParser import (
     charCountBiggerEqualThanX,
     gc_content,
@@ -19,35 +17,24 @@ from .RuleParser import (
 )
 
 try:
-    from cdnarules import repeatRegion as rRegion
-    from cdnarules import smallRepeatRegion as smallrRegion
-except:
+    from cdnarules import repeatRegion as _repeat_region
+    from cdnarules import smallRepeatRegion as _small_repeat_region
+except Exception:
     print("C Module failed to load, falling back to slow mode")
+    _repeat_region = None
+    _small_repeat_region = None
 
-    def rRegion(data, repeat_length=20):
-        """
 
-        :param data:
-        :param repeat_length:
-        :return:
-        """
-        for i in range(len(data) - repeat_length):
-            subseq = data[i : i + repeat_length]
-            if data[i + 1 :].find(subseq) >= 0:
-                return 1.0
-        return 0.0
+def rRegion(data: str, repeat_length: int = 20) -> float:
+    if _repeat_region is None:
+        return r_region(data, repeat_length)
+    return float(_repeat_region(data, repeat_length))
 
-    def smallrRegion(data, repeat_length=9):
-        count = 1
-        for i in range(len(data) - repeat_length):
-            subseq = data[i : i + repeat_length]
-            if data[i + 1 :].find(subseq) >= 0:
-                count += 1
-        return (
-            1.0
-            if 1.0 * count * repeat_length / len(data) > 0.44
-            else count * repeat_length / len(data) * 0.5
-        )
+
+def smallrRegion(data: str, repeat_length: int = 9) -> float:
+    if _small_repeat_region is None:
+        return small_r_region(data, repeat_length)
+    return float(_small_repeat_region(data, repeat_length))
 
 
 _undes_motifs = [
@@ -131,14 +118,14 @@ def lax_homopolymers():
 
 class FastDNARules:
     def __init__(self, active_rules=None, extra_motifs=None):
-        # self.nineteen_mers = pybloomfilter.BloomFilter(50000000, 0.0001)
-        # self.tmp_nineteen_mers = pybloomfilter.BloomFilter(50000, 0.0001)
+        self.nineteen_mers: Set[str] = set()
+        self.tmp_nineteen_mers: Set[str] = set()
         # Extra forbidden motifs supplied at construction time or via add_forbidden_sequences().
         # Each entry is a (dna_sequence, error_probability) tuple; error_probability >= 1.01
         # guarantees the packet is rejected (same convention as the built-in undesired motifs).
-        self.extra_motifs: list = list(extra_motifs) if extra_motifs else []
+        self.extra_motifs: List[Tuple[str, float]] = list(extra_motifs) if extra_motifs else []
         if active_rules is None:
-            self.active_rules = [
+            self.active_rules: List[Callable[[str], float]] = [
                 # FastDNARules.a_permutation,
                 # FastDNARules.t_permutation,
                 # FastDNARules.c_permutation,
@@ -164,7 +151,7 @@ class FastDNARules:
         else:
             self.active_rules = active_rules
 
-    def add_forbidden_sequences(self, sequences, error_prob: float = 1.01) -> None:
+    def add_forbidden_sequences(self, sequences: Iterable[str], error_prob: float = 1.01) -> None:
         """Register additional DNA sequences that must not appear in any encoded packet.
 
         Sequences are added to the instance-level extra_motifs list and are checked
@@ -201,9 +188,9 @@ class FastDNARules:
                     return 1.0
         return drop
 
-    def check_and_add_mers(self, data, length=19):
+    def check_and_add_mers(self, data: str, length: int = 19) -> float:
         chunks = [data[i : i + length] for i in range(0, len(data), length)]
-        self.tmp_nineteen_mers.clear_all()
+        self.tmp_nineteen_mers.clear()
         res = 0.0
         for chunk in chunks:
             if chunk in self.nineteen_mers or chunk in self.tmp_nineteen_mers:
@@ -251,13 +238,13 @@ class FastDNARules:
         """
         try:
             dna_data = packet.get_dna_struct(True)
-        except:
+        except AttributeError:
             dna_data = packet
         res_arr = [x(dna_data) for x in self.active_rules]
         return sum(res_arr), res_arr, packet
 
     @staticmethod
-    def homopolymers(data, probs=None):
+    def homopolymers(data: str, probs: Optional[List[float]] = None) -> float:
         """
         Calculates the dropchance based on the chance of homopolymers to mutate. Homopolymers are repeats of the same
         single unit and have a higher chance to mutate than regular polymers.
@@ -266,8 +253,8 @@ class FastDNARules:
         """
         if probs is None:
             probs = [0.0, 0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
-        length = longestSequenceOfChar(data, "*")[1]
-        return min(1.0, probs[length] if length < len(probs) else 1.0)
+        homopolymer_length = longestSequenceOfChar(data, "*")[1]
+        return min(1.0, probs[homopolymer_length] if homopolymer_length < len(probs) else 1.0)
 
     @staticmethod
     def dinucleotid_runs(data):
@@ -427,7 +414,7 @@ class FastDNARules:
             ("GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAG", 1.01),
         ]
 
-        _undes_motifs = [
+        undes_motifs = [
             # Promoter recognition motif (Euk).
             ("TATAAA", 1.01),
             # Promoter recognition motifs (Prok).
@@ -548,44 +535,42 @@ class FastDNARules:
         return (
             1.0
             if any(
-                [
-                    x in data
-                    for x in FastDNARules.add_complementary(
-                        [
-                            "ATAACTTCGTATAGCATACATTATACGAAGTTAT",
-                            "ATAACTTCGTATAGCATACATTATACGAACGGTA",
-                            "TACCGTTCGTATAGCATACATTATACGAAGTTAT",
-                            "TACCGTTCGTATAGCATACATTATACGAACGGTA",
-                            "TACCGTTCGTATATGGTATTATATACGAAGTTAT",
-                            "TACCGTTCGTATATTCTATCTTATACGAAGTTAT",
-                            "TACCGTTCGTATAGGATACTTTATACGAAGTTAT",
-                            "TACCGTTCGTATATACTATACTATACGAAGTTAT",
-                            "TACCGTTCGTATACTATAGCCTATACGAAGTTAT",
-                            "ATAACTTCGTATATGGTATTATATACGAACGGTA",
-                            "ATAACTTCGTATAGTATACCTTATACGAAGTTAT",
-                            "ATAACTTCGTATAGTATACATTATACGAAGTTAT",
-                            "ATAACTTCGTATAGTACACATTATACGAAGTTAT",
-                            "GCATACAT",
-                            "TGGTATTA",
-                            "TTCTATCT",
-                            "GGATACTT",
-                            "TACTATAC",
-                            "CTATAGCC",
-                            "AGGTATGC",
-                            "TTGTATGG",
-                            "GGATAGTA",
-                            "GTGTATTT",
-                            "GGTTACGG",
-                            "TTTTAGGT",
-                            "GTATACCT",
-                            "GTACACAT",
-                            "GAAGAC",
-                            "CTTCTG",
-                            "GGTCTC",
-                            "CCAGAG",
-                        ]
-                    )
-                ]
+                x in data
+                for x in FastDNARules.add_complementary(
+                    [
+                        "ATAACTTCGTATAGCATACATTATACGAAGTTAT",
+                        "ATAACTTCGTATAGCATACATTATACGAACGGTA",
+                        "TACCGTTCGTATAGCATACATTATACGAAGTTAT",
+                        "TACCGTTCGTATAGCATACATTATACGAACGGTA",
+                        "TACCGTTCGTATATGGTATTATATACGAAGTTAT",
+                        "TACCGTTCGTATATTCTATCTTATACGAAGTTAT",
+                        "TACCGTTCGTATAGGATACTTTATACGAAGTTAT",
+                        "TACCGTTCGTATATACTATACTATACGAAGTTAT",
+                        "TACCGTTCGTATACTATAGCCTATACGAAGTTAT",
+                        "ATAACTTCGTATATGGTATTATATACGAACGGTA",
+                        "ATAACTTCGTATAGTATACCTTATACGAAGTTAT",
+                        "ATAACTTCGTATAGTATACATTATACGAAGTTAT",
+                        "ATAACTTCGTATAGTACACATTATACGAAGTTAT",
+                        "GCATACAT",
+                        "TGGTATTA",
+                        "TTCTATCT",
+                        "GGATACTT",
+                        "TACTATAC",
+                        "CTATAGCC",
+                        "AGGTATGC",
+                        "TTGTATGG",
+                        "GGATAGTA",
+                        "GTGTATTT",
+                        "GGTTACGG",
+                        "TTTTAGGT",
+                        "GTATACCT",
+                        "GTACACAT",
+                        "GAAGAC",
+                        "CTTCTG",
+                        "GGTCTC",
+                        "CCAGAG",
+                    ]
+                )
             )
             else 0.0
         )
@@ -599,13 +584,17 @@ if __name__ == "__main__":
     # print(x.check_and_add_mers("CCCCCCCCCCCCCCCCCCC", 19))
     print(
         x.homopolymers(
-            "GGTCTCGCAAGTTACGTGTCTATTTAGCGCGGCATATCACAGCGGCGGTACGCATAACAGTTTACAGGGAAAGTAGATCATCAGGCGTGGCTAGGGAGCGCGTGTCCTCATTTGTTGAGGAGACGCTAAAGCACCCGGGTAGTAAATATCTGAACATGGGGGGG",
+            "GGTCTCGCAAGTTACGTGTCTATTTAGCGCGGCATATCACAGCGGCGGTACGCATAACAGTTTACA"
+            "GGGAAAGTAGATCATCAGGCGTGGCTAGGGAGCGCGTGTCCTCATTTGTTGAGGAGACGCTAAAGC"
+            "ACCCGGGTAGTAAATATCTGAACATGGGGGGG",
             probs=three_strict_homopolymers(),
         )
     )
     print(
         x.overall_gc_content(
-            "GGTCTCGCAAGTTACGTGTCTATTTAGCGCGGCATATCACAGCGGCGGTACGCATAACAGTTTACAGGGAAAGTAGATCATCAGGCGTGGCTAGGGAGCGCGTGTCCTCATTTGTTGAGGAGACGCTAAAGCACCCGGGTAGTAAATATCTGAACATGGGGGGG"
+            "GGTCTCGCAAGTTACGTGTCTATTTAGCGCGGCATATCACAGCGGCGGTACGCATAACAGTTTACA"
+            "GGGAAAGTAGATCATCAGGCGTGGCTAGGGAGCGCGTGTCCTCATTTGTTGAGGAGACGCTAAAGC"
+            "ACCCGGGTAGTAAATATCTGAACATGGGGGGG"
         )
     )
     # print(x.motif_search("ATGGTACGCAAGTCTACGAG"))

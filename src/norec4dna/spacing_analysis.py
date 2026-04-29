@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 import multiprocessing
 import struct
@@ -5,10 +7,13 @@ from functools import partial
 from multiprocessing import freeze_support
 
 import numpy as np
-from norec4dna.helper import bin2Quaternary, should_drop_packet
-from norec4dna.Packet import ParallelPacket
 
-from . import Encoder, RaptorDistribution, RU10Encoder, nocode, reed_solomon_encode
+from .distributions.RaptorDistribution import RaptorDistribution
+from .Encoder import Encoder
+from .ErrorCorrection import nocode, reed_solomon_encode
+from .helper import bin2Quaternary, should_drop_packet
+from .Packet import ParallelPacket
+from .RU10Encoder import RU10Encoder
 from .rules.FastDNARules import FastDNARules
 from .rules.RuleParser import longestSequenceOfChar
 
@@ -18,7 +23,7 @@ def run(
     file=".INFILES/logo.jpg",
     repair_symbols=2,
     insert_header=False,
-    error_correction=nocode,
+    selected_error_correction=nocode,
     save_number_of_chunks_in_packet=False,
     l_size=1000,
     while_count=1000,
@@ -39,8 +44,13 @@ def run(
     if packets_to_create is None:
         packets_to_create = math.pow(2, 8 * struct.calcsize(seed_len_format))
     rules = dna_rules
-    if repair_symbols != 0 and error_correction != nocode:
-        error_correction = lambda x: reed_solomon_encode(x, repair_symbols)
+    if repair_symbols != 0 and selected_error_correction != nocode:
+
+        def custom_error_correction(data: bytes) -> bytes:
+            return reed_solomon_encode(data, repair_symbols)
+
+        selected_error_correction = custom_error_correction
+
     dist = RaptorDistribution(number_of_chunks)
     x = RU10Encoder(
         file,
@@ -49,7 +59,7 @@ def run(
         chunk_size=chunk_size,
         insert_header=insert_header,
         rules=rules,
-        error_correction=error_correction,
+        error_correction=selected_error_correction,
         id_len_format=seed_len_format,
         number_of_chunks_len_format=number_of_chunks_len_format,
         save_number_of_chunks_in_packet=save_number_of_chunks_in_packet,

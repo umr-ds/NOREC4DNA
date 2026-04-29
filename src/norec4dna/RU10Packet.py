@@ -1,12 +1,14 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
+from __future__ import annotations
+
 import copy
 import logging
 import struct
 import typing
+from importlib import import_module, util
 
 import numpy as np
-from bitstring import BitArray
 
 from .distributions.RaptorDistribution import RaptorDistribution
 from .ErrorCorrection import nocode
@@ -14,6 +16,21 @@ from .helper import xor_mask
 from .helper.helper import xor_with_seed
 from .helper.RU10Helper import intermediate_symbols
 from .Packet import Packet
+
+
+class _FallbackBitArray:
+    def __init__(self, *, bin: str):
+        self._bits = bin
+
+    def tobytes(self) -> bytes:
+        padded_bits = self._bits.ljust(((len(self._bits) + 7) // 8) * 8, "0")
+        return bytes(
+            int(padded_bits[index : index + 8], 2) for index in range(0, len(padded_bits), 8)
+        )
+
+
+_bitstring = import_module("bitstring") if util.find_spec("bitstring") is not None else None
+BitArray = _bitstring.BitArray if _bitstring is not None else _FallbackBitArray
 
 
 class RU10Packet(Packet):
@@ -75,6 +92,8 @@ class RU10Packet(Packet):
         _, self.s, self.h = intermediate_symbols(total_number_of_chunks, self.dist)
         self.prepend = prepend
         self.append = append
+        self.packed_used_packets: typing.Optional[bytes]
+        self.packed: typing.Optional[bytes]
         if not read_only and (len(self.data) > 0 or self.data != ""):
             self.packed_used_packets = self.prepare_and_pack()
             self.packed = self.calculate_packed_data()
@@ -82,6 +101,7 @@ class RU10Packet(Packet):
         else:
             self.packed_used_packets = None
             self.packed = None
+        self.packed_struct: typing.Optional[bytes] = None
         self.contains_meta_or_version = contains_meta_or_version
         # super().__init__(data, used_packets, total_number_of_chunks, read_only, error_correction=error_correction)
 
@@ -150,6 +170,7 @@ class RU10Packet(Packet):
         self.packed_data: bytes = struct.pack("<" + str(len(self.data)) + "s", bytes(self.data))
         if self.xor_by_seed:
             self.packed_data: bytes = xor_with_seed(self.packed_data, self.id)
+        assert self.packed_used_packets is not None
         if self.packedMethod:
             payload = struct.pack(
                 "<"

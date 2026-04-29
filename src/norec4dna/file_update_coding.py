@@ -31,6 +31,14 @@ For more information, see MULTIVERSION_INPUT_FIX.md
 
 import logging
 import warnings
+from importlib import import_module, util
+from typing import Any
+
+_coder = (
+    import_module("norec4dna_multiversion.coder")
+    if util.find_spec("norec4dna_multiversion.coder") is not None
+    else None
+)
 
 # Issue deprecation warning on import
 warnings.warn(
@@ -46,27 +54,22 @@ logger.warning(
     "norec4dna.file_update_coding is deprecated. Please use norec4dna_multiversion.coder instead."
 )
 
-# Also export types for type checking
-
-# Re-export all functions and classes from MultiVersionCoder
-from norec4dna_multiversion.coder import (
-    MultiVersionCoder,
-    add_packets,
-    create_perceptual_hash,
-    decode_versions,
-    encoder_from_decoder,
-    find_affected_chunks,
-    find_insertion_position,
-    find_insertion_position_with_seed,
-    generate_dna_version_string,
-    generate_new_packets,
-    get_current_file_version,
-    init_args,
-    insert_dna_version_string,
-    insert_id_string,
-    main,
-    reduce_packet_to_chunk,
-)
+MultiVersionCoder: Any
+find_affected_chunks: Any
+generate_dna_version_string: Any
+get_current_file_version: Any
+insert_dna_version_string: Any
+insert_id_string: Any
+reduce_packet_to_chunk: Any
+find_insertion_position: Any
+find_insertion_position_with_seed: Any
+generate_new_packets: Any
+create_perceptual_hash: Any
+encoder_from_decoder: Any
+add_packets: Any
+decode_versions: Any
+init_args: Any
+main: Any
 
 __all__ = [
     "MultiVersionCoder",
@@ -87,6 +90,24 @@ __all__ = [
     "main",
 ]
 
+if _coder is not None:
+    for exported_name in __all__:
+        globals()[exported_name] = getattr(_coder, exported_name)
+else:
+    for exported_name in __all__:
+        globals()[exported_name] = None
+
+
+def __getattr__(name: str) -> Any:
+    if _coder is not None and name in __all__:
+        return getattr(_coder, name)
+    if name in __all__:
+        raise ImportError(
+            "norec4dna_multiversion.coder is required for deprecated file_update_coding helpers"
+        )
+    raise AttributeError(name)
+
+
 # Keep CLI functionality for backward compatibility
 if __name__ == "__main__":
     warnings.warn(
@@ -95,4 +116,6 @@ if __name__ == "__main__":
         DeprecationWarning,
         stacklevel=2,
     )
-    main()
+    if _coder is None:
+        raise ImportError("norec4dna_multiversion.coder is required to run this module")
+    _coder.main()

@@ -21,6 +21,52 @@ DecodeCallableResult = typing.Union[DecoderResult, Decoder]
 logger = logging.getLogger(__name__)
 
 
+def _create_demo(algorithm: str) -> "DecoderDemo":
+    normalized_algorithm = algorithm.lower()
+    if normalized_algorithm == "ru10":
+        return typing.cast(DecoderDemo, demo_raptor_decode())
+    if normalized_algorithm == "lt":
+        return typing.cast(DecoderDemo, demo_lt_decode())
+    if normalized_algorithm == "online":
+        return typing.cast(DecoderDemo, demo_online_decode())
+    raise RuntimeError('unsupported algorithm, this version supports: "RU10", "Online" and "LT"')
+
+
+def _prepare_decode_inputs(
+    filename: str,
+    split_index_position: str,
+    split_index_length: int,
+    number_of_splits: int,
+) -> typing.Tuple[typing.List[str], typing.Optional[str]]:
+    if split_index_length == 0:
+        return [filename], None
+
+    if filename.lower().endswith("fasta"):
+        folders, last_split_folder = fasta_cluster_and_remove_index(
+            split_index_position, split_index_length, filename
+        )
+    else:
+        folders, last_split_folder = cluster_and_remove_index(
+            split_index_position, split_index_length, filename
+        )
+    if number_of_splits > 0 and number_of_splits != len(folders):
+        logger.warning("Number of Splits given by user differs from number of splits found!")
+    return folders, last_split_folder
+
+
+def _get_chunk_count_for_file(
+    number_of_chunks: typing.Optional[int],
+    f_file: str,
+    last_split_folder: typing.Optional[str],
+    last_split_smaller: bool,
+) -> typing.Optional[int]:
+    if number_of_chunks is None:
+        return None
+    if f_file == last_split_folder and last_split_smaller:
+        return number_of_chunks - 1
+    return number_of_chunks
+
+
 class DecoderDemo(typing.Protocol):
     @typing.overload
     def decode(
@@ -215,71 +261,40 @@ class ConfigReadAndExecute:
         # extract preconfig steps:
         if number_of_splits != 0:
             split_index_length = find_ceil_power_of_four(number_of_splits)
-        last_split_folder: typing.Optional[str] = None
-        folders: typing.List[str]
-        if split_index_length != 0:
-            if filename.lower().endswith("fasta"):
-                folders, last_split_folder = fasta_cluster_and_remove_index(
-                    split_index_position, split_index_length, filename
-                )
-            else:
-                folders, last_split_folder = cluster_and_remove_index(
-                    split_index_position, split_index_length, filename
-                )
-            # check if the number of folders is equal to the number_of_splits given by user ( if this is != 0 )
-            if number_of_splits > 0 and number_of_splits != len(folders):
-                logger.warning(
-                    "Number of Splits given by user differs from number of splits found!"
-                )
-        else:
-            folders = [filename]
+        folders, last_split_folder = _prepare_decode_inputs(
+            filename, split_index_position, split_index_length, number_of_splits
+        )
         error_correction = get_error_correction_decode(e_correction, repair_symbols)
         decoded_files: typing.List[typing.Any] = []
         for f_file in folders:
             logger.info("File / Folder to decode: %s", f_file)
-            demo: DecoderDemo
-            if algorithm.lower() == "ru10":
-                demo = typing.cast(DecoderDemo, demo_raptor_decode())
-            elif algorithm.lower() == "lt":
-                demo = typing.cast(DecoderDemo, demo_lt_decode())
-            elif algorithm.lower() == "online":
-                demo = typing.cast(DecoderDemo, demo_online_decode())
-            else:
-                raise RuntimeError(
-                    'unsupported algorithm, this version supports: "RU10", "Online" and "LT"'
-                )
+            demo = _create_demo(algorithm)
             self.coder = demo
-            try:
-                decoded_result = demo.decode(
-                    f_file,
-                    error_correction=error_correction,
-                    null_is_terminator=is_null_terminated,
-                    mode_1_bmp=mode_1_bmp,
-                    id_len_format=id_len_format,
-                    number_of_chunks_len_format=number_of_chunks_len_format,
-                    packet_len_format=packet_len_format,
-                    crc_len_format=crc_len_format,
-                    number_of_chunks=(
-                        number_of_chunks
-                        + (-1 if f_file == last_split_folder and last_split_smaller else 0)
-                        if number_of_chunks is not None
-                        else None
-                    ),
-                    use_header_chunk=use_header_chunk,
-                    read_all=read_all_packets,
-                    distribution_cfg_str=distribution_cfg_str,
-                    return_decoder=return_decoder,
-                    checksum_len_str=checksum_len_str,
-                    skip_solve=skip_solve,
-                    xor_by_seed=xor_by_seed,
-                    id_spacing=id_spacing,
-                    mask_id=mask_id,
-                    store_parsed_packets=store_parsed_packets,
-                    config_map=decode_conf,
-                )
-                decoded_files.append(decoded_result)
-            except Exception as ex:
-                raise ex
+            decoded_result = demo.decode(
+                f_file,
+                error_correction=error_correction,
+                null_is_terminator=is_null_terminated,
+                mode_1_bmp=mode_1_bmp,
+                id_len_format=id_len_format,
+                number_of_chunks_len_format=number_of_chunks_len_format,
+                packet_len_format=packet_len_format,
+                crc_len_format=crc_len_format,
+                number_of_chunks=_get_chunk_count_for_file(
+                    number_of_chunks, f_file, last_split_folder, last_split_smaller
+                ),
+                use_header_chunk=use_header_chunk,
+                read_all=read_all_packets,
+                distribution_cfg_str=distribution_cfg_str,
+                return_decoder=return_decoder,
+                checksum_len_str=checksum_len_str,
+                skip_solve=skip_solve,
+                xor_by_seed=xor_by_seed,
+                id_spacing=id_spacing,
+                mask_id=mask_id,
+                store_parsed_packets=store_parsed_packets,
+                config_map=decode_conf,
+            )
+            decoded_files.append(decoded_result)
         if len(folders) > 1:
             merge_parts(typing.cast(typing.List[str], decoded_files), remove_tmp_on_success=True)
         else:

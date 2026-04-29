@@ -28,24 +28,24 @@ class TestBitSet:
     def test_bitset_basic(self):
         """Test basic bitSet functionality"""
         # Test various bit positions
-        assert bitSet(0b1, 0) == True
-        assert bitSet(0b10, 1) == True
-        assert bitSet(0b100, 2) == True
-        assert bitSet(0b1000, 3) == True
+        assert bitSet(0b1, 0)
+        assert bitSet(0b10, 1)
+        assert bitSet(0b100, 2)
+        assert bitSet(0b1000, 3)
 
     def test_bitset_false(self):
         """Test bitSet when bit is not set"""
-        assert bitSet(0b0, 0) == False
-        assert bitSet(0b1, 1) == False
-        assert bitSet(0b10, 0) == False
-        assert bitSet(0b1010, 0) == False
-        assert bitSet(0b1010, 2) == False
+        assert not bitSet(0b0, 0)
+        assert not bitSet(0b1, 1)
+        assert not bitSet(0b10, 0)
+        assert not bitSet(0b1010, 0)
+        assert not bitSet(0b1010, 2)
 
     def test_bitset_large_number(self):
         """Test bitSet with large numbers"""
         large_num = 0xFFFFFFFFFFFFFFFF
-        assert bitSet(large_num, 0) == True
-        assert bitSet(large_num, 63) == True
+        assert bitSet(large_num, 0)
+        assert bitSet(large_num, 63)
 
 
 class TestBitsSet:
@@ -237,13 +237,13 @@ class TestStrContainsSubPython:
 
     def test_strcontainsub_found(self):
         """Test strContainsSub_python when sequence is found"""
-        assert strContainsSub_python("ACGTACGT", "ACGT") == True
-        assert strContainsSub_python("hello world", "world") == True
+        assert strContainsSub_python("ACGTACGT", "ACGT")
+        assert strContainsSub_python("hello world", "world")
 
     def test_strcontainsub_not_found(self):
         """Test strContainsSub_python when sequence is not found"""
-        assert strContainsSub_python("ACGT", "TGCA") == False
-        assert strContainsSub_python("hello", "world") == False
+        assert not strContainsSub_python("ACGT", "TGCA")
+        assert not strContainsSub_python("hello", "world")
 
 
 class TestXorNumpyInternal:
@@ -289,8 +289,8 @@ class TestHelperCpuSingleCoreFallback:
     def test_bitset_fallback(self):
         """Test bitSet fallback implementation"""
         # Test the fallback implementation directly
-        assert bitSet(0b1010, 1) == True
-        assert bitSet(0b1010, 0) == False
+        assert bitSet(0b1010, 1)
+        assert not bitSet(0b1010, 0)
 
     def test_bitsset_fallback(self):
         """Test bitsSet fallback implementation"""
@@ -325,7 +325,7 @@ class TestHelperCpuSingleCoreFallback:
         assert np.array_equal(result, np.array([1, 1], dtype=np.uint8))
 
         # Test bitSet from fallback
-        assert bitSet(0b1010, 1) == True
+        assert bitSet(0b1010, 1)
 
         # Test bitsSet from fallback
         assert bitsSet(np.uint64(0b1011)) == 3

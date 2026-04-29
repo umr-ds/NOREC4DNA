@@ -219,12 +219,12 @@ def test_suite4(as_dna, chunk_size, dna_rules, error_correction):
     # do not delete all packets (and break the last one).
     # that way the GEPP inside the decoder will get initialized and we might not end in a race-condition for
     # decoder.decode() sometimes raising an Exception..
-    out_folder = out_dir
     for i in range(2, number_of_chunks):
         tmp_path = str(TEST_DIR / f"RU10_logo.jpg/{i}.RU10_DNA")
         os.remove(tmp_path)
     with open(str(TEST_DIR / "RU10_logo.jpg/0.RU10_DNA"), "rb+") as tmp_file:
-        # TODO we should flip bits in the middle rather than deleting 4 bytes at the end (we store crc32 / reedsolomon at the end)
+        # TODO flip bits in the middle rather than deleting 4 bytes at the end
+        # (we store crc32 / reedsolomon at the end).
         tmp_file.seek(-4, os.SEEK_END)
         tmp_file.truncate()
     decoder = decoder_instance(out_dir, error_correction=error_correction[1])
@@ -288,7 +288,7 @@ def test_suite5(as_dna, chunk_size, dna_rules, error_correction, headerchunk, de
 @pytest.mark.parametrize("as_dna", [True])
 @pytest.mark.parametrize("chunk_size", [100])
 @pytest.mark.parametrize("dna_rules", [None])
-def test_suite5(as_dna, chunk_size, dna_rules):
+def test_suite5_single_output(as_dna, chunk_size, dna_rules):
     chunksize = chunk_size
     number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file2, chunksize)
     dist = RaptorDistribution(number_of_chunks)

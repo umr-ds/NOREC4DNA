@@ -421,7 +421,7 @@ class TestShouldDropPacket:
 
         # With limit_only=True, should drop if drop_chance > upper_bound
         result = should_drop_packet(rules, packet, upper_bound=0.5, limit_only=True)
-        assert result == True  # 0.9 > 0.5
+        assert result  # 0.9 > 0.5
         assert packet.error_prob == 0.9
 
     def test_should_drop_packet_limit_only_false(self):
@@ -464,7 +464,7 @@ class TestShouldDropPacket:
         packet = MockPacket()
 
         result = should_drop_packet(rules, packet, upper_bound=0.5, limit_only=True)
-        assert result == True  # First element 0.9 > 0.5
+        assert result  # First element 0.9 > 0.5
 
 
 class TestCalcCrc:
@@ -548,13 +548,13 @@ class TestBitSet:
 
     def test_bitSet_true(self):
         """Test bitSet when bit is set"""
-        assert bitSet(0b1010, 1) == True  # Bit 1 is set
-        assert bitSet(0b1010, 3) == True  # Bit 3 is set
+        assert bitSet(0b1010, 1)  # Bit 1 is set
+        assert bitSet(0b1010, 3)  # Bit 3 is set
 
     def test_bitSet_false(self):
         """Test bitSet when bit is not set"""
-        assert bitSet(0b1010, 0) == False  # Bit 0 is not set
-        assert bitSet(0b1010, 2) == False  # Bit 2 is not set
+        assert not bitSet(0b1010, 0)  # Bit 0 is not set
+        assert not bitSet(0b1010, 2)  # Bit 2 is not set
 
 
 class TestBitsSet:

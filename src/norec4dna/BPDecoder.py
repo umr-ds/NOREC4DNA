@@ -1,10 +1,10 @@
 import os
 from collections import deque
-from typing import TYPE_CHECKING, Callable, Deque, Dict, List, Optional, Set, Union
+from typing import IO, Deque, Dict, List, Optional, Set, Union
 
 from .Decoder import Decoder
 from .distributions import Distribution
-from .ErrorCorrection import nocode
+from .ErrorCorrection import ErrorCorrectionCallable, nocode
 from .HeaderChunk import HeaderChunk
 from .helper.RU10Helper import from_true_false_list
 from .OnlineAuxPacket import OnlineAuxPacket
@@ -13,15 +13,12 @@ from .Packet import Packet
 from .RU10IntermediatePacket import RU10IntermediatePacket
 from .RU10Packet import RU10Packet
 
-if TYPE_CHECKING:
-    from io import BufferedReader
-
 
 class BPDecoder(Decoder):
     def __init__(
         self,
         file: Optional[str] = None,
-        error_correction: Callable[[bytes], bytes] = nocode,  # type: ignore[assignment]
+        error_correction: ErrorCorrectionCallable = nocode,
         use_headerchunk: bool = True,
         static_number_of_chunks: Optional[int] = None,
         use_method: bool = False,
@@ -31,7 +28,7 @@ class BPDecoder(Decoder):
         self.isPseudo: bool = False
         self.file: Optional[str] = file
         self.use_method: bool = use_method
-        self.f: Optional["BufferedReader"] = None
+        self.f: Optional[IO[bytes]] = None
         if file is not None:
             self.isFolder = os.path.isdir(file)
             if not self.isFolder:
@@ -51,7 +48,7 @@ class BPDecoder(Decoder):
         self.EOF: bool = False
         self.counter: Dict[int, int] = {}
         self.count: bool = False
-        self.error_correction: Callable[[bytes], bytes] = error_correction
+        self.error_correction: ErrorCorrectionCallable = error_correction
         self.use_headerchunk: bool = use_headerchunk
         self.static_number_of_chunks: Optional[int] = static_number_of_chunks
         self.auxBlocks: Dict[int, Union[RU10IntermediatePacket, OnlineAuxPacket]] = {}
@@ -118,34 +115,45 @@ class BPDecoder(Decoder):
 
     def reduceAll(self, packet: Packet) -> bool:
         # lookup all packets for this to solve with ( when this packet has a subset of used Packets)
-        fin: bool = False
+        if self._reduce_larger_degree_packets(packet):
+            return True
+        if self._reduce_smaller_degree_packets(packet):
+            return True
+        return self.is_decoded()
+
+    def _normalize_degree_packets(self, degree: int):
+        if not isinstance(self.degreeToPacket[degree], set):
+            self.degreeToPacket[degree] = set()
+        return self.degreeToPacket[degree]
+
+    def _reduce_larger_degree_packets(self, packet: Packet) -> bool:
         lookup: List[int] = [i for i in self.degreeToPacket.keys() if packet.get_degree() < i]
-        for i in lookup:
-            if not isinstance(self.degreeToPacket[i], set):
-                self.degreeToPacket[i] = set()
-            for p in self.degreeToPacket[i].copy():
-                p_used = p.get_used_packets()
-                pack_used = packet.get_used_packets()
-                if len(pack_used) < len(p_used) and pack_used.issubset(p_used):
-                    self.degreeToPacket[i].remove(p)
-                    degree = self.compareAndReduce(p, packet)
-                    if isinstance(degree, bool) and degree is True:
-                        return degree
+        for degree in lookup:
+            degree_packets = self._normalize_degree_packets(degree)
+            for candidate in degree_packets.copy():
+                packet_used = packet.get_used_packets()
+                candidate_used = candidate.get_used_packets()
+                if len(packet_used) < len(candidate_used) and packet_used.issubset(candidate_used):
+                    degree_packets.remove(candidate)
+                    reduced_degree = self.compareAndReduce(candidate, packet)
+                    if isinstance(reduced_degree, bool) and reduced_degree is True:
+                        return True
+        return False
+
+    def _reduce_smaller_degree_packets(self, packet: Packet) -> bool:
         degree: int = packet.get_degree()
         lookup = [i for i in self.degreeToPacket.keys() if packet.get_degree() > i]
-        for i in lookup:
-            if not isinstance(self.degreeToPacket[i], set):
-                self.degreeToPacket[i] = set()
-            for p in self.degreeToPacket[i].copy():
-                p_used = p.get_used_packets()
-                pack_used = packet.get_used_packets()
-                if len(pack_used) > len(p_used) and p_used.issubset(pack_used):
+        for lookup_degree in lookup:
+            self._normalize_degree_packets(lookup_degree)
+            for candidate in self.degreeToPacket[lookup_degree].copy():
+                packet_used = packet.get_used_packets()
+                candidate_used = candidate.get_used_packets()
+                if len(packet_used) > len(candidate_used) and candidate_used.issubset(packet_used):
                     try:
                         self.degreeToPacket[degree].remove(packet)
-                        degree = self.compareAndReduce(packet, p)
+                        degree = self.compareAndReduce(packet, candidate)
                         if isinstance(degree, bool) and degree is True:
-                            return degree
+                            return True
                     except Exception:
                         continue
-                    # If we already reduced a Packet with the same used_packets, there is no need to do it again
-        return fin or self.is_decoded()
+        return False

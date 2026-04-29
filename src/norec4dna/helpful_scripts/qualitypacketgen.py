@@ -1,9 +1,21 @@
-import matplotlib.pyplot as plt
-from norec4dna import Encoder, RU10Encoder, reed_solomon_encode
-from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.helper import should_drop_packet
-from norec4dna.rules.FastDNARules import FastDNARules
+import importlib
+import importlib.util
+from typing import Any
+
 from numpy import mean
+
+from ..distributions.RaptorDistribution import RaptorDistribution
+from ..Encoder import Encoder
+from ..ErrorCorrection import reed_solomon_encode
+from ..helper import should_drop_packet
+from ..RU10Encoder import RU10Encoder
+from ..rules.FastDNARules import FastDNARules
+
+plt: Any = (
+    importlib.import_module("matplotlib.pyplot")
+    if importlib.util.find_spec("matplotlib.pyplot") is not None
+    else None
+)
 
 
 class QualityPacketGen:
@@ -14,7 +26,7 @@ class QualityPacketGen:
 
         while i < 1000:
             packet = encoder.create_new_packet()
-            p_res = should_drop_packet(rules, packet)
+            should_drop_packet(rules, packet)
             tmp_list.append(packet)
             i += 1
 
@@ -23,7 +35,7 @@ class QualityPacketGen:
 
 class QualityAnalyzer:
     def __init__(self, tmp_list):
-        tmp_dict = dict()
+        tmp_dict = {}
         for packet in tmp_list:
             err_prob = packet.error_prob
             for chunk_no in packet.get_used_packets():
@@ -40,7 +52,7 @@ class QualityAnalyzer:
 
         index = []
         data = []
-        for i, (key, val) in enumerate(sorted(tmp_dict.items())):
+        for _, (key, val) in enumerate(sorted(tmp_dict.items())):
             index.append(key)
             data.append(val)
 
@@ -61,7 +73,10 @@ if __name__ == "__main__":
     save_number_of_chunks_in_packet = False
     insert_header = False
     rules = FastDNARules()
-    error_correction = lambda x: reed_solomon_encode(x, norepairsymbols)
+
+    def error_correction(data: bytes) -> bytes:
+        return reed_solomon_encode(data, norepairsymbols)
+
     number_of_chunks = 50
     if chunk_size != 0:
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)

@@ -53,46 +53,44 @@ class DNARules_ErlichZielinski:
         return (
             1.0
             if any(
-                [
-                    x in data
-                    for x in DNARules_ErlichZielinski.add_complementary(
-                        DNARules_ErlichZielinski.add_reverse(
-                            [
-                                "ATAACTTCGTATAGCATACATTATACGAAGTTAT",
-                                "ATAACTTCGTATAGCATACATTATACGAACGGTA",
-                                "TACCGTTCGTATAGCATACATTATACGAAGTTAT",
-                                "TACCGTTCGTATAGCATACATTATACGAACGGTA",
-                                "TACCGTTCGTATATGGTATTATATACGAAGTTAT",
-                                "TACCGTTCGTATATTCTATCTTATACGAAGTTAT",
-                                "TACCGTTCGTATAGGATACTTTATACGAAGTTAT",
-                                "TACCGTTCGTATATACTATACTATACGAAGTTAT",
-                                "TACCGTTCGTATACTATAGCCTATACGAAGTTAT",
-                                "ATAACTTCGTATATGGTATTATATACGAACGGTA",
-                                "ATAACTTCGTATAGTATACCTTATACGAAGTTAT",
-                                "ATAACTTCGTATAGTATACATTATACGAAGTTAT",
-                                "ATAACTTCGTATAGTACACATTATACGAAGTTAT",
-                                "GCATACAT",
-                                "TGGTATTA",
-                                "TTCTATCT",
-                                "GGATACTT",
-                                "TACTATAC",
-                                "CTATAGCC",
-                                "AGGTATGC",
-                                "TTGTATGG",
-                                "GGATAGTA",
-                                "GTGTATTT",
-                                "GGTTACGG",
-                                "TTTTAGGT",
-                                "GTATACCT",
-                                "GTACACAT",
-                                "GAAGAC",
-                                "CTTCTG",
-                                "GGTCTC",
-                                "CCAGAG",
-                            ]
-                        )
+                x in data
+                for x in DNARules_ErlichZielinski.add_complementary(
+                    DNARules_ErlichZielinski.add_reverse(
+                        [
+                            "ATAACTTCGTATAGCATACATTATACGAAGTTAT",
+                            "ATAACTTCGTATAGCATACATTATACGAACGGTA",
+                            "TACCGTTCGTATAGCATACATTATACGAAGTTAT",
+                            "TACCGTTCGTATAGCATACATTATACGAACGGTA",
+                            "TACCGTTCGTATATGGTATTATATACGAAGTTAT",
+                            "TACCGTTCGTATATTCTATCTTATACGAAGTTAT",
+                            "TACCGTTCGTATAGGATACTTTATACGAAGTTAT",
+                            "TACCGTTCGTATATACTATACTATACGAAGTTAT",
+                            "TACCGTTCGTATACTATAGCCTATACGAAGTTAT",
+                            "ATAACTTCGTATATGGTATTATATACGAACGGTA",
+                            "ATAACTTCGTATAGTATACCTTATACGAAGTTAT",
+                            "ATAACTTCGTATAGTATACATTATACGAAGTTAT",
+                            "ATAACTTCGTATAGTACACATTATACGAAGTTAT",
+                            "GCATACAT",
+                            "TGGTATTA",
+                            "TTCTATCT",
+                            "GGATACTT",
+                            "TACTATAC",
+                            "CTATAGCC",
+                            "AGGTATGC",
+                            "TTGTATGG",
+                            "GGATAGTA",
+                            "GTGTATTT",
+                            "GGTTACGG",
+                            "TTTTAGGT",
+                            "GTATACCT",
+                            "GTACACAT",
+                            "GAAGAC",
+                            "CTTCTG",
+                            "GGTCTC",
+                            "CCAGAG",
+                        ]
                     )
-                ]
+                )
             )
             else 0.0
         )
@@ -115,7 +113,7 @@ class DNARules_ErlichZielinski:
 def apply_all_rules_with_data(packet):
     try:
         dna_data = packet.get_dna_struct(True)
-    except:
+    except AttributeError:
         dna_data = packet
     res_arr = [
         x(dna_data)
@@ -134,6 +132,9 @@ if __name__ == "__main__":
     print(DNARules_ErlichZielinski.gc_content("A" * 1000))
     print(
         DNARules_ErlichZielinski.windowed_gc_content(
-            "ATTAGCGTATCCAATCAGCTGACACCAAAAAAAAAAAATTAGCGTATCCAATCAGCTGACACCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGCAAGCAAAAAAAAAAAAAAAAAAAAAAATTAGCGTATCCAATCAGCTGACACCAAAAAAAAAAAAAAAAAAAAAAAAAAGCAAGCAAAAAACCATGGTCGAAAAAAAAAAAAAAAAAAGCAAGCAAAAAAAAAAAAAAAAAAAAAAAGCAAGCAAAAAACCATGGTCG"
+            "ATTAGCGTATCCAATCAGCTGACACCAAAAAAAAAAAATTAGCGTATCCAATCAGCTGACACCA"
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAGCAAGCAAAAAAAAAAAAAAAAAAAAAAATTAGCGT"
+            "ATCCAATCAGCTGACACCAAAAAAAAAAAAAAAAAAAAAAAAAAGCAAGCAAAAAACCATGGTCG"
+            "AAAAAAAAAAAAAAAAAAGCAAGCAAAAAAAAAAAAAAAAAAAAAAAGCAAGCAAAAAACCATGGTCG"
         )
     )

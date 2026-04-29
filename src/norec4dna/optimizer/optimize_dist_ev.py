@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 import argparse
 import csv
+import importlib
+import importlib.util
 import multiprocessing
 import os
 import signal
 import sys
 import time
+import typing
 
-import matplotlib
 import numpy as np
 
 from .optimization_helper import (
@@ -21,8 +25,13 @@ from .optimization_helper import (
     select_dist,
 )
 
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+plt: typing.Any = (
+    importlib.import_module("matplotlib.pyplot")
+    if importlib.util.find_spec("matplotlib.pyplot") is not None
+    else None
+)
+if plt is not None:
+    plt.switch_backend("Agg")
 
 
 class EvolutionaryOptimizer:
@@ -55,7 +64,7 @@ class EvolutionaryOptimizer:
                 signal.signal(signal.SIGKILL, self.kill_sig)
         except FileExistsError:
             print("Dir already exists, using it anyway.")
-        except:
+        except (AttributeError, OSError, ValueError):
             print("Can't use signals.")
 
     def read_sig(self, signal_number, frame):
@@ -106,7 +115,7 @@ class EvolutionaryOptimizer:
         :return:
         """
         pop = []
-        ind_lst = [x for x in range(0, len(sel_dist_list))]
+        ind_lst = list(range(0, len(sel_dist_list)))
         err_lst = [x[2] for x in sel_dist_list]
         prob_lst = norm_list(err_lst)
         if self.merge == "crossover":
@@ -138,7 +147,7 @@ def main(params, fast=True):
     return res
 
 
-if __name__ == "__main__":
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument("filename", metavar="file", type=str, help="the file to Encode")
     parser.add_argument(
@@ -178,8 +187,12 @@ if __name__ == "__main__":
         help="choose between crossover, best and bestfit",
     )
     parser.add_argument("--cores", required=False, type=int)
-    args = parser.parse_args()
-    filename = args.filename
+    return parser
+
+
+def _build_worker_params(
+    args: argparse.Namespace,
+) -> tuple[int, list[tuple[int, int, bool, str, float]]]:
     pop_size = args.pop_size
     max_gen = args.max_gen
     mut_rate = args.mut_rate
@@ -204,20 +217,34 @@ if __name__ == "__main__":
         [mut_rate.append(0.01) for _ in range(0, cores - len(mut_rate))]
     for i in range(0, cores):
         params.append((pop_size[i], max_gen[i], log, merge[i], mut_rate[i]))
+    return cores, params
+
+
+def _write_overall_log(results):
+    with open("EvOpt_overall.csv", "w", newline="") as f:
+        writer = csv.writer(
+            f, delimiter=",", lineterminator="\n", quotechar="|", quoting=csv.QUOTE_MINIMAL
+        )
+        writer.writerow(["dist", "errs", "avg_err"])
+        for item in results:
+            writer.writerow([item[0][0], item[0][1], item[0][2]])
+    fig = plt.figure()
+    ax = fig.add_axes((0.0, 0.0, 1.0, 1.0))
+    errs = [x[0][2] for x in results]
+    labs = [x[1] for x in results]
+    ax.bar(labs, errs)
+    plt.savefig("EvOpt_overall.png")
+
+
+def _run_cli() -> None:
+    args = _build_parser().parse_args()
+    cores, params = _build_worker_params(args)
     p = multiprocessing.Pool(cores)
     a = p.map(main, params)
     # log and plot overall results
-    if log:
-        with open("EvOpt_overall.csv", "w", newline="") as f:
-            writer = csv.writer(
-                f, delimiter=",", lineterminator="\n", quotechar="|", quoting=csv.QUOTE_MINIMAL
-            )
-            writer.writerow(["dist", "errs", "avg_err"])
-            for item in a:
-                writer.writerow([item[0][0], item[0][1], item[0][2]])
-        fig = plt.figure()
-        ax = fig.add_axes([0, 0, 1, 1])
-        errs = [x[0][2] for x in a]
-        labs = [x[1] for x in a]
-        ax.bar(labs, errs)
-        plt.savefig("EvOpt_overall.png")
+    if args.log:
+        _write_overall_log(a)
+
+
+if __name__ == "__main__":
+    _run_cli()

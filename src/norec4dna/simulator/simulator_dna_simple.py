@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
 import argparse
+import importlib
+import importlib.util
 import math
 import os
 import time
@@ -28,7 +30,9 @@ if os.name == "nt" and "PYCHARM_HOSTED" not in os.environ:
     colorama.init()
 useDNARules = True
 lines = [
-    "Algorithm,CRC,A_Permutation,T_Permutation,C_Permutation,G_Permutation,dinucleotid_Runs,Homopolymers,GC_Content,Trinucleotid_Runs,Random_Permutation,Overall_Dropchance,Random_Number,Did_Drop"
+    "Algorithm,CRC,A_Permutation,T_Permutation,C_Permutation,G_Permutation,"
+    "dinucleotid_Runs,Homopolymers,GC_Content,Trinucleotid_Runs,"
+    "Random_Permutation,Overall_Dropchance,Random_Number,Did_Drop"
 ]
 algo_type = []
 
@@ -110,6 +114,7 @@ def blackboxOnlineTest(file, number_of_chunks=800, seed=2, overhead=0.20, scale=
     quality = 5
     dist = OnlineDistribution(epsilon, seed)
     number_of_chunks = dist.get_size()
+    assert number_of_chunks is not None
     algo_type.clear()
     algo_type.append("Online_" + str(number_of_chunks) + "_" + str(dist.get_config_string()))
     print(
@@ -271,6 +276,101 @@ def get_random_int(max_int):
     return int(random() * max_int)
 
 
+def _get_simple_number_of_chunks(file, chunk_size, insert_header):
+    if chunk_size != 0:
+        return Encoder.get_number_of_chunks_for_file_with_chunk_size(
+            file, chunk_size=chunk_size, insert_header=insert_header
+        )
+    return 800
+
+
+def _run_simple_simulation_case(file, mode, number_of_chunks, rnd, overhead, scale):
+    if mode == "Online":
+        return blackboxOnlineTest(
+            file,
+            number_of_chunks=number_of_chunks,
+            seed=rnd,
+            overhead=overhead,
+            scale=scale,
+        )
+    if mode == "LT":
+        return blackboxLTTest(
+            file,
+            number_of_chunks=number_of_chunks,
+            seed=rnd,
+            chunk_size=100,
+            overhead=overhead,
+            scale=scale,
+        )
+    if mode == "LTIdeal":
+        return blackboxLTIdealTest(
+            file,
+            number_of_chunks=number_of_chunks,
+            seed=rnd,
+            chunk_size=100,
+            overhead=overhead,
+            scale=scale,
+        )
+    return blackboxRU10Test(
+        file,
+        number_of_chunks=number_of_chunks,
+        seed=rnd,
+        chunk_size=100,
+        overhead=overhead,
+        scale=scale,
+    )
+
+
+def _format_simple_line(
+    file, overhead, name, number_of_chunks, dec_input, invalid_drop, rnd, result, time_needed
+):
+    return (
+        str(file)
+        + ","
+        + str(overhead)
+        + ","
+        + str(name)
+        + ","
+        + str(number_of_chunks)
+        + ","
+        + str(dec_input)
+        + ","
+        + str(invalid_drop)
+        + ","
+        + str(rnd)
+        + ","
+        + str(result)
+        + ","
+        + str(time_needed)
+    )
+
+
+def _format_simple_error_line(file, overhead, rnd):
+    return str(file) + "," + str(overhead) + ",ERROR,ERROR,ERROR,ERROR," + str(rnd) + ",ERROR,ERROR"
+
+
+def _write_simple_outputs(mode, overhead, csv):
+    dtimeno = (
+        mode
+        + "_"
+        + str(overhead)
+        + "_sim"
+        + str(time.strftime("%Y-%m-%d_%H-%M", time.localtime()))
+        + ".csv"
+    )
+    with open("DNA_" + dtimeno, "w") as f:
+        for line in lines:
+            f.write(line + "\n")
+    lines.clear()
+    lines.append(
+        "Algorithm,CRC,A_Permutation,T_Permutation,C_Permutation,G_Permutation,dinucleotid_Runs,Homopolymers,"
+        "GC_Content,Trinucleotid_Runs,Random_Permutation,Overall_Dropchance,Random_Number,Did_Drop"
+    )
+    with open(dtimeno, "w") as f:
+        for line in csv:
+            f.write(line + "\n")
+
+
 def main(file=".INFILES/logo.jpg", repeats=5):
     csv = [
         "filename, overhead, codecName, number_of_chunks, dec_input, invalid_drop, seed, result, time_needed"
@@ -294,122 +394,30 @@ def main(file=".INFILES/logo.jpg", repeats=5):
         ]:
             for _ in range(repeats):
                 rnd = get_random_int(math.pow(2, 31) - 1)
-                chunk_size = 100
-                insert_header = True
-                if chunk_size != 0:
-                    number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(
-                        file, chunk_size=chunk_size, insert_header=insert_header
-                    )
-                else:
-                    number_of_chunks = 800
+                number_of_chunks = _get_simple_number_of_chunks(file, 100, True)
 
                 try:
-                    if mode == "Online":
-                        name, result, number_of_chunks, dec_input, invalid_drop, time_needed = (
-                            blackboxOnlineTest(
-                                file,
-                                number_of_chunks=number_of_chunks,
-                                seed=rnd,
-                                overhead=overhead,
-                                scale=scale,
-                            )
+                    name, result, number_of_chunks, dec_input, invalid_drop, time_needed = (
+                        _run_simple_simulation_case(
+                            file, mode, number_of_chunks, rnd, overhead, scale
                         )
-                    # chunk_size=chunk_size)
-                    elif mode == "LT":
-                        name, result, number_of_chunks, dec_input, invalid_drop, time_needed = (
-                            blackboxLTTest(
-                                file,
-                                number_of_chunks=number_of_chunks,
-                                seed=rnd,
-                                chunk_size=chunk_size,
-                                overhead=overhead,
-                                scale=scale,
-                            )
-                        )
-                    elif mode == "LTIdeal":
-                        name, result, number_of_chunks, dec_input, invalid_drop, time_needed = (
-                            blackboxLTIdealTest(
-                                file,
-                                number_of_chunks=number_of_chunks,
-                                seed=rnd,
-                                chunk_size=chunk_size,
-                                overhead=overhead,
-                                scale=scale,
-                            )
-                        )
-                    else:
-                        name, result, number_of_chunks, dec_input, invalid_drop, time_needed = (
-                            blackboxRU10Test(
-                                file,
-                                number_of_chunks=number_of_chunks,
-                                seed=rnd,
-                                chunk_size=chunk_size,
-                                overhead=overhead,
-                                scale=scale,
-                            )
-                        )
-                    line = (
-                        str(file)
-                        + ","
-                        + str(overhead)
-                        + ","
-                        + str(name)
-                        + ","
-                        + str(number_of_chunks)
-                        + ","
-                        + str(dec_input)
-                        + ","
-                        + str(invalid_drop)
-                        + ","
-                        + str(rnd)
-                        + ","
-                        + str(result)
-                        + ","
-                        + str(time_needed)
+                    )
+                    line = _format_simple_line(
+                        file,
+                        overhead,
+                        name,
+                        number_of_chunks,
+                        dec_input,
+                        invalid_drop,
+                        rnd,
+                        result,
+                        time_needed,
                     )
                 except Exception:
-                    line = (
-                        str(file)
-                        + ","
-                        + str(overhead)
-                        + ","
-                        + str(name)
-                        + ","
-                        + str(number_of_chunks)
-                        + ","
-                        + "ERROR"
-                        + ","
-                        + "ERROR"
-                        + ","
-                        + str(rnd)
-                        + ","
-                        + "ERROR"
-                        + ","
-                        + "ERROR"
-                    )
+                    line = _format_simple_error_line(file, overhead, rnd)
                 print(line)
                 csv.append(line)
-            dtimeno = (
-                mode
-                + "_"
-                + str(overhead)
-                + "_sim"
-                + str(time.strftime("%Y-%m-%d_%H-%M", time.localtime()))
-                + ".csv"
-            )
-
-            with open("DNA_" + dtimeno, "w") as f:
-                for line in lines:
-                    f.write(line + "\n")
-            lines.clear()
-            lines.append(
-                "Algorithm,CRC,A_Permutation,T_Permutation,C_Permutation,G_Permutation,dinucleotid_Runs,Homopolymers,"
-                "GC_Content,Trinucleotid_Runs,Random_Permutation,Overall_Dropchance,Random_Number,Did_Drop"
-            )
-
-            with open(dtimeno, "w") as f:
-                for line in csv:
-                    f.write(line + "\n")
+            _write_simple_outputs(mode, overhead, csv)
             csv = [
                 "filename, codecName, number_of_chunks, dec_input, invalid_drop, seed, result, time_needed"
             ]
@@ -440,15 +448,17 @@ if __name__ == "__main__":
     filename = str(args.file)
     repreats = int(args.repeats)
     if profile:
-        from pycallgraph import PyCallGraph
-        from pycallgraph.output import GraphvizOutput
+        if importlib.util.find_spec("pycallgraph") is None:
+            raise ImportError("pycallgraph is required for profiling")
+        pycallgraph = importlib.import_module("pycallgraph")
+        pycallgraph_output = importlib.import_module("pycallgraph.output")
 
         print(
             bcolors.WARN
             + "[!] running with Profiler - this might decrease performance"
             + bcolors.ENDC
         )
-        with PyCallGraph(output=GraphvizOutput()):
+        with pycallgraph.PyCallGraph(output=pycallgraph_output.GraphvizOutput()):
             main(filename, repreats)
         print(bcolors.BLUE + '[*] profiling Graph saved as "pycallgraph.png"' + bcolors.ENDC)
     else:

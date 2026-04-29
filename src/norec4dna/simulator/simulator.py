@@ -364,7 +364,7 @@ if __name__ == "__main__":
     # main(file)
     name = "ERROR"
     for droprate in np.arange(0.04, 0.051, 0.001):
-        for repeat in range(5):
+        for _ in range(5):
             # try:
             rnd = get_random_int(math.pow(2, 31) - 1)
             number_of_chunks = 700

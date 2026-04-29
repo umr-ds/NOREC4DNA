@@ -1,11 +1,14 @@
 import socket
 import struct
 import threading
-from queue import Queue
+from queue import Empty, Queue
 
-from MultiInterfaceBase import MultiInterfaceBase
-from norec4dna import RU10Decoder, reed_solomon_decode
-from norec4dna.helper import xor_mask
+from ..ErrorCorrection import reed_solomon_decode
+from ..helper import xor_mask
+from ..RU10Decoder import RU10Decoder
+from .MultiInterfaceBase import MultiInterfaceBase
+
+ANY_INTERFACE_IP = socket.inet_ntoa(struct.pack("!I", socket.INADDR_ANY))
 
 
 class MultiInterfaceReceiver(MultiInterfaceBase):
@@ -19,10 +22,10 @@ class MultiInterfaceReceiver(MultiInterfaceBase):
     def create_listen_socket(self, interface, broadcast=False):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         ip = self.get_ip_address(interface, broadcast)
-        if ip == "0.0.0.0":
+        if ip == ANY_INTERFACE_IP:
             return None
         sock.bind((ip, self.__port))
-        print("Listening on %s:%s" % (ip, m_r.get_port()))
+        print("Listening on %s:%s" % (ip, self.get_port()))
         # sock.setblocking(False)
         sock.settimeout(1)
         return sock
@@ -45,74 +48,82 @@ def listen(sock, queue, signals):
             continue
 
 
-if __name__ == "__main__":
-    m_r = MultiInterfaceReceiver()
-    BROADCAST = False  # TODO fix broadcast not working for Windows / socket receiving broadcast on bound normal ip
-    USE_HEADER_CHUNK = True
-    error_correction = reed_solomon_decode
+def _create_sockets(receiver, interfaces, broadcast):
+    socks = []
+    for interface in interfaces:
+        try:
+            socks.append(receiver.create_listen_socket(interface, broadcast))
+        except Exception as exc:
+            print("<%s>: %s" % (interface, exc))
+            raise exc
+    return socks
+
+
+def _start_listener_threads(socks, pqueue, signals) -> None:
+    for sock in socks:
+        try:
+            thread = threading.Thread(target=listen, args=(sock, pqueue, signals))
+            thread.start()
+        except socket.error as exc:
+            print(exc)
+
+
+def _get_packet_batch(pqueue, sock_count):
+    packet_strs = []
+    while True:
+        try:
+            packet_str = pqueue.get(timeout=2)
+            packet_strs.append(packet_str)
+            if len(packet_strs) > 50 * sock_count:
+                return packet_strs
+        except Empty as exc:
+            print(exc)
+            return packet_strs
+
+
+def _process_packet_batch(decoder, packet_strs):
+    for packet_str in packet_strs:
+        pack = decoder.parse_raw_packet(
+            packet_str,
+            crc_len_format="L",
+            number_of_chunks_len_format="I",
+            packet_len_format="I",
+            id_len_format="I",
+        )
+        if isinstance(pack, str):
+            continue
+        decoder.input_new_packet(pack)
+
+
+def _run_receiver() -> None:
+    receiver = MultiInterfaceReceiver()
+    broadcast = False
+    use_header_chunk = True
     decoder = RU10Decoder(
         None,
-        use_headerchunk=USE_HEADER_CHUNK,
-        error_correction=error_correction,
+        use_headerchunk=use_header_chunk,
+        error_correction=reed_solomon_decode,
         static_number_of_chunks=None,
     )
     decoder.read_all_before_decode = True
-    ifaces = m_r.list_interfaces()
-    clean_ifaces = m_r.filter_interfaces(m_r.list_interfaces())
-    socks = []
-    for x in clean_ifaces:
-        try:
-            socks.append(m_r.create_listen_socket(x, BROADCAST))
-        except Exception as e:
-            if hasattr(x, "decode"):
-                x = x.decode()
-            print("<%s>: %s" % (x, e))
-            raise e
+    clean_ifaces = receiver.filter_interfaces(receiver.list_interfaces())
+    socks = _create_sockets(receiver, clean_ifaces, broadcast)
     pqueue = Queue()
     signals = {"shutdown": False}
-    for sock in socks:
-        try:
-            thread = threading.Thread(
-                target=listen,
-                args=(
-                    sock,
-                    pqueue,
-                    signals,
-                ),
-            )
-            thread.start()
-        except socket.error as e:
-            print(e)
-    num = 0
+    _start_listener_threads(socks, pqueue, signals)
     while True:
         try:
-            packet_strs = []
-            while True:
-                try:
-                    packet_str = pqueue.get(timeout=2)
-                    packet_strs.append(packet_str)
-                    if len(packet_strs) > 50 * len(socks):
-                        break  # insert into decoder every 20 packet
-                except Exception as ex:
-                    print(ex)
-                    break  # ... or if a timeout occurs
-            for packet_str in packet_strs:
-                pack = decoder.parse_raw_packet(
-                    packet_str,
-                    crc_len_format="L",
-                    number_of_chunks_len_format="I",
-                    packet_len_format="I",
-                    id_len_format="I",
-                )
-                decoder.input_new_packet(pack)
+            packet_strs = _get_packet_batch(pqueue, len(socks))
+            _process_packet_batch(decoder, packet_strs)
             if decoder.GEPP is not None and decoder.solve():
                 print("Success!")
                 signals["shutdown"] = True
                 pqueue.task_done()
                 decoder.saveDecodedFile(null_is_terminator=False, print_to_output=False)
-                # TODO maybe signal the sender that we are finished
-                #  -> to prevent attacker from closing the connection we should use Shamirs secret sharing
                 break
-        except Exception as e:
-            print(e)
-            # raise e
+        except Exception as exc:
+            print(exc)
+
+
+if __name__ == "__main__":
+    _run_receiver()

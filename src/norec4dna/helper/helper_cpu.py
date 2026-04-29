@@ -2,9 +2,26 @@
 # -*- coding: latin-1 -*-
 import zlib
 from functools import reduce
+from typing import Callable
 
 import numpy
-from numba import jit, vectorize
+
+try:
+    from numba import jit, vectorize
+except ImportError:
+
+    def jit(*args, **kwargs):
+        def decorator(func: Callable):
+            return func
+
+        return decorator
+
+    def vectorize(*args, **kwargs):
+        def decorator(func: Callable):
+            return func
+
+        return decorator
+
 
 cache = False
 
@@ -13,7 +30,7 @@ cache = False
 def xor_numpy(p1, p2):
     if (isinstance(p2, numpy.ndarray) and isinstance(p1, numpy.ndarray)) and (
         (p1.dtype == numpy.uint8 and p2.dtype == numpy.uint8)
-        or (p1.dtype == numpy.bool and p2.dtype == numpy.bool)
+        or (p1.dtype == numpy.bool_ and p2.dtype == numpy.bool_)
     ):
         n_p1 = p1
         n_p2 = p2

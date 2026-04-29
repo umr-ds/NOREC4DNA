@@ -1,5 +1,7 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
+from __future__ import annotations
+
 import argparse
 import logging
 import os
@@ -9,18 +11,21 @@ from math import ceil
 from typing import Any, Callable, Dict, Optional, Set, Union
 
 import numpy as np
-from norec4dna.Decoder import Decoder
-from norec4dna.distributions.OnlineDistribution import OnlineDistribution
-from norec4dna.ErrorCorrection import crc32, get_error_correction_decode, nocode
-from norec4dna.GEPP import GEPP, GEPP_intern
-from norec4dna.HeaderChunk import HeaderChunk
-from norec4dna.helper import calc_crc, calc_file_crc, logical_xor, xor_mask
-from norec4dna.helper.quaternary2Bin import quat_file_to_bin, tranlate_quat_to_byte
-from norec4dna.OnlineAuxPacket import OnlineAuxPacket
-from norec4dna.OnlinePacket import OnlinePacket
-from numpy.typing import NDArray
+from reedsolo import ReedSolomonError
+
+from .Decoder import Decoder
+from .distributions.OnlineDistribution import OnlineDistribution
+from .ErrorCorrection import crc32, get_error_correction_decode, nocode
+from .GEPP import GEPP, GEPP_intern
+from .HeaderChunk import HeaderChunk
+from .helper import calc_crc, calc_file_crc, logical_xor, xor_mask
+from .helper.quaternary2Bin import quat_file_to_bin, tranlate_quat_to_byte
+from .OnlineAuxPacket import OnlineAuxPacket
+from .OnlinePacket import OnlinePacket
 
 logger = logging.getLogger(__name__)
+
+BoolArray = np.ndarray[Any, np.dtype[np.bool_]]
 
 
 class OnlineDecoder(Decoder):
@@ -58,14 +63,14 @@ class OnlineDecoder(Decoder):
         if static_number_of_chunks is not None:
             self.number_of_chunks = static_number_of_chunks
         self.headerChunk: Optional[HeaderChunk] = None
-        self.auxBlockNumbers: Dict[int, Set[int]] = dict()
-        self.auxBlocks: Dict[int, OnlineAuxPacket] = dict()
+        self.auxBlockNumbers: Dict[int, Set[int]] = {}
+        self.auxBlocks: Dict[int, OnlineAuxPacket] = {}
         self.GEPP: Optional[GEPP_intern] = None
         self.dist: Optional[OnlineDistribution] = None
         self.read_all_before_decode: bool = read_all
         self.numberOfDecodedAuxBlocks: int = 0
         self.do_count: bool = True
-        self.counter: Dict[int, int] = dict()
+        self.counter: Dict[int, int] = {}
         self.error_correction: Callable[[bytes], bytes] = error_correction
         self.use_headerchunk: bool = use_headerchunk
         self.static_number_of_chunks: Optional[int] = static_number_of_chunks
@@ -73,6 +78,138 @@ class OnlineDecoder(Decoder):
         self.quality: int = 0
         self.epsilon: float = 0.0
         self.config_map: Optional[Any] = config_map
+
+    def _update_number_of_chunks_format(self, number_of_chunks_len_format: str) -> str:
+        if self.static_number_of_chunks is not None:
+            self.number_of_chunks = self.static_number_of_chunks
+            return ""
+        return number_of_chunks_len_format
+
+    def _open_online_fasta(self) -> None:
+        assert self.file is not None, "file must be set before calling decodeFile!"
+        if self.f is not None:
+            self.f.close()
+        self.f = open(self.file, "r")
+
+    def _read_online_fasta_entry(self) -> Optional[tuple[str, str, str]]:
+        assert self.f is not None, "fasta file handle must be open"
+        line = self.f.readline()
+        if not line:
+            self.EOF = True
+            return None
+        try:
+            error_prob, seed = line[1:].replace("\n", "").split("_")
+        except ValueError:
+            error_prob, seed = "0", "0"
+        line = self.f.readline()
+        if not line:
+            self.EOF = True
+            return None
+        return error_prob, seed, line.replace("\n", "")
+
+    def _decode_online_fasta_file(
+        self,
+        crc_len_format: str,
+        number_of_chunks_len_format: str,
+        quality_len_format: str,
+        epsilon_len_format: str,
+        check_block_number_len_format: str,
+    ) -> bool:
+        self._open_online_fasta()
+        decoded = False
+        while not (decoded or self.EOF):
+            entry = self._read_online_fasta_entry()
+            if entry is None:
+                break
+            _, _, dna_str = entry
+            new_pack = self.parse_raw_packet(
+                BytesIO(tranlate_quat_to_byte(dna_str)).read(),
+                crc_len_format=crc_len_format,
+                number_of_chunks_len_format=number_of_chunks_len_format,
+                epsilon_len_format=epsilon_len_format,
+                quality_len_format=quality_len_format,
+                check_block_number_len_format=check_block_number_len_format,
+            )
+            if new_pack is not None:
+                decoded = self.input_new_packet(new_pack)
+            if self.progress_bar is not None:
+                self.progress_bar.update(self.correct, Corrupt=self.corrupt)
+        return decoded
+
+    def _decode_online_binary_file(
+        self,
+        packet_len_format: str,
+        crc_len_format: str,
+        number_of_chunks_len_format: str,
+        quality_len_format: str,
+        epsilon_len_format: str,
+        check_block_number_len_format: str,
+    ) -> bool:
+        decoded = False
+        while not (decoded or self.EOF):
+            new_pack = self.getNextValidPacket(
+                False,
+                packet_len_format=packet_len_format,
+                crc_len_format=crc_len_format,
+                number_of_chunks_len_format=number_of_chunks_len_format,
+                quality_len_format=quality_len_format,
+                epsilon_len_format=epsilon_len_format,
+                check_block_number_len_format=check_block_number_len_format,
+            )
+            if new_pack is None:
+                break
+            decoded = self.input_new_packet(new_pack)
+        return decoded
+
+    def _build_online_header_chunk(self, gepp: GEPP_intern, last_chunk_len_format: str) -> None:
+        if not self.use_headerchunk:
+            return
+        self.headerChunk = HeaderChunk(
+            OnlinePacket(
+                gepp.b[0].tobytes(),
+                self.number_of_chunks,
+                self.quality,
+                self.epsilon,
+                0,
+                {0},
+                self.dist,
+                read_only=True,
+            ),
+            last_chunk_len_format=last_chunk_len_format,
+            checksum_len_format=self.checksum_len_str,
+        )
+
+    def _resolved_output_file_name(self) -> str:
+        file_name = "DEC_" + os.path.basename(self.file) if self.file is not None else "ONLINE.BIN"
+        if self.headerChunk is None:
+            return file_name.split("\x00")[0]
+        header_file_name = self.headerChunk.get_file_name()
+        resolved = (
+            header_file_name.decode("utf-8")
+            if isinstance(header_file_name, bytes)
+            else header_file_name
+        )
+        return resolved.split("\x00")[0]
+
+    def _write_online_chunk(
+        self, gepp: GEPP_intern, x: int, null_is_terminator: bool
+    ) -> tuple[bytes, bool]:
+        if x == self.number_of_chunks - 1 and self.use_headerchunk and self.headerChunk is not None:
+            output = gepp.b[x][0 : self.headerChunk.get_last_chunk_length()]
+            return output.tobytes(), False
+        if null_is_terminator:
+            splitter = gepp.b[x].tobytes().decode().split("\x00")
+            return splitter[0].encode(), len(splitter) > 1
+        return gepp.b[x].tobytes(), False
+
+    def _validate_decoded_checksum(self, file_name: str) -> None:
+        if self.checksum_len_str is None or self.checksum_len_str == "":
+            return
+        decoded_crc = calc_file_crc(file_name, self.checksum_len_str)
+        if self.headerChunk is not None and self.headerChunk.checksum != decoded_crc:
+            logger.warning("Decoded CRC: %s", decoded_crc)
+            logger.warning("Header CRC: %s", self.headerChunk.checksum)
+            raise ValueError("Checksum of decoded file does not match checksum in header chunk!")
 
     def decodeFolder(
         self,
@@ -115,7 +252,7 @@ class OnlineDecoder(Decoder):
         logger.info("Corrupt Packets : %s", self.corrupt)
         if self.GEPP is not None and self.GEPP.isPotentionallySolvable():
             decoded = self.GEPP.solve()
-        if hasattr(self, "f"):
+        if self.f is not None:
             self.f.close()
         if not decoded and self.EOF:
             logger.warning("Unable to retrieve file from chunks. Too many errors?")
@@ -131,64 +268,34 @@ class OnlineDecoder(Decoder):
         check_block_number_len_format: str = "I",
     ):
         assert self.file is not None, "file must be set before calling decodeFile!"
-        if self.static_number_of_chunks is not None:
-            self.number_of_chunks = self.static_number_of_chunks
-            number_of_chunks_len_format = (
-                ""  # if we got static number_of_chunks we do not need it in struct string
-            )
         decoded: bool = False
         self.EOF: bool = False
+        number_of_chunks_len_format = self._update_number_of_chunks_format(
+            number_of_chunks_len_format
+        )
         if self.file.lower().endswith("fasta"):
-            self.f.close()
-            self.f = open(self.file, "r")
-            raw_packet_list = []
-            while not (decoded or self.EOF):
-                line = self.f.readline()
-                if not line:
-                    self.EOF = True
-                    break
-                try:
-                    error_prob, seed = line[1:].replace("\n", "").split("_")
-                except:
-                    error_prob, seed = "0", "0"
-                line = self.f.readline()
-                if not line:
-                    self.EOF = True
-                    break
-                dna_str = line.replace("\n", "")
-                raw_packet_list.append((error_prob, seed, dna_str))
-                new_pack = self.parse_raw_packet(
-                    BytesIO(tranlate_quat_to_byte(dna_str)).read(),
-                    crc_len_format=crc_len_format,
-                    number_of_chunks_len_format=number_of_chunks_len_format,
-                    epsilon_len_format=epsilon_len_format,
-                    quality_len_format=quality_len_format,
-                    check_block_number_len_format=check_block_number_len_format,
-                )
-                if new_pack is not None:
-                    decoded = self.input_new_packet(new_pack)
-                if self.progress_bar is not None:
-                    self.progress_bar.update(self.correct, Corrupt=self.corrupt)
-            else:
-                while not (decoded or self.EOF):
-                    new_pack = self.getNextValidPacket(
-                        False,
-                        packet_len_format=packet_len_format,
-                        crc_len_format=crc_len_format,
-                        number_of_chunks_len_format=number_of_chunks_len_format,
-                        quality_len_format=quality_len_format,
-                        epsilon_len_format=epsilon_len_format,
-                        check_block_number_len_format=check_block_number_len_format,
-                    )
-                    if new_pack is None:
-                        break
-                    decoded = self.input_new_packet(new_pack)
-                    ##
+            decoded = self._decode_online_fasta_file(
+                crc_len_format,
+                number_of_chunks_len_format,
+                quality_len_format,
+                epsilon_len_format,
+                check_block_number_len_format,
+            )
+        else:
+            decoded = self._decode_online_binary_file(
+                packet_len_format,
+                crc_len_format,
+                number_of_chunks_len_format,
+                quality_len_format,
+                epsilon_len_format,
+                check_block_number_len_format,
+            )
         logger.info("Decoded Packets: %s", self.correct)
         logger.info("Corrupt Packets : %s", self.corrupt)
-        if self.GEPP.isPotentionallySolvable():
+        if self.GEPP is not None and self.GEPP.isPotentionallySolvable():
             return self.GEPP.solve()
-        self.f.close()
+        if self.f is not None:
+            self.f.close()
         if not decoded and self.EOF:
             logger.warning("Unable to retrieve file from chunks. Too many errors?")
             return -1
@@ -213,7 +320,7 @@ class OnlineDecoder(Decoder):
             0, self.number_of_chunks
         ):  # + (1 if self.use_headerchunk else 0)):  # + 1 for HeaderChunk
             # Insert this Chunk into quality different Aux-Packets
-            for i in range(0, self.quality):
+            for _ in range(0, self.quality):
                 # uniform choose a number of aux blocks
                 aux_no = self.rng.randint(0, self.getNumberOfAuxBlocks())
                 self.auxBlockNumbers[aux_no].add(chunk_no)
@@ -227,7 +334,7 @@ class OnlineDecoder(Decoder):
                 total_number_of_chunks=self.number_of_chunks,
             )  # , numberOfAuxPackets=self.getNumberOfAuxBlocks()) # We will add the Data once we have it.
 
-    def getAuxPacketListFromPacket(self, packet: OnlinePacket) -> NDArray[np.bool_]:
+    def getAuxPacketListFromPacket(self, packet: OnlinePacket) -> BoolArray:
         """Return a 2D boolean array (rows = aux-blocks included by packet).
 
         Each row is the boolean mask returned by
@@ -251,7 +358,7 @@ class OnlineDecoder(Decoder):
         # stack into a 2D numpy array where each row corresponds to one aux block
         return np.vstack(rows).astype(np.bool_)
 
-    def removeAndXorAuxPackets(self, packet: OnlinePacket) -> NDArray[np.bool_]:
+    def removeAndXorAuxPackets(self, packet: OnlinePacket) -> BoolArray:
         aux_mapping = self.getAuxPacketListFromPacket(packet)
         packet_row = np.asarray(packet.get_bool_array_used_packets(), dtype=bool)
         # combine aux rows with the packet's own row as the last row
@@ -260,7 +367,7 @@ class OnlineDecoder(Decoder):
         else:
             combined = np.vstack((aux_mapping, packet_row))
 
-        return logical_xor(combined)
+        return logical_xor(combined.tolist())
 
     def input_new_packet(self, packet: OnlinePacket) -> bool:
         if self.isPseudo and self.auxBlocks == {}:
@@ -269,7 +376,7 @@ class OnlineDecoder(Decoder):
             self.epsilon = round(packet.getEpsilon(), 6)
             self.dist = OnlineDistribution(self.epsilon)
             self.createAuxBlocks()
-        removed: NDArray[np.bool_] = self.removeAndXorAuxPackets(packet)
+        removed: BoolArray = self.removeAndXorAuxPackets(packet)
         if self.do_count:
             for i in range(len(removed)):
                 if i in self.counter.keys():
@@ -302,6 +409,8 @@ class OnlineDecoder(Decoder):
         return self.GEPP.solve(partial)
 
     def getSolvedCount(self) -> int:
+        if self.GEPP is None:
+            return 0
         return self.GEPP.getSolvedCount()
 
     def is_decoded(self) -> bool:
@@ -319,16 +428,19 @@ class OnlineDecoder(Decoder):
         epsilon_len_format: str = "f",
         check_block_number_len_format: str = "I",
     ) -> Optional[OnlinePacket]:
+        if self.f is None:
+            raise RuntimeError("Input file not open")
+        file_handle = self.f
         if not from_multiple_files:
-            packet_len = self.f.read(struct.calcsize("<" + packet_len_format))
+            packet_len = file_handle.read(struct.calcsize("<" + packet_len_format))
             packet_len = struct.unpack("<" + packet_len_format, packet_len)[0]
-            packet = self.f.read(int(packet_len))
+            packet = file_handle.read(int(packet_len))
         else:
-            packet = self.f.read()
+            packet = file_handle.read()
             packet_len = len(packet)
         if not packet or not packet_len:  # EOF
             self.EOF: bool = True
-            self.f.close()
+            file_handle.close()
             return None
         res = self.parse_raw_packet(
             packet,
@@ -372,7 +484,7 @@ class OnlineDecoder(Decoder):
             crc_len = None
             try:
                 packet = self.error_correction(packet)
-            except:
+            except (AssertionError, ReedSolomonError, ValueError):
                 return None  # if RS or other error correction cannot reconstruct this packet
         struct_str = (
             "<"
@@ -396,7 +508,7 @@ class OnlineDecoder(Decoder):
             self.dist = OnlineDistribution(self.epsilon)
         if self.correct == 0:
             self.createAuxBlocks()
-            # Create MockUp AuxBlocks with the given Pseudo-Random Number -> we will know which Packets are Encoded in which AuxBlock
+            # Create mock aux blocks for the deterministic packet-to-aux mapping.
         self.correct += 1
         res = OnlinePacket(
             data,
@@ -440,58 +552,23 @@ class OnlineDecoder(Decoder):
         assert self.is_decoded() or partial_decoding, "Can not save File: Unable to reconstruct."
         if partial_decoding:
             self.solve(partial=True)
-        if self.use_headerchunk:
-            self.headerChunk = HeaderChunk(
-                OnlinePacket(
-                    self.GEPP.b[0],
-                    self.number_of_chunks,
-                    self.quality,
-                    self.epsilon,
-                    0,
-                    {0},
-                    self.dist,
-                    read_only=True,
-                ),
-                last_chunk_len_format=last_chunk_len_format,
-                checksum_len_format=self.checksum_len_str,
-            )
-        file_name = "DEC_" + os.path.basename(self.file) if self.file is not None else "ONLINE.BIN"
+        if self.GEPP is None:
+            raise RuntimeError("GEPP not initialized")
+        gepp = self.GEPP
+        self._build_online_header_chunk(gepp, last_chunk_len_format)
+        file_name = self._resolved_output_file_name()
         output_concat = b""
-        if self.headerChunk is not None:
-            file_name = self.headerChunk.get_file_name().decode("utf-8")
-        file_name = file_name.split("\x00")[0]
         with open(file_name, "wb") as f:
-            # for decoded in sorted(self.degreeToPacket[1]):
-            for x in self.GEPP.result_mapping:
-                if 0 != x or not self.use_headerchunk:
-                    if x == self.number_of_chunks - 1 and self.use_headerchunk:
-                        output = self.GEPP.b[x][0][0 : self.headerChunk.get_last_chunk_length()]
-                        output_concat += output.tobytes()
-                        f.write(output)
-                    else:
-                        if null_is_terminator:
-                            splitter = self.GEPP.b[x].tostring().decode().split("\x00")
-                            output = splitter[0].encode()
-                            output_concat += output
-                            f.write(output)
-                            if len(splitter) > 1:
-                                break  # since we are in null-terminator mode, we exit once we see the first 0-byte
-                        else:
-                            output = self.GEPP.b[x]
-                            try:
-                                output_concat += output.tobytes()
-                            except TypeError as te:
-                                raise te
-                            f.write(output)
+            for x in gepp.result_mapping:
+                if x == 0 and self.use_headerchunk:
+                    continue
+                output_bytes, stop_writing = self._write_online_chunk(gepp, x, null_is_terminator)
+                output_concat += output_bytes
+                f.write(output_bytes)
+                if stop_writing:
+                    break
         logger.info("Saved file as '%s'", file_name)
-        if self.checksum_len_str is not None and self.checksum_len_str != "":
-            decoded_crc = calc_file_crc(file_name, self.checksum_len_str)
-            if self.headerChunk.checksum != decoded_crc:
-                logger.warning("Decoded CRC: %s", decoded_crc)
-                logger.warning("Header CRC: %s", self.headerChunk.checksum)
-                raise ValueError(
-                    "Checksum of decoded file does not match checksum in header chunk!"
-                )
+        self._validate_decoded_checksum(file_name)
         if print_to_output:
             print("Result:")
             print(output_concat.decode("utf-8"))

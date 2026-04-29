@@ -2,9 +2,9 @@
 # -*- coding: latin-1 -*-
 """Rule parsing helpers with optional acceleration via the cdnarules extension."""
 
-import typing
 from collections import Counter
 from re import compile, search
+from typing import Any, Callable, Dict, List, Pattern, Tuple
 
 from ..helper.fallback_code import (
     longestSequenceOfChar_python,
@@ -12,14 +12,14 @@ from ..helper.fallback_code import (
     strContainsSub_python,
 )
 
-cdnarules: typing.Any = None
+cdnarules: Any = None
 try:
     import cdnarules
 except ModuleNotFoundError:
     print("C Module failed to load, falling back to slow mode")
 
 
-def microsatellite(text: typing.AnyStr, length_to_look_for: int) -> typing.Tuple[int, str]:
+def microsatellite(text: str, length_to_look_for: int) -> Tuple[int, str]:
     if cdnarules is None:
         return microsatellite_python(text, length_to_look_for)
     try:
@@ -28,7 +28,7 @@ def microsatellite(text: typing.AnyStr, length_to_look_for: int) -> typing.Tuple
         return microsatellite_python(text, length_to_look_for)
 
 
-def longestSequenceOfChar(text: typing.AnyStr, char_x="*") -> typing.Tuple[str, int]:
+def longestSequenceOfChar(text: str, char_x: str = "*") -> Tuple[str, int]:
     if cdnarules is None:
         return longestSequenceOfChar_python(text, char_x)
     try:
@@ -37,7 +37,7 @@ def longestSequenceOfChar(text: typing.AnyStr, char_x="*") -> typing.Tuple[str, 
         return longestSequenceOfChar_python(text, char_x)
 
 
-def strContainsSub(text: typing.AnyStr, sequence: typing.AnyStr) -> bool:
+def strContainsSub(text: str, sequence: str) -> bool:
     if cdnarules is None:
         return strContainsSub_python(text, sequence)
     try:
@@ -50,8 +50,8 @@ debug = False
 
 
 # @jit
-def switch(name: str) -> typing.Callable[[typing.AnyStr, typing.Any, typing.Any], int]:
-    switcher = {
+def switch(name: str) -> Callable[[str, Any, Any], int]:
+    switcher: Dict[str, Callable[[str, Any, Any], int]] = {
         "longestSequenceOfChar": (
             lambda x, y, z: 1 if int(z) <= longestSequenceOfChar(x, y)[1] else 0
         ),
@@ -69,23 +69,28 @@ def switch(name: str) -> typing.Callable[[typing.AnyStr, typing.Any, typing.Any]
         "gcContentLQ": (lambda x, y, z: 1 if float(y) <= gc_content(x) else 0),
         "*": (lambda x, y, z: 1),
     }
-    return switcher.get(name)
+    handler = switcher.get(name)
+    if handler is None:
+        raise KeyError(f"Unknown rule: {name}")
+    return handler
 
 
-def gc_content(text: typing.AnyStr) -> float:
+def gc_content(text: str) -> float:
+    if cdnarules is None:
+        return gc_content_python(text)
     try:
-        return cdnarules.gc_content(text)
-    except NameError:
+        return float(cdnarules.gc_content(text))
+    except AttributeError:
         return gc_content_python(text)
 
 
-def gc_content_python(text: typing.AnyStr) -> float:
+def gc_content_python(text: str) -> float:
     counter = Counter(text)
     count = counter["G"] + counter["C"]
     return (count / len(text)) * 100
 
 
-def iupac_replace(sequence: typing.AnyStr):
+def iupac_replace(sequence: str) -> Pattern[str]:
     iupac_regex = {
         "M": "[AC]",
         "R": "[AG]",
@@ -107,7 +112,7 @@ def iupac_replace(sequence: typing.AnyStr):
     return compile(sequence)
 
 
-def strContainsSubRegex(text: typing.AnyStr, sequence: typing.AnyStr) -> bool:
+def strContainsSubRegex(text: str, sequence: str) -> bool:
     iupac_seq = iupac_replace(sequence)
     res = search(iupac_seq, text)
     if debug:
@@ -115,28 +120,28 @@ def strContainsSubRegex(text: typing.AnyStr, sequence: typing.AnyStr) -> bool:
     return bool(res)
 
 
-def strContainsIllegalChars(text: typing.AnyStr, allowed_chars: typing.AnyStr) -> int:
+def strContainsIllegalChars(text: str, allowed_chars: str) -> int:
     for cha in text:
         if cha not in allowed_chars:
             return 1
     return 0
 
 
-def charCountBiggerEqualThanX(text: typing.AnyStr, cha: typing.AnyStr):
+def charCountBiggerEqualThanX(text: str, cha: str) -> int:
     res = text.count(cha)
     if debug:
         print(res)
     return res
 
 
-def length(text: typing.AnyStr) -> int:
+def length(text: str) -> int:
     res = len(text)
     if debug:
         print(res)
     return res
 
 
-def executeRule(rule_kind: str, data: typing.AnyStr) -> int:
+def executeRule(rule_kind: str, data: str) -> int:
     if "(" not in rule_kind:
         rule_kind += "(*,0)"
     name, params = rule_kind.split("(")
@@ -147,11 +152,11 @@ def executeRule(rule_kind: str, data: typing.AnyStr) -> int:
         params += ",0"
     p1, p2 = params.split(",")
     if p2 == "":
-        p2 = 0
+        p2 = "0"
     return switch(name)(data, p1, p2)
 
 
-def shouldDrop(data: typing.AnyStr, rules: typing.List[typing.Tuple[str, float]]) -> float:
+def shouldDrop(data: str, rules: List[Tuple[str, float]]) -> float:
     drop_chance = 0.0
     for rule in rules:
         rule_kind, drop_prob = rule
@@ -159,7 +164,7 @@ def shouldDrop(data: typing.AnyStr, rules: typing.List[typing.Tuple[str, float]]
     return min(1.0, drop_chance)
 
 
-def shouldDropMax(data: typing.AnyStr, rules: typing.List[typing.Tuple[str, float]]) -> float:
+def shouldDropMax(data: str, rules: List[Tuple[str, float]]) -> float:
     drop_chance = 0.0
     for rule in rules:
         rule_kind, drop_prob = rule
@@ -169,7 +174,7 @@ def shouldDropMax(data: typing.AnyStr, rules: typing.List[typing.Tuple[str, floa
     return min(1.0, drop_chance)
 
 
-def shouldDropMin(data: typing.AnyStr, rules: typing.List[typing.Tuple[str, float]]) -> float:
+def shouldDropMin(data: str, rules: List[Tuple[str, float]]) -> float:
     drop_chance = 1.0
     for rule in rules:
         rule_kind, drop_prob = rule

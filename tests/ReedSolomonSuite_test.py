@@ -13,6 +13,33 @@ file_dec = "RS_logo.jpg.DECODED"
 out_dir = "RS_logo.jpg"
 
 
+def _flip_base(base: str) -> str:
+    transitions = {"A": "T", "T": "G", "G": "C", "C": "A"}
+    return transitions.get(base, base)
+
+
+def _bytes_from_quats(dna_data: str) -> bytes:
+    dna_data_temp = b""
+    for index in range(0, len(dna_data), 4):
+        try:
+            dna_data_temp += quats_to_bytes(dna_data[index : index + 4])
+        except ValueError:
+            continue
+    return dna_data_temp
+
+
+def _mutate_packet_file(path: str, flip_bases: int) -> None:
+    with open(path, "rb+") as f:
+        dna_data = list("".join(string2QUATS(f.read())))
+        if not dna_data:
+            return
+        for index in range(16, 16 + flip_bases):
+            dna_data[index] = _flip_base(dna_data[index])
+        f.seek(0)
+        f.write(_bytes_from_quats("".join(dna_data)))
+        f.truncate()
+
+
 # testing the ReedSolomonSuite with different parameters
 @pytest.mark.parametrize("overhead", [0.10])
 @pytest.mark.parametrize("chunksize", [100])
@@ -25,31 +52,7 @@ def test_suite(overhead, chunksize, headerchunk, flip_bases):
     encoder.save_packets(True)
     # manipulating some packets
     for fi in os.listdir(out_dir):
-        with open(out_dir + "/" + fi, "rb+") as f:
-            data = f.read()
-            dna_data = "".join(string2QUATS(data))
-            dna_data = list(dna_data)
-            if dna_data:
-                for i in range(16, 16 + flip_bases):
-                    if dna_data[i] == "A":
-                        dna_data[i] = "T"
-                    elif dna_data[i] == "T":
-                        dna_data[i] = "G"
-                    elif dna_data[i] == "G":
-                        dna_data[i] = "C"
-                    elif dna_data[i] == "C":
-                        dna_data[i] = "A"
-                dna_data = "".join(dna_data)
-                dna_data_temp = b""
-                for j in range(0, len(dna_data), 4):
-                    try:
-                        dna_data_temp += quats_to_bytes(dna_data[j : j + 4])
-                    except:
-                        pass
-                f.seek(0)
-                f.write(dna_data_temp)
-                f.truncate()
-                f.close()
+        _mutate_packet_file(out_dir + "/" + fi, flip_bases)
     decoder = ReedSolomonDecoder(out_dir)
     decoder.decodeFolder()
     assert os.path.exists(file_dec)

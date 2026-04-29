@@ -113,10 +113,11 @@ class ReedSolomonDecoder:
         text = text[4:]
         if self.rscodec is None:
             self.rscodec = RSCodec(int(norepair_symbols))
-        decoded = self.rscodec.decode(text)
+        raw_decoded = self.rscodec.decode(text)
+        decoded = raw_decoded[0] if isinstance(raw_decoded, tuple) else raw_decoded
         i: int = struct.unpack("<I", decoded[:4])[0]
         i: int = xor_mask(i)
-        data: bytes = decoded[4:]
+        data: bytes = bytes(decoded[4:])
         return i, data
 
     @staticmethod

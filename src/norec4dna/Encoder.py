@@ -17,6 +17,8 @@ from PIL import Image
 from .Decoder import Decoder
 from .ErrorCorrection import nocode
 
+ChunkData = typing.Union[bytes, NDArray[np.uint8]]
+
 
 class Encoder(ABC):
     """Common functionality shared by the concrete encoder implementations."""
@@ -44,7 +46,7 @@ class Encoder(ABC):
         self.setOfEncodedPackets: typing.Set[int] = set()
         self.encodedPackets: typing.Set[typing.Any] = set()
         self.overhead_limit: typing.Optional[float] = None
-        self.chunks: typing.List[np.ndarray] = []
+        self.chunks: typing.List[ChunkData] = []
         self.error_correction: typing.Callable[[bytes], bytes] = nocode
         self.progress_bar: typing.Optional[progressbar.ProgressBar] = None
         self.ruleDrop: int = 0
@@ -109,7 +111,7 @@ class Encoder(ABC):
 
     def encode_header_info(
         self,
-        checksum: typing.Optional[bytes] = None,
+        checksum: typing.Optional[int] = None,
         checksum_len_str: typing.Optional[str] = None,
         last_chunk_len_format: str = "I",
     ) -> np.ndarray:
@@ -173,13 +175,13 @@ class Encoder(ABC):
     def save_packets(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         pass  # implemented in subclasses
 
-    def create_chunks(self, chunk_size: int) -> typing.List[NDArray[np.uint8]]:
+    def create_chunks(self, chunk_size: int) -> typing.List[ChunkData]:
         if hasattr(self, "") and self.mode_1_bmp:
             data = self.image_to_mode_1_bmp()
         else:
             with open(self.file, "rb") as f:
                 data = f.read()
-        res = [
+        res: typing.List[ChunkData] = [
             np.frombuffer(data[i : i + chunk_size], dtype=np.uint8)
             for i in range(0, len(data), chunk_size)
         ]

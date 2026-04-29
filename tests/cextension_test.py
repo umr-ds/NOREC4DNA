@@ -34,13 +34,11 @@ def test_gepp():
 
     assert res == res_c
     assert all(
-        [
-            (a == b).all()
-            for a, b in zip(
-                [gauss_elim_piv.b[i][0] for i in gauss_elim_piv.result_mapping],
-                [gauss_elim_piv_c.b[i][0] for i in gauss_elim_piv_c.result_mapping],
-            )
-        ]
+        (a == b).all()
+        for a, b in zip(
+            [gauss_elim_piv.b[i][0] for i in gauss_elim_piv.result_mapping],
+            [gauss_elim_piv_c.b[i][0] for i in gauss_elim_piv_c.result_mapping],
+        )
     )
     # for all we care, these tests could even fail without breaking the code:
     assert (gauss_elim_piv.result_mapping == gauss_elim_piv_c.result_mapping).all()

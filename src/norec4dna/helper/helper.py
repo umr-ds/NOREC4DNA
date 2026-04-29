@@ -1,3 +1,5 @@
+import importlib
+import importlib.util
 import io
 import math
 import os
@@ -5,19 +7,38 @@ import shutil
 import typing
 from typing import List, Tuple, Union
 
-import crcmod
 import numpy as np
+
+from . import helper_cpu_single_core as _helper_backend
+
+crcmod = (
+    importlib.import_module("crcmod") if importlib.util.find_spec("crcmod") is not None else None
+)
 
 mode = "single_cpu"
 
-if mode == "gpu":
-    from .helper_cuda import *  # type: ignore
-elif mode == "gpu_simple":
-    from .helper_cuda_simple import *  # type: ignore
-elif mode == "single_cpu":
-    from .helper_cpu_single_core import *  # type: ignore
-else:
-    from .helper_cpu import *  # type: ignore
+xor_numpy = _helper_backend.xor_numpy
+listXOR = _helper_backend.listXOR
+logical_xor = _helper_backend.logical_xor
+xor_pakets = _helper_backend.xor_pakets
+backend_calc_crc = _helper_backend.calc_crc
+bitSet = _helper_backend.bitSet
+bitsSet = _helper_backend.bitsSet
+grayCode = _helper_backend.grayCode
+buildGraySequence = _helper_backend.buildGraySequence
+
+
+def should_drop_packet(rules: typing.Any, packet: typing.Any, upper_bound: float = 1.0) -> bool:
+    return _helper_backend.should_drop_packet(rules, packet, upper_bound)
+
+
+def xor_mask(
+    data: typing.Any,
+    len_format: str = "I",
+    mask: int = 0b11111001110000110110111110011100,
+    enabled: bool = True,
+) -> typing.Any:
+    return _helper_backend.xor_mask(data, len_format, mask, enabled)
 
 
 def split_file(in_file_name: str, number_of_splits: int) -> List[str]:
@@ -26,7 +47,7 @@ def split_file(in_file_name: str, number_of_splits: int) -> List[str]:
     try:
         os.makedirs(dirs)
     except OSError:
-        for f in [f for f in os.listdir(dirs)]:
+        for f in os.listdir(dirs):
             os.remove(os.path.join(dirs, f))
     out_file_names: List[str] = []
     float_chunk_size = filesize / number_of_splits
@@ -124,7 +145,7 @@ def cluster_and_remove_index(
             ) as out_f:
                 out_f.write(base_str)
     return (
-        [x for x in number_folder_mapping.values()],
+        list(number_folder_mapping.values()),
         number_folder_mapping[max(number_folder_mapping.keys())],
     )
 
@@ -161,7 +182,7 @@ def fasta_cluster_and_remove_index(
             with open(number_file_mapping[bin_number], "a+") as out_f:
                 out_f.write(first_line + base_str + "\n")
     return (
-        [x for x in number_file_mapping.values()],
+        list(number_file_mapping.values()),
         number_file_mapping[max(number_file_mapping.keys())],
     )
 
@@ -174,6 +195,23 @@ def merge_folder_content(
 ) -> None:
     print(src_folder_of_folders)
     print(dest_folder)
+    _prepare_destination_folder(dest_folder, clear_dest_folder)
+    for folder in os.listdir(src_folder_of_folders):
+        folder_path = os.path.join(os.path.abspath(src_folder_of_folders), folder)
+        if not os.path.isdir(folder_path):
+            continue
+        for file in os.listdir(folder_path):
+            source_file = os.path.join(folder_path, file)
+            if os.path.isfile(source_file):
+                shutil.copy(
+                    source_file,
+                    _get_merged_destination_path(
+                        dest_folder, folder_path, file, append_folder_name
+                    ),
+                )
+
+
+def _prepare_destination_folder(dest_folder: str, clear_dest_folder: bool) -> None:
     if clear_dest_folder and os.path.exists(dest_folder):
         try:
             shutil.rmtree(dest_folder)
@@ -181,21 +219,18 @@ def merge_folder_content(
             print("Could not delete folder")
     try:
         os.mkdir(dest_folder)
-    except Exception:
+    except FileExistsError:
         print("Folder already exists.")
     if len(os.listdir(dest_folder)) > 0:
         raise FileExistsError("dest_folder was not empty!")
 
-    for folder in os.listdir(src_folder_of_folders):
-        folder = os.path.join(os.path.abspath(src_folder_of_folders), folder)
-        if os.path.isdir(folder):
-            for file in os.listdir(folder):
-                if os.path.isfile(os.path.join(folder, file)):
-                    if append_folder_name:
-                        dest_file = os.path.join(dest_folder, os.path.basename(folder) + "_" + file)
-                    else:
-                        dest_file = dest_folder + "_" + file
-                    shutil.copy(os.path.join(folder, file), dest_file)
+
+def _get_merged_destination_path(
+    dest_folder: str, folder_path: str, filename: str, append_folder_name: bool
+) -> str:
+    if append_folder_name:
+        return os.path.join(dest_folder, os.path.basename(folder_path) + "_" + filename)
+    return dest_folder + "_" + filename
 
 
 def split_first(x: str) -> str:
@@ -233,13 +268,15 @@ def merge_parts(filenames: List[str], remove_tmp_on_success: bool = False) -> No
 def xor_with_seed(bin_data: bytes, seed: int) -> bytes:
     """XOR the data with a random bytestring of the same length, the seed is the packet id"""
     rng = np.random.default_rng(seed)
-    return xor_numpy(  # type: ignore
+    return xor_numpy(
         np.frombuffer(rng.bytes(len(bin_data)), dtype=np.uint8),
         np.frombuffer(bin_data, dtype=np.uint8),
     ).tobytes()
 
 
 def crc_algo_from_str(crc_len_str: str = "I") -> typing.Callable[[bytes, int], int]:
+    if crcmod is None:
+        raise ImportError("crcmod is required for incremental CRC calculations")
     if crc_len_str == "B":
         algo = crcmod.predefined.mkPredefinedCrcFun("crc-8")
     elif crc_len_str == "H":
@@ -265,6 +302,8 @@ def calc_crc(
         file_io = file_io.encode("utf-8")
     if isinstance(file_io, (bytes, bytearray)):
         file_io = io.BytesIO(file_io)
+    if crcmod is None:
+        return backend_calc_crc(file_io.read(), crc_len_str)
     checksum = 0
     algo = crc_algo_from_str(crc_len_str)
     while chunk := file_io.read(chunksize):

@@ -1,19 +1,34 @@
 import argparse
+import importlib
+import importlib.util
 import multiprocessing
 import pickle
 import random
 import string
+import typing
 
-import matplotlib.animation as animation
-import matplotlib.pyplot as plt
 import numpy as np
-from norec4dna import Encoder, RU10Decoder, RU10Encoder, nocode
-from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.helper import should_drop_packet
-from norec4dna.helper.RU10Helper import intermediate_symbols
-from norec4dna.rules.FastDNARules import FastDNARules
 
+from ..distributions.RaptorDistribution import RaptorDistribution
+from ..Encoder import Encoder
+from ..ErrorCorrection import nocode
+from ..helper import should_drop_packet
+from ..helper.RU10Helper import intermediate_symbols
+from ..RU10Decoder import RU10Decoder
+from ..RU10Encoder import RU10Encoder
+from ..rules.FastDNARules import FastDNARules
 from .optimization_helper import diff_list_to_list, list_to_diff_list, scale_to
+
+animation: typing.Any = (
+    importlib.import_module("matplotlib.animation")
+    if importlib.util.find_spec("matplotlib.animation") is not None
+    else None
+)
+plt: typing.Any = (
+    importlib.import_module("matplotlib.pyplot")
+    if importlib.util.find_spec("matplotlib.pyplot") is not None
+    else None
+)
 
 DO_PLOT = False
 DO_MOVIE = True
@@ -40,11 +55,11 @@ class GradientDescentOptimizer:
         chunk_size=50,
     ):
         packets_needed = 0
-        packets = dict()
+        packets = {}
         number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(file, chunk_size)
         dist = RaptorDistribution(number_of_chunks)
-        dist.f = self.X
-        dist.d = self.d
+        dist.f = np.asarray(self.X, dtype=np.int32)
+        dist.d = np.asarray(self.d, dtype=np.int8)
         dna_rules = FastDNARules()
         if asdna:
             rules = dna_rules
@@ -66,15 +81,16 @@ class GradientDescentOptimizer:
         x.prepare()
         y = RU10Decoder.pseudo_decoder(x.number_of_chunks, False)
         if y.distribution is None:  # self.isPseudo and
-            y.distribution = RaptorDistribution(x.number_of_chunks)
-            y.distribution.f = self.X
-            y.distribution.d = self.d
+            y_distribution = RaptorDistribution(x.number_of_chunks)
+            y_distribution.f = np.asarray(self.X, dtype=np.int32)
+            y_distribution.d = np.asarray(self.d, dtype=np.int8)
+            y.distribution = y_distribution
             y.number_of_chunks = x.number_of_chunks
-            _, y.s, y.h = intermediate_symbols(x.number_of_chunks, y.distribution)
+            _, y.s, y.h = intermediate_symbols(x.number_of_chunks, y_distribution)
             y.createAuxBlocks()
         n = 0
         for p_tmp in range(45):
-            packets[p_tmp] = list()
+            packets[p_tmp] = []
         while n < number_of_chunks * 50:
             pack = x.create_new_packet()
             if packets_needed == 0:
@@ -82,73 +98,81 @@ class GradientDescentOptimizer:
             should_drop_packet(dna_rules, pack)
 
             if pack.get_degree() not in packets:
-                packets[pack.get_degree()] = list()
+                packets[pack.get_degree()] = []
             packets[pack.get_degree()].append(pack.error_prob)
             n += 1
             if n >= number_of_chunks and y.is_decoded() and packets_needed == 0:
                 packets_needed = n
                 # we dont want to break, we want to generate #chunks * XXX packets!
                 # break
-        print("Packets created: " + str(sum([len(x) for x in packets.values()])))
+        print("Packets created: " + str(sum(len(x) for x in packets.values())))
         return packets, (packets_needed - number_of_chunks) / 100.0
+
+    @staticmethod
+    def _init_degree_packet_costs():
+        return {p_tmp: [] for p_tmp in range(45)}
+
+    def _collect_degree_packet_costs(self, c_size_list, file_list):
+        degree_packet_costs = self._init_degree_packet_costs()
+        total_n = 0
+        for enc_file in file_list:
+            for c_size in c_size_list:
+                degree_packet_costs1, n1 = self.encode(
+                    enc_file, True, nocode, False, False, False, chunk_size=c_size
+                )
+                for degree, costs in degree_packet_costs.items():
+                    costs.extend(degree_packet_costs1[degree])
+                total_n += n1
+        return degree_packet_costs, total_n
+
+    def _compute_avg_error_per_degree(self, degree_packet_costs):
+        avg_err_per_degree = np.zeros(max(self.d) + 1)
+        used_degrees = 0
+        for degree, costs in degree_packet_costs.items():
+            if len(costs) > 0:
+                avg_err_per_degree[degree] = sum(costs) / len(costs)
+                used_degrees += 1
+        return avg_err_per_degree, used_degrees
+
+    def _log_distribution_update(self, summed_error, observed_distribution):
+        if DO_PLOT:
+            plt.plot(observed_distribution / sum(observed_distribution))
+            plt.title("Dotted: Distribution - Line: Observed Dist - Err:" + str(summed_error))
+
+        distribution = np.insert(list_to_diff_list(self.X), 0, 0)
+        comparison = "BETTER" if summed_error <= self.current_min else "worse"
+        print(
+            "Created packet ("
+            + str(summed_error)
+            + ") is "
+            + comparison
+            + " than old minimum ("
+            + str(self.current_min)
+            + ")"
+        )
+        if summed_error <= self.current_min:
+            print("Distribution:")
+            print(self.X)
+            if DO_PLOT:
+                plt.plot(distribution / sum(distribution), ":")
+                plt.xticks(np.arange(0, 45, 2))
+                plt.grid()
+                plt.show(block=False)
+            self.current_min = summed_error
 
     def compute_cost(self, c_size_list=None, file_list=None):
         if c_size_list is None:
             c_size_list = [50, 75, 100]
         if file_list is None:
             file_list = [".INFILES/Dorn", ".INFILES/Dorn.tar.gz", "umr_logo_sw_scaled.png"]
-        degree_packet_costs = dict()
-        n = 0
-        for p_tmp in range(45):
-            degree_packet_costs[p_tmp] = list()
-        for enc_file in file_list:
-            for c_size in c_size_list:
-                degree_packet_costs1, n1 = self.encode(
-                    enc_file, True, nocode, False, False, False, chunk_size=c_size
-                )
-                [y.extend(degree_packet_costs1[x]) for x, y in degree_packet_costs.items()]
-                n += n1
+
+        degree_packet_costs, n = self._collect_degree_packet_costs(c_size_list, file_list)
         n = 1.0 * n / (len(c_size_list) + 1)
-        tmp_list = np.array([len(x) for x in degree_packet_costs.values()])
-        avg_err_per_degree = np.zeros(max(self.d) + 1)
-        used_degrees = 0
-        for deg in degree_packet_costs.keys():
-            if len(degree_packet_costs[deg]) > 0:
-                avg_err_per_degree[deg] = sum(degree_packet_costs[deg]) / len(
-                    degree_packet_costs[deg]
-                )
-                used_degrees += 1
+        observed_distribution = np.array([len(x) for x in degree_packet_costs.values()])
+        avg_err_per_degree, used_degrees = self._compute_avg_error_per_degree(degree_packet_costs)
         avg_err_per_degree[0] -= n
         summed_error = sum(avg_err_per_degree + n) / used_degrees
-        if summed_error <= self.current_min:
-            if DO_PLOT:
-                plt.plot(tmp_list / sum(tmp_list))
-                plt.title("Dotted: Distribution - Line: Observed Dist - Err:" + str(summed_error))
-            # plt.show(block=True)
-            tmp_list = np.insert(list_to_diff_list(self.X), 0, 0)
-            print(
-                "Created packet ("
-                + str(summed_error)
-                + ") is BETTER than old minimum ("
-                + str(self.current_min)
-                + ")"
-            )
-            print("Distribution:")
-            print(self.X)
-            if DO_PLOT:
-                plt.plot(tmp_list / sum(tmp_list), ":")
-                plt.xticks(np.arange(0, 45, 2))
-                plt.grid()
-                plt.show(block=False)
-            self.current_min = summed_error
-        else:
-            print(
-                "Created packet ("
-                + str(summed_error)
-                + ") is worse than old minimum ("
-                + str(self.current_min)
-                + ")"
-            )
+        self._log_distribution_update(summed_error, observed_distribution)
         return avg_err_per_degree + n - summed_error, summed_error
 
     def gradient_descent(self, X, y, alpha):
@@ -303,7 +327,7 @@ def main(gd_runs=100):
         res.append((new_x, tmp))
         if DO_MOVIE:
             writer = animation.FFMpegWriter(
-                fps=2 * FPS, metadata=dict(artist="Michael Schwarz"), bitrate=3600
+                fps=2 * FPS, metadata={"artist": "Michael Schwarz"}, bitrate=3600
             )
             fig = plt.figure()
             (l,) = plt.plot([], [])  # , 'k-o')
@@ -317,8 +341,8 @@ def main(gd_runs=100):
                 for xx in res:
                     for x in xx[0]:
                         x = list_to_diff_list(scale_to(x, 1.0))
-                        l.set_data([i for i in range(len(x))], x)
-                        for y in range(FPS):
+                        l.set_data(list(range(len(x))), x)
+                        for _ in range(FPS):
                             writer.grab_frame()
     return res
 
@@ -351,8 +375,8 @@ if __name__ == "__main__":
     p = multiprocessing.Pool(cores)
     param = [None] * cores
     a = p.map(main, [runs for _ in range(cores)])
-    X = list(y for x in a for y in x[0][0])
-    tmp = list(y for x in a for y in x[0][1])
+    X = [y for x in a for y in x[0][0]]
+    tmp = [y for x in a for y in x[0][1]]
     print("Absolute min:")
     min_pos = np.argmin([y for x, y in tmp])
     print("Min: ", tmp[min_pos][1])

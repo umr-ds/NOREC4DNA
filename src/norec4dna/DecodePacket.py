@@ -1,25 +1,28 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
+from __future__ import annotations
+
 import typing
 
 import numpy as np
-from numpy.typing import NDArray
 
 from .ErrorCorrection import nocode
 from .helper import xor_numpy
 from .Packet import Packet
 
+UInt8Array = np.ndarray[typing.Any, np.dtype[np.uint8]]
+
 
 class DecodePacket(Packet):
     def __init__(
         self,
-        data: typing.Union[bytes, NDArray[np.uint8]],
+        data: typing.Union[bytes, UInt8Array],
         used_packets: typing.Set[int],
         error_correction: typing.Callable[[bytes], bytes] = nocode,
         number_of_chunks: int = -1,
     ):
         self.set_used_packets(used_packets)
-        self.data: typing.Union[bytes, NDArray[np.uint8]] = data
+        self.data: typing.Union[bytes, UInt8Array] = data
         self.error_correction: typing.Callable[[bytes], bytes] = error_correction
         self.did_change: bool = False
         self.internal_hash: typing.Optional[int] = None
@@ -49,7 +52,7 @@ class DecodePacket(Packet):
     def get_used_packets(self) -> typing.Set[int]:
         return self.used_packets
 
-    def get_data(self) -> typing.Union[bytes, NDArray[np.uint8]]:
+    def get_data(self) -> typing.Union[bytes, UInt8Array]:
         return self.data
 
     def remove_packets(self, packet_set: typing.Set[int]):

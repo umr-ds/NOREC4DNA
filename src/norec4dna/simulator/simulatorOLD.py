@@ -173,6 +173,7 @@ def main(file):
     dist = OnlineDistribution(epsilon)
     # infer number_of_chunks form Distribution:
     number_of_chunks = dist.get_size()
+    assert number_of_chunks is not None
     pseudo = OnlineBPDecoder.pseudo_decoder()
     encoder = OnlineEncoder(file, number_of_chunks, dist, epsilon, quality)
     encoder.encode_to_packets()
@@ -193,6 +194,7 @@ def main(file):
     dist = OnlineDistribution(epsilon)
     # infer number_of_chunks form Distribution:
     number_of_chunks = dist.get_size()
+    assert number_of_chunks is not None
     pseudo = OnlineBPDecoder.pseudo_decoder()
     encoder = OnlineEncoder(file, number_of_chunks, dist, epsilon, quality, pseudo_decoder=pseudo)
     encoder.encode_to_packets()
@@ -258,7 +260,7 @@ if __name__ == "__main__":
     # main(file)
     name = "ERROR"
     for droprate in np.arange(0.01, 0.06, 0.01):
-        for repeat in range(10):
+        for _ in range(10):
             try:
                 print("GOGOGO...")
                 rnd = get_random_int(math.pow(2, 31) - 1)

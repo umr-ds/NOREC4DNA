@@ -1,7 +1,7 @@
 __all__ = [
     "Distribution",
     "AdaptableDist",
-    "ErlichZielinskiRobustSolitonDisribution",
+    "ErlichZielinskiRobustSolitonDistribution",
     "IdealSolitonDistribution",
     "RobustSolitonDistribution",
     "OnlineDistribution",

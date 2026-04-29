@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
 
+from __future__ import annotations
+
 import os
 import struct
 import typing
@@ -8,15 +10,18 @@ from math import ceil
 
 import numpy
 import numpy as np
-from norec4dna.BPDecoder import BPDecoder
-from norec4dna.distributions.OnlineDistribution import OnlineDistribution
-from norec4dna.ErrorCorrection import crc32, nocode
-from norec4dna.HeaderChunk import HeaderChunk
-from norec4dna.helper import calc_crc, logical_xor, xor_mask
-from norec4dna.helper.quaternary2Bin import quat_file_to_bin
-from norec4dna.OnlineAuxPacket import OnlineAuxPacket
-from norec4dna.OnlinePacket import OnlinePacket
-from numpy.typing import NDArray
+from reedsolo import ReedSolomonError
+
+from .BPDecoder import BPDecoder
+from .distributions.OnlineDistribution import OnlineDistribution
+from .ErrorCorrection import crc32, nocode
+from .HeaderChunk import HeaderChunk
+from .helper import calc_crc, logical_xor, xor_mask
+from .helper.quaternary2Bin import quat_file_to_bin
+from .OnlineAuxPacket import OnlineAuxPacket
+from .OnlinePacket import OnlinePacket
+
+UInt8Array = np.ndarray[typing.Any, np.dtype[np.uint8]]
 
 
 class OnlineBPDecoder(BPDecoder):
@@ -35,11 +40,75 @@ class OnlineBPDecoder(BPDecoder):
             if not self.isFolder:
                 self.f = open(file, "rb")
         self.rng: numpy.random.RandomState = numpy.random.RandomState()
-        self.auxBlockNumbers: typing.Dict[int, typing.Set[int]] = dict()
+        self.auxBlockNumbers: typing.Dict[int, typing.Set[int]] = {}
         self.error_correction: typing.Callable[[bytes], bytes] = error_correction
         self.static_number_of_chunks: typing.Optional[int] = static_number_of_chunks
         self.epsilon: typing.Optional[float] = None
         self.quality: typing.Optional[int] = None
+
+    def _read_packet_data(
+        self, file_handle: typing.IO[bytes], from_multiple_files: bool, packet_len_format: str
+    ) -> typing.Tuple[bytes, int]:
+        if from_multiple_files:
+            packet = file_handle.read()
+            return packet, len(packet)
+        packet_len = file_handle.read(struct.calcsize("<" + packet_len_format))
+        unpacked_len = struct.unpack("<" + packet_len_format, packet_len)[0]
+        return file_handle.read(int(unpacked_len)), int(unpacked_len)
+
+    def _retry_read_packet(
+        self,
+        from_multiple_files: bool,
+        packet_len_format: str,
+        crc_len_format: str,
+        number_of_chunks_len_format: str,
+        quality_len_format: str,
+        epsilon_len_format: str,
+        check_block_number_len_format: str,
+    ) -> typing.Optional[OnlinePacket]:
+        return self.getNextValidPacket(
+            from_multiple_files,
+            packet_len_format=packet_len_format,
+            crc_len_format=crc_len_format,
+            number_of_chunks_len_format=number_of_chunks_len_format,
+            quality_len_format=quality_len_format,
+            epsilon_len_format=epsilon_len_format,
+            check_block_number_len_format=check_block_number_len_format,
+        )
+
+    def _decode_crc_packet(self, packet: bytes, crc_len_format: str) -> typing.Optional[int]:
+        crc_len = struct.calcsize("<" + crc_len_format)
+        payload = packet[:crc_len]
+        crc = struct.unpack("<L", packet[crc_len:])[0]
+        calced_crc = calc_crc(payload)
+        if crc == calced_crc:
+            return crc_len
+        print("[-] CRC-Error - " + str(hex(crc)) + " != " + str(hex(calced_crc)))
+        self.corrupt += 1
+        return None
+
+    def _convert_xor_result(self, result: typing.Any) -> int:
+        if isinstance(result, np.ndarray):
+            return int(result.item())
+        if isinstance(result, (int, float)):
+            return int(result)
+        return int(result)
+
+    def _decode_online_header(
+        self,
+        len_data: typing.Tuple[typing.Any, ...],
+        number_of_chunks_len_format: str,
+        quality_len_format: str,
+    ) -> typing.Tuple[int, int]:
+        if self.static_number_of_chunks is None:
+            number_of_chunks_raw, quality_raw, self.epsilon, check_block_number_raw = len_data
+            self.number_of_chunks = self._convert_xor_result(
+                xor_mask(number_of_chunks_raw, number_of_chunks_len_format)
+            )
+        else:
+            quality_raw, self.epsilon, check_block_number_raw = len_data
+        quality = self._convert_xor_result(xor_mask(quality_raw, quality_len_format))
+        return quality, int(check_block_number_raw)
 
     def decodeFolder(
         self,
@@ -77,14 +146,12 @@ class OnlineBPDecoder(BPDecoder):
                     check_block_number_len_format=check_block_number_len_format,
                 )
                 if new_pack is not None:
-                    # koennte durch input_new_packet ersetzt werden:
-                    self.addPacket(new_pack)
-                    decoded = self.updatePackets(new_pack)
+                    decoded = self.input_new_packet(new_pack)
                 if decoded:
                     break
         print("Decoded Packets: " + str(self.correct))
         print("Corrupt Packets : " + str(self.corrupt))
-        if hasattr(self, "f"):
+        if self.f is not None:
             self.f.close()
         if not decoded and self.EOF:
             print("Unable to retrieve file from chunks. Too many errors?")
@@ -120,12 +187,12 @@ class OnlineBPDecoder(BPDecoder):
             )
             if new_pack is None:
                 break
-            self.addPacket(new_pack)
-            decoded = self.updatePackets(new_pack)
+            decoded = self.input_new_packet(new_pack)
             ##
         print("Decoded Packets: " + str(self.correct))
         print("Corrupt Packets : " + str(self.corrupt))
-        self.f.close()
+        if self.f is not None:
+            self.f.close()
         if not decoded and self.EOF:
             print("Unable to retrieve file from chunks. Too many errors?")
             return -1
@@ -153,27 +220,21 @@ class OnlineBPDecoder(BPDecoder):
         for aux in aux_used_packets:
             if aux:
                 bool_array = self.auxBlocks[i].get_bool_array_used_packets()
-                # Convert numpy array to list if needed, handle None case
                 if bool_array is None:
                     res.append([])
-                elif hasattr(bool_array, "tolist"):
+                elif isinstance(bool_array, np.ndarray):
                     res.append(bool_array.tolist())
                 else:
-                    res.append(bool_array)
+                    res.append(list(bool_array))
             i += 1
         return res
 
     def removeAndXorAuxPackets(self, packet: OnlinePacket) -> typing.List[bool]:
         aux_mapping = self.getAuxPacketListFromPacket(packet)
         packet_bool_array = packet.get_bool_array_used_packets()
-        # Convert numpy array to list if needed
-        if hasattr(packet_bool_array, "tolist"):
-            aux_mapping.append(packet_bool_array.tolist())
-        else:
-            aux_mapping.append(packet_bool_array)
+        aux_mapping.append(list(packet_bool_array))
         result = logical_xor(aux_mapping)
-        # Ensure result is a list
-        if hasattr(result, "tolist"):
+        if isinstance(result, np.ndarray):
             return result.tolist()
         return result if isinstance(result, list) else list(result)
 
@@ -197,7 +258,7 @@ class OnlineBPDecoder(BPDecoder):
             0, self.number_of_chunks
         ):  # + (1 if self.use_headerchunk else 0)):  # + 1 for HeaderChunk
             # Insert this Chunk into quality different Aux-Packets
-            for i in range(0, self.quality if self.quality is not None else 0):
+            for _ in range(0, self.quality if self.quality is not None else 0):
                 # uniform choose a number of aux blocks
                 aux_no = int(self.rng.randint(0, self.getNumberOfAuxBlocks()))
                 self.auxBlockNumbers[aux_no].add(chunk_no)
@@ -233,35 +294,45 @@ class OnlineBPDecoder(BPDecoder):
         epsilon_len_format: str = "f",
         check_block_number_len_format: str = "I",
     ) -> typing.Optional[OnlinePacket]:
-        if not from_multiple_files:
-            packet_len = self.f.read(struct.calcsize("<" + packet_len_format))
-            packet_len = struct.unpack("<" + packet_len_format, packet_len)[0]
-            packet: bytes = self.f.read(int(packet_len))
-        else:
-            packet = self.f.read()
-            packet_len = len(packet)
+        if self.f is None:
+            raise RuntimeError("Input file not open")
+        file_handle = self.f
+        packet, packet_len = self._read_packet_data(
+            file_handle, from_multiple_files, packet_len_format
+        )
         if not packet or not packet_len:  # EOF
             self.EOF = True
-            self.f.close()
+            file_handle.close()
             return None
 
         crc_len: typing.Optional[int] = struct.calcsize("<" + crc_len_format)
         if self.error_correction.__code__.co_name == crc32.__code__.co_name:
-            payload = packet[:crc_len]
-            crc = struct.unpack("<L", packet[crc_len:])[0]
-            calced_crc = calc_crc(payload)
-
-            if crc != calced_crc:  # If the Packet is corrupt, try next one
-                print("[-] CRC-Error - " + str(hex(crc)) + " != " + str(hex(calced_crc)))
-                self.corrupt += 1
-                return self.getNextValidPacket(from_multiple_files)
+            crc_len = self._decode_crc_packet(packet, crc_len_format)
+            if crc_len is None:
+                return self._retry_read_packet(
+                    from_multiple_files,
+                    packet_len_format,
+                    crc_len_format,
+                    number_of_chunks_len_format,
+                    quality_len_format,
+                    epsilon_len_format,
+                    check_block_number_len_format,
+                )
         else:
             crc_len = None
             try:
                 packet = self.error_correction(packet)
-            except:
+            except (AssertionError, ReedSolomonError, ValueError):
                 self.corrupt += 1
-                return self.getNextValidPacket(from_multiple_files)
+                return self._retry_read_packet(
+                    from_multiple_files,
+                    packet_len_format,
+                    crc_len_format,
+                    number_of_chunks_len_format,
+                    quality_len_format,
+                    epsilon_len_format,
+                    check_block_number_len_format,
+                )
         struct_str: str = (
             "<"
             + number_of_chunks_len_format
@@ -272,39 +343,21 @@ class OnlineBPDecoder(BPDecoder):
         struct_len: int = struct.calcsize(struct_str)
         data = packet[struct_len:crc_len]
         len_data: typing.Tuple = struct.unpack(struct_str, packet[0:struct_len])
-        quality: int
-        check_block_number: int
-
-        def convert_xor_result(result: typing.Any) -> int:
-            """Helper to convert xor_mask result to int"""
-            if isinstance(result, np.ndarray):
-                return int(result.item())
-            elif isinstance(result, (int, float)):
-                return int(result)
-            else:
-                return int(result)
-
-        if self.static_number_of_chunks is None:
-            number_of_chunks_raw, quality_raw, self.epsilon, check_block_number_raw = len_data
-            number_of_chunks_result = xor_mask(number_of_chunks_raw, number_of_chunks_len_format)
-            self.number_of_chunks = convert_xor_result(number_of_chunks_result)
-            quality_result = xor_mask(quality_raw, quality_len_format)
-            quality = convert_xor_result(quality_result)
-            check_block_number = int(check_block_number_raw)
-        else:
-            quality_raw, self.epsilon, check_block_number_raw = len_data
-            quality_result = xor_mask(quality_raw, quality_len_format)
-            quality = convert_xor_result(quality_result)
-            check_block_number = int(check_block_number_raw)
+        quality, check_block_number = self._decode_online_header(
+            len_data, number_of_chunks_len_format, quality_len_format
+        )
+        self.quality = quality
+        if self.epsilon is not None:
+            self.epsilon = round(self.epsilon, 6)
         if self.dist is None:
             eps_value: float = self.epsilon if self.epsilon is not None else 0.0
             self.dist = OnlineDistribution(eps_value)
         if self.correct == 0:
-            # Create MockUp AuxBlocks with the given Pseudo-Random Number -> we will know which Packets are Encoded in which AuxBlock
+            # Create mock aux blocks for the deterministic packet-to-aux mapping.
             self.createAuxBlocks()
 
         self.correct += 1
-        data_array: NDArray[np.uint8] = np.frombuffer(data, dtype=np.uint8)
+        data_array: UInt8Array = np.frombuffer(data, dtype=np.uint8)
         epsilon_value: float = self.epsilon if self.epsilon is not None else 0.0
         res = OnlinePacket(
             data_array.tobytes(),
@@ -342,7 +395,12 @@ class OnlineBPDecoder(BPDecoder):
         )  # split is needed for weird  MAC / Windows bugs...
         output_concat = b""
         if self.headerChunk is not None:
-            file_name = self.headerChunk.get_file_name().decode("utf-8")
+            header_file_name = self.headerChunk.get_file_name()
+            file_name = (
+                header_file_name.decode("utf-8")
+                if isinstance(header_file_name, bytes)
+                else header_file_name
+            )
         with open(file_name, "wb") as f:
             a = []
             for decoded in sorted(self.decodedPackets):
@@ -350,35 +408,30 @@ class OnlineBPDecoder(BPDecoder):
                 if 0 != num or not self.use_headerchunk or self.number_of_chunks - 1 == 0:
                     if isinstance(decoded, OnlineAuxPacket):
                         a.append(num)
-                    if self.number_of_chunks - 1 == num and self.use_headerchunk:
+                    if (
+                        self.number_of_chunks - 1 == num
+                        and self.use_headerchunk
+                        and self.headerChunk is not None
+                    ):
                         output = decoded.get_data()[0 : self.headerChunk.get_last_chunk_length()]
-                        if isinstance(output, bytes):
-                            output_concat += output
-                        else:
-                            output_concat += output.tobytes()
-                        f.write(output)
+                        output_bytes = output if isinstance(output, bytes) else output.tobytes()
+                        output_concat += output_bytes
+                        f.write(output_bytes)
                     else:
                         if null_is_terminator:
                             data = decoded.get_data()
-                            if isinstance(data, bytes):
-                                splitter = data.decode().split("\x00")
-                            else:
-                                splitter = data.tobytes().decode().split("\x00")
+                            data_bytes = data if isinstance(data, bytes) else data.tobytes()
+                            splitter = data_bytes.decode().split("\x00")
                             output = splitter[0].encode()
-                            if isinstance(output, bytes):
-                                output_concat += output
-                            else:
-                                output_concat += output.tobytes()
+                            output_concat += output
                             f.write(output)
                             if len(splitter) > 1:
                                 break  # since we are in null-terminator mode, we exit once we see the first 0-byte
                         else:
                             output = decoded.get_data()
-                            if isinstance(output, bytes):
-                                output_concat += output
-                            else:
-                                output_concat += output.tobytes()
-                            f.write(output)
+                            output_bytes = output if isinstance(output, bytes) else output.tobytes()
+                            output_concat += output_bytes
+                            f.write(output_bytes)
         print("Saved file as '" + str(file_name) + "'")
         if print_to_output:
             print("Result:")

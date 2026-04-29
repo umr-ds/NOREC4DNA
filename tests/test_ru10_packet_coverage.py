@@ -101,17 +101,17 @@ class TestRU10PacketInit:
     def test_ru10packet_with_xor_by_seed(self):
         """Test RU10Packet with xor_by_seed=True"""
         packet = RU10Packet(b"test", [0, 1], 100, 1, xor_by_seed=True)
-        assert packet.xor_by_seed == True
+        assert packet.xor_by_seed
 
     def test_ru10packet_with_mask_id_false(self):
         """Test RU10Packet with mask_id=False"""
         packet = RU10Packet(b"test", [0, 1], 100, 1, mask_id=False)
-        assert packet.mask_id == False
+        assert not packet.mask_id
 
     def test_ru10packet_with_contains_meta(self):
         """Test RU10Packet with contains_meta_or_version=True"""
         packet = RU10Packet(b"test", [0, 1], 100, 1, contains_meta_or_version=True)
-        assert packet.contains_meta_or_version == True
+        assert packet.contains_meta_or_version
 
 
 class TestRU10PacketMethods:
@@ -220,9 +220,9 @@ class TestRU10PacketMethods:
         arr = packet.get_bool_array_used_packets()
         assert arr is not None
         assert len(arr) == 100
-        assert arr[0] == True
-        assert arr[1] == True
-        assert arr[2] == False
+        assert arr[0]
+        assert arr[1]
+        assert not arr[2]
 
     def test_get_bool_array_used_packets_none(self):
         """Test get_bool_array_used_packets when bool_arrayused_packets is None"""
@@ -244,22 +244,22 @@ class TestRU10PacketMethods:
         packet = RU10Packet(b"test", [], 100, 1)
         packet.used_packets = None
         arr = packet.get_bool_array_all_used_packets()
-        assert all(x == False for x in arr)
+        assert all(not x for x in arr)
 
     def test_get_bool_array_used_and_ldpc_packets(self):
         """Test get_bool_array_used_and_ldpc_packets"""
         packet = RU10Packet(b"test", [0, 1], 100, 1)
         arr = packet.get_bool_array_used_and_ldpc_packets()
         assert len(arr) > 100
-        assert arr[0] == True
-        assert arr[1] == True
+        assert arr[0]
+        assert arr[1]
 
     def test_get_bool_array_used_and_ldpc_packets_no_used(self):
         """Test get_bool_array_used_and_ldpc_packets with no used packets"""
         packet = RU10Packet(b"test", [], 100, 1)
         packet.used_packets = None
         arr = packet.get_bool_array_used_and_ldpc_packets()
-        assert all(x == False for x in arr)
+        assert all(not x for x in arr)
 
     def test_get_bool_array_ldpc_packets(self):
         """Test get_bool_array_ldpc_packets"""

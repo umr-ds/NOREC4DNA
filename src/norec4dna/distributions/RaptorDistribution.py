@@ -2,12 +2,26 @@ import bisect
 import math
 import typing
 from functools import lru_cache
+from importlib import import_module, util
 
 import numpy as np
-from numpy.typing import NDArray
-from scipy.special import comb
 
-from .Distribution import Distribution
+from .Distribution import Distribution, RandomWithSeed
+
+Int32Array = typing.Any
+Int8Array = typing.Any
+
+_scipy_special = (
+    import_module("scipy.special") if util.find_spec("scipy.special") is not None else None
+)
+
+
+def comb(n: int, r: int, *, exact: bool = False) -> typing.Union[int, float]:
+    if _scipy_special is not None:
+        return typing.cast(typing.Union[int, float], _scipy_special.comb(n, r, exact=exact))
+    if exact:
+        return math.comb(n, r)
+    return float(math.comb(n, r))
 
 
 class RaptorDistribution(Distribution):
@@ -10068,22 +10082,28 @@ class RaptorDistribution(Distribution):
 
     def __init__(self, number_of_chunks: int):
         super().__init__()
-        self.rng = np.random  # type: ignore[type-arg]
+        self.rng: RandomWithSeed = np.random
         self.rng.seed(number_of_chunks)
+        self._smallest_prime_cache: typing.Dict[int, int] = {}
         self.S: int = number_of_chunks
-        self.f: NDArray[np.int32] = np.array(
+        self.f: Int32Array = np.array(
             [0, 10241, 491582, 712794, 831695, 948446, 1032189, 1048576], dtype=np.int32
         )
-        self.d: NDArray[np.int8] = np.array([0, 1, 2, 3, 4, 10, 11, 40], dtype=np.int8)
+        self.d: Int8Array = np.array([0, 1, 2, 3, 4, 10, 11, 40], dtype=np.int8)
 
-    @lru_cache(8192)
     def smallestPrimeGreaterOrEqual(self, x: int) -> int:
+        cached = self._smallest_prime_cache.get(x)
+        if cached is not None:
+            return cached
         if x <= self.smallPrimes[len(self.smallPrimes) - 1]:
             p = next(i for i, v in enumerate(self.smallPrimes) if v >= x)
-            return self.smallPrimes[p]
+            result = self.smallPrimes[p]
+            self._smallest_prime_cache[x] = result
+            return result
 
         while not self.isPrime(x):
             x = x + 1
+        self._smallest_prime_cache[x] = x
         return x
 
     def set_seed(self, seed: int):
@@ -10119,9 +10139,9 @@ class RaptorDistribution(Distribution):
     # deg calculates the degree to be used in code block generation.
     def deg(self, v: int) -> int:
         try:
-            return self.d[bisect.bisect_right(self.f, v)]
+            return int(self.d[bisect.bisect_right(self.f, v)])
         except IndexError:
-            return self.d[-1]
+            return int(self.d[-1])
 
     def get_config_string(self) -> str:
         return "RaptorDistribution_S=" + str(self.S)

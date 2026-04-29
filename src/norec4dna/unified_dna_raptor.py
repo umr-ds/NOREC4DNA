@@ -1,24 +1,23 @@
+from __future__ import annotations
+
 import io
 import logging
 import struct
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
-from norec4dna.HeaderChunk import HeaderChunk
-from norec4dna.Packet import Packet
-from numpy.typing import NDArray
 
-from . import (
-    Encoder,
-    RaptorDistribution,
-    RU10Decoder,
-    RU10Encoder,
-    get_error_correction_decode,
-    get_error_correction_encode,
-)
+from .distributions.RaptorDistribution import RaptorDistribution
+from .Encoder import Encoder
+from .ErrorCorrection import get_error_correction_decode, get_error_correction_encode
+from .HeaderChunk import HeaderChunk
 from .helper.quaternary2Bin import tranlate_quat_to_byte
-from .invivo_window_decoder import INPUT_FILE
+from .Packet import Packet
+from .RU10Decoder import RU10Decoder
+from .RU10Encoder import RU10Encoder
 from .rules.FastDNARules import FastDNARules
+
+UInt8Array = np.ndarray[Any, np.dtype[np.uint8]]
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +100,73 @@ def encode(string_file_name: str) -> Tuple[List[str], RU10Encoder]:
     return [x.get_dna_struct(True) for x in encoder.encodedPackets], encoder
 
 
-def decode(string_file_name: Optional[str], list_of_dna_strings: List[str]) -> NDArray[np.uint8]:
+def _unspace_seeded_dna(dna_str: str) -> str:
+    struct_len = struct.calcsize(SEED_LEN_FORMAT) * 4
+    if SEED_SPACING <= 0 or struct_len <= 0:
+        return dna_str
+
+    res = ""
+    input_str = list(dna_str)
+    i = 0
+    while len(res) < struct_len:
+        res += input_str[i]
+        input_str[i] = " "
+        i += SEED_SPACING + 1
+    res += "".join(input_str).replace(" ", "")
+    return res
+
+
+def _iter_ru10_packets(decoder: RU10Decoder, list_of_dna_strings: List[str]):
+    for dna_str in list_of_dna_strings:
+        new_pack = decoder.parse_raw_packet(
+            io.BytesIO(tranlate_quat_to_byte(_unspace_seeded_dna(dna_str))).read(),
+            crc_len_format=CHECKSUM_LEN_STR,
+            number_of_chunks_len_format=DECODER_NUM_CHUNK_LEN_FORMAT,
+            id_len_format=SEED_LEN_FORMAT,
+        )
+        if new_pack is not None and not isinstance(new_pack, str):
+            yield new_pack
+
+
+def _ensure_ru10_header_chunk(decoder: RU10Decoder) -> None:
+    if not INSERT_HEADER or decoder.headerChunk is not None or decoder.GEPP is None:
+        return
+    header_row = decoder.GEPP.result_mapping[0]
+    decoder.headerChunk = HeaderChunk(
+        Packet(decoder.GEPP.b[header_row], {0}, decoder.number_of_chunks, read_only=True),
+        checksum_len_format=CHECKSUM_LEN_STR,
+    )
+
+
+def _write_ru10_row(decoder: RU10Decoder, row_index: int, output_buffer: io.BytesIO) -> bool:
+    assert decoder.GEPP is not None, "GEPP must be initialized after decoding"
+    if row_index < 0:
+        output_buffer.write(b"\x00" * len(decoder.GEPP.b[row_index][0]))
+        return False
+
+    _ensure_ru10_header_chunk(decoder)
+    if row_index == 0 and INSERT_HEADER:
+        return False
+
+    if decoder.number_of_chunks - 1 == row_index and INSERT_HEADER:
+        header_chunk = decoder.headerChunk
+        if header_chunk is None:
+            raise RuntimeError("Header chunk missing during RU10 decode")
+        output_buffer.write(
+            decoder.GEPP.b[row_index][0][0 : header_chunk.get_last_chunk_length()].tobytes()
+        )
+        return False
+
+    if NULL_IS_TERMINATOR:
+        splitter = decoder.GEPP.b[row_index].tobytes().split(b"\x00")
+        output_buffer.write(splitter[0])
+        return len(splitter) > 1
+
+    output_buffer.write(decoder.GEPP.b[row_index].tobytes())
+    return False
+
+
+def decode(string_file_name: Optional[str], list_of_dna_strings: List[str]) -> UInt8Array:
     # make sure that the dist is freshly initialized...
     decoder = RU10Decoder(
         string_file_name,
@@ -125,30 +190,8 @@ def decode(string_file_name: Optional[str], list_of_dna_strings: List[str]) -> N
     """
     decoder.read_all_before_decode = READ_ALL
 
-    for dna_str in list_of_dna_strings:
-        # un-space the dna string:
-        struct_len = struct.calcsize(SEED_LEN_FORMAT) * 4
-        if SEED_SPACING > 0 and struct_len > 0:
-            res = ""
-            input_str = list(dna_str)
-            i = 0
-            while len(res) < struct_len:
-                res += input_str[i]
-                input_str[i] = " "
-                i += SEED_SPACING + 1
-            input_str = "".join(input_str)
-            input_str = input_str.replace(" ", "")
-            res += input_str
-            dna_str = res
-        # raw_packet_list.append((error_prob, seed, dna_str))
-        new_pack = decoder.parse_raw_packet(
-            io.BytesIO(tranlate_quat_to_byte(dna_str)).read(),
-            crc_len_format=CHECKSUM_LEN_STR,
-            number_of_chunks_len_format=DECODER_NUM_CHUNK_LEN_FORMAT,
-            id_len_format=SEED_LEN_FORMAT,
-        )
-        if new_pack is not None and new_pack != "CORRUPT":
-            decoder.input_new_packet(new_pack)
+    for new_pack in _iter_ru10_packets(decoder, list_of_dna_strings):
+        decoder.input_new_packet(new_pack)
 
     solved = decoder.solve()
     if RAISE_ON_UNSOLVED and not solved:
@@ -164,38 +207,15 @@ def decode(string_file_name: Optional[str], list_of_dna_strings: List[str]) -> N
     __byte_io = io.BytesIO()
     with __byte_io as f:
         for x in decoder.GEPP.result_mapping:
-            if x < 0:
-                f.write(b"\x00" * len(decoder.GEPP.b[x][0]))
-                continue
-            if INSERT_HEADER and decoder.headerChunk is None:
-                header_row = decoder.GEPP.result_mapping[0]
-                decoder.headerChunk = HeaderChunk(
-                    Packet(
-                        decoder.GEPP.b[header_row], {0}, decoder.number_of_chunks, read_only=True
-                    ),
-                    checksum_len_format=CHECKSUM_LEN_STR,
-                )
-            if 0 != x or not INSERT_HEADER:
-                if decoder.number_of_chunks - 1 == x and INSERT_HEADER:
-                    output = decoder.GEPP.b[x][0][0 : decoder.headerChunk.get_last_chunk_length()]
-                    f.write(output)
-                else:
-                    if NULL_IS_TERMINATOR:
-                        splitter = decoder.GEPP.b[x].tobytes().split(b"\x00")
-                        output = splitter[0]
-                        f.write(output)
-                        if len(splitter) > 1:
-                            break  # since we are in null-terminator mode, we exit once we see the first 0-byte
-                    else:
-                        output = decoder.GEPP.b[x]
-                        f.write(output)
+            if _write_ru10_row(decoder, x, f):
+                break
         # convert the byte array __ByteIO to a numpy bool array
         numpy_boolean_array = np.unpackbits(np.frombuffer(f.getvalue(), dtype=np.uint8))
         return numpy_boolean_array
 
 
 if __name__ == "__main__":
-    for INPUT_FILE in [
+    for input_file in [
         ".INFILES/Dorn",
         ".INFILES/sleeping_beauty",
         "README.md",
@@ -204,11 +224,11 @@ if __name__ == "__main__":
         ".INFILES/data_2mb.test",
     ]:
         NUMBER_OF_CHUNKS = None
-        res, encoder = encode(INPUT_FILE)
+        res, encoder = encode(input_file)
         try:
-            with open(INPUT_FILE, "rb") as f:
+            with open(input_file, "rb") as f:
                 org = np.unpackbits(np.frombuffer(f.read(), dtype=np.uint8))
                 decoded = decode(None, res)
-                print(f"{INPUT_FILE}, {np.all(np.equal(org, decoded))}")
-        except:
-            print(f"{INPUT_FILE}, False")
+                print(f"{input_file}, {np.all(np.equal(org, decoded))}")
+        except (OSError, RuntimeError, ValueError):
+            print(f"{input_file}, False")

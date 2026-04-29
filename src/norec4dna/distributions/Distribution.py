@@ -6,11 +6,25 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 
+class RandomWithSeed(typing.Protocol):
+    def seed(self, seed: int) -> None: ...
+
+
+class RandomWithChoice(RandomWithSeed, typing.Protocol):
+    def choice(
+        self,
+        a: typing.Any,
+        size: typing.Optional[int] = None,
+        replace: bool = True,
+        p: typing.Optional[typing.Sequence[float]] = None,
+    ) -> typing.Any: ...
+
+
 class Distribution(ABC):
     """Abstract base class for all supported packet-degree distributions."""
 
     def __init__(self) -> None:
-        self.rng = np.random
+        self.rng: RandomWithChoice = np.random
         self.pre_comp_dist: typing.List[float] = []
         self.S: typing.Optional[int] = None
 

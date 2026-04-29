@@ -1,13 +1,23 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
+from __future__ import annotations
+
 import typing
 from functools import lru_cache
 from math import ceil, floor, log, pow, sqrt
 
 import numpy as np
-from numpy.typing import NDArray
 
 from ..distributions.RaptorDistribution import RaptorDistribution
+
+BoolArray = typing.Any
+
+
+class RandomWithRandInt(typing.Protocol):
+    def seed(self, seed: int) -> None: ...
+
+    def randint(self, low: int, high: typing.Optional[int] = None) -> int: ...
+
 
 int63 = int(pow(2, 63) - 1)
 int31 = int(pow(2, 31) - 1)
@@ -25,23 +35,23 @@ def choose_packet_numbers(
     else:
         d, a, b = ru10_triple_generator(number_of_chunks, code_block_index, dist, max_l)
     if max_l is None:
-        l, _, _ = intermediate_symbols(number_of_chunks, dist)
+        total_intermediate_symbols, _, _ = intermediate_symbols(number_of_chunks, dist)
     else:
-        l = max_l
-    lprime: int = int(np.uint32(dist.smallestPrimeGreaterOrEqual(l)))
+        total_intermediate_symbols = max_l
+    lprime: int = int(np.uint32(dist.smallestPrimeGreaterOrEqual(total_intermediate_symbols)))
 
-    if d > l:
-        d = l
-    l = np.uint32(l)
+    if d > total_intermediate_symbols:
+        d = total_intermediate_symbols
+    total_intermediate_symbols = np.uint32(total_intermediate_symbols)
     indices: typing.List[int] = [0] * d
-    while b >= l:
+    while b >= total_intermediate_symbols:
         b = (b + a) % lprime
 
     indices[0] = b
 
     for idx in range(1, d):
         b = (b + a) % lprime
-        while b >= l:
+        while b >= total_intermediate_symbols:
             b = (b + a) % lprime
         indices[idx] = b
     return sorted(indices)
@@ -68,11 +78,11 @@ def ru10_triple_generator(
     k: int, x: int, dist: RaptorDistribution, max_l: typing.Optional[int] = None
 ) -> typing.Tuple[int, int, int]:
     if max_l is None:
-        l, _, _ = intermediate_symbols(k, dist)
+        total_intermediate_symbols, _, _ = intermediate_symbols(k, dist)
     else:
-        l = max_l
-    lprime = dist.smallestPrimeGreaterOrEqual(l)
-    rng: np.random = np.random  # type: ignore
+        total_intermediate_symbols = max_l
+    lprime = dist.smallestPrimeGreaterOrEqual(total_intermediate_symbols)
+    rng: RandomWithRandInt = np.random
     rng.seed(x)
     v = np.uint32(r_int63(rng) % 1048576)
     a = np.uint32(1 + (r_int63(rng) % (lprime - 1)))
@@ -99,12 +109,12 @@ def systematic_ru10_triple_generator(
     return d, a, b
 
 
-def r_int63(rng: np.random) -> int:  # type: ignore
+def r_int63(rng: RandomWithRandInt) -> int:
     return rng.randint(0, int31)
 
 
 def from_true_false_list(
-    tf_list: typing.Union[typing.List[bool], NDArray[np.bool_]],
+    tf_list: typing.Union[typing.List[bool], BoolArray],
 ) -> typing.List[int]:
     return [i for i, x in enumerate(tf_list) if x]
 

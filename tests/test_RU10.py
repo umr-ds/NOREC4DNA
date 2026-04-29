@@ -35,7 +35,7 @@ for f in TEST_DIR.glob("DEC_RU10_*"):
 def test_suite(as_dna, decoder_instance):
     try:
         os.remove(file)
-    except:
+    except FileNotFoundError:
         print("Not deleting, File did not exists")
     shutil.copyfile(cmp_file, file)
     print(as_dna)

@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
 import argparse
+import importlib
+import importlib.util
 import math
 import os
 import time
@@ -74,7 +76,8 @@ def blackbox(encoder, decoder):
                     + bcolors.ENDC
                 )
                 return decoder.is_decoded(), len(encoded_packets), i
-    if decoder.GEPP is not None:
+    gepp = getattr(decoder, "GEPP", None)
+    if gepp is not None:
         decoder.solve()
 
     j = 0  # Make it terminate hard if we doubled our # of encoded Packets...
@@ -338,15 +341,17 @@ if __name__ == "__main__":
     useDNARules = bool(args.dnarules)
     repreats = int(args.repeats)
     if profile:
-        from pycallgraph import PyCallGraph
-        from pycallgraph.output import GraphvizOutput
+        if importlib.util.find_spec("pycallgraph") is None:
+            raise ImportError("pycallgraph is required for profiling")
+        pycallgraph = importlib.import_module("pycallgraph")
+        pycallgraph_output = importlib.import_module("pycallgraph.output")
 
         print(
             bcolors.WARN
             + "[!] running with profiler - this might decrease performance"
             + bcolors.ENDC
         )
-        with PyCallGraph(output=GraphvizOutput()):
+        with pycallgraph.PyCallGraph(output=pycallgraph_output.GraphvizOutput()):
             main(filename, mode, repreats)
         print(bcolors.BLUE + '[*] profiling Graph saved as "pycallgraph.png"' + bcolors.ENDC)
     else:

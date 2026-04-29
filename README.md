@@ -1,69 +1,111 @@
 # NOREC4DNA
 
-NOREC4DNA is an all-in-one Suite for analyzing, testing and converting Data into DNA-Chunks to use for a
-DNA-Storage-System using integrated DNA-Rules as well as the MOSLA DNA-Simulation-API.
+NOREC4DNA is a fountain-code-based DNA storage toolkit with LT, Online, and
+Raptor (RU10) implementations plus supporting analysis, simulation, and
+decoding utilities.
 
-NOREC4DNA implements LT, Online, and Raptor (RU10) Fountain Codes.
+## Overview
 
-## Overview:
-
-- [Install](#Install)
-    * [Docker](#Using-docker)
-    * [Source](#From-source)
-- [Usage](#Usage)
-    * [Docker](#Docker)
-- [Tools](#Tools)
-- [Example](#Example)
+- [Install](#install)
+  - [Docker](#docker)
+  - [From source](#from-source)
+- [Development workflow](#development-workflow)
+- [Compatibility notes](#compatibility-notes)
+- [Usage](#usage)
+  - [Find minimum](#find-minimum)
+- [Tools](#tools)
+- [Example](#example)
 
 ---
 
 ## Install
 
-### Using docker
-:warning: Docker builds are currently not recommended (deprecated)
-+ Building the docker container from source:
-    - ````git clone git@github.com:umr-ds/NOREC4DNA.git````
-    - ```docker build . --tag norec4dna```
-+ pulling the container from Dockerhub:
-    - TBA once NOREC4DNA is available on Dockerhub
+### Docker
+
+:warning: Docker builds are currently not recommended.
+
+- Build locally:
+  - `git clone git@github.com:umr-ds/NOREC4DNA.git`
+  - `docker build . --tag norec4dna`
+- Docker Hub image:
+  - not published yet
 
 ### From source
 
-+ Clone the repository:
-    - ````git clone git@github.com:umr-ds/NOREC4DNA.git````
+1. Clone the repository:
 
+   `git clone git@github.com:umr-ds/NOREC4DNA.git`
 
-+ OPTIONAL create a virtual environment (recommended):
-    - ````python3 -m venv <name_of_virtualenv>````
-    - activate/source the newly created venv:
-        ````source <name_of_virtualenv>/bin/activate```` (for UNIX)
+2. Optionally create and activate a virtual environment:
 
+   - `python3 -m venv .venv`
+   - `source .venv/bin/activate`
 
-+ Installing the dependencies:
-    - depending on your distro you might need to manually install `LLVM` as well as `gcc` and `build-essential`
-    - ```pip3 install -r requirements.txt```
-    - if a packages fails to install, it might be required to install the python3-dev packages using apt
+3. Install build/runtime prerequisites if your platform requires them:
 
+   - some environments need `gcc`, `build-essential`, `llvm`, and
+     Python development headers
 
-+ Install NOREC4DNA:
-    - ```python -m build . --installer pip```
-    - ```pip install -e .```
+4. Install the currently required Python dependencies:
 
-**If you plan to build NOREC4DNA from source under Windows we recommend using Anaconda!**
+   - `python -m pip install --upgrade pip`
+   - `python -m pip install -r requirements.txt`
+
+5. Install NOREC4DNA in editable mode:
+
+   - `python -m pip install -e .`
+
+6. Optional: build a wheel/sdist explicitly:
+
+   - `python -m build`
+
+### Project layout
+
+The package now uses a standard `src/` layout. The Python sources live in
+`src/norec4dna/`, and packaging metadata is defined in `pyproject.toml`.
+
+**If you plan to build NOREC4DNA from source under Windows, Anaconda is still
+recommended.**
+
+---
+
+## Development workflow
+
+Useful commands for local development:
+
+- install dependencies: `python -m pip install -r requirements.txt`
+- install editable package: `python -m pip install -e .`
+- run tests: `python -m pytest`
+- run pre-commit hooks: `pre-commit run --all-files`
+
+The repository includes a maintained `.pre-commit-config.yaml`, so running the
+hooks locally should match the current CI-style validation workflow.
+
+---
+
+## Compatibility notes
+
+Some modules that historically lived in NOREC4DNA are now compatibility layers
+in this checkout:
+
+- `norec4dna.metadata_coding` forwards to
+  `norec4dna_multiversion.metadata_coding`
+- `norec4dna.semi_automatic_reconstruction_toolkit.SemiAutomaticReconstructionToolkit`
+  is deprecated and forwards to
+  `norec4dna_multiversion.reconstruction.SemiAutomaticReconstructionToolkit`
+- `norec4dna.file_update_coding` is deprecated; use
+  `norec4dna_multiversion.coder` instead
+
+If you need metadata embedding or multi-version coding, use the DR4DNA
+multiversion package directly instead of the legacy NOREC4DNA entry points.
 
 ---
 
 ## Usage
 
-### Docker
-To get the en- and decoded files from NOREC4DNA using docker you might need to map a volume into the container.
+### Find minimum
 
-Alternatively you could use the `docker cp` command to transfer the desired files.
-
-
-## Find minimum
-
-### Building and running
+#### Building and running
 
 Build the docker container:
 
@@ -73,10 +115,11 @@ Run:
 
 `docker run --name norec4dna_gd_multiple_files -d -t -v /tmp/norec4dna/:/norec4dna/tmp norec4dna_gd (Parameter...)`
 
-Alternatively you can run the script directly:
-`python3 -m norec4dna.find_minimum_packets <Parameters>`
+Alternatively, run the script directly:
 
-### Parameters
+`python -m norec4dna.find_minimum_packets <Parameters>`
+
+#### Parameters
 
 First enter the filename of the file to generate the packets for.
 
@@ -86,125 +129,133 @@ The following parameters can be set:
 
 `--repair_symbols=[no_symbols]`
 
-The number of repair_symbols for ReedSolomon (default=2). This does only apply if --error_correction is set to reedsolomon
+The number of repair symbols for Reed-Solomon (default: `2`). This only applies
+if `--error_correction=reedsolomon` is set.
 
 `--list_size=[size]`
 
-Size of operational list per thread, inferred by the number cores if sequential is set to true. The list size should
-always be greater than the out_size to ensure optimal results (default=1000).
+Size of the operational list per thread, inferred by the number of cores if
+sequential mode is enabled. The list size should always be greater than the
+output size to ensure optimal results (default: `1000`).
 
 `--out_size=[size]`
 
-Number of packets to save after combining the lists and sorting them by the packets error_prob (default=1000).
+Number of packets to save after combining the lists and sorting them by packet
+error probability (default: `1000`).
 
 `--chunk_size=[size]`
 
-Size of chunks to split the file into, inferred from number of chunks and the filesize if not set (default=0).
+Size of chunks to split the file into, inferred from number of chunks and file
+size if not set (default: `0`).
 
 `--number_of_chunks=[no_chunks]`
 
-Number of chunks to split the file into, ignored if chunksize is set to value != 0 (default=300).
+Number of chunks to split the file into; ignored if `--chunk_size` is set to a
+non-zero value (default: `300`).
 
 `--sequential`
 
-If set, all seed will be generated in a sequential matter. (Recommended!)
+If set, all seeds are generated sequentially (recommended).
 
 `--spare1core`
 
-If activated, one core is not used for the calculation of the lists.
+If activated, one CPU core is not used for list generation.
 
 `--method=[RU10/Online/LT]`
 
-Sets the method to generate the packets with. Available are RU10, Online and LT.
+Sets the encoding method. Available values are `RU10`, `Online`, and `LT`.
 
 `--seed_size_str=[I,H,...]`
 
-Set the struct-string for the seed field. See [https://docs.python.org/3/library/struct.html#format-characters](https://docs.python.org/3/library/struct.html#format-characters) for more information
+Set the `struct` format string for the seed field. See the Python `struct`
+format documentation for details.
 
 `--drop_above`
 
-Sets an upper-limit for the error probability. WARNING: This might reduce the total number of sequences returned!
+Sets an upper limit for the error probability. Warning: this may reduce the
+total number of sequences returned.
 
-## With optimization
+### With optimization
 
 `--optimization`
 
-Activates the automated optimization of the chunk distribution in the packets with different options.
+Activates automated optimization of the chunk distribution in the packets.
 
 `--overhead=[overhead (0.1=10%)]`
 
-Overhead to use for the optimization, where 0.1 means 10% additional packets based on the number of packets needed to
-decode the file (default=0.1).
+Overhead to use for the optimization, where `0.1` means 10% additional packets
+based on the number needed to decode the file (default: `0.1`).
 
 `--overhead_factor=[factor (0.1=10%)]`
 
-If the overhead is not enough to optimize the packets, the overhead factor is a factor that allows exceeding the given
-overhead to try to optimize the chunk distribution (default=0.0).
+If the overhead is not enough to optimize the packets, this factor allows
+exceeding the given overhead to keep searching (default: `0.0`).
 
 `--errorprob_factor=[factor (0.1=10%)]`
 
-A factor for the maximum allowed error_prob of the additional packets based on the average error_prob of the packets
-needed to decode (default=0.1). If set to 0.0 no more packets may be added since the packets with the lowest error_probs
-were already used to decode the file.
+A factor for the maximum allowed error probability of additional packets based
+on the average packet error probability needed to decode (default: `0.1`).
 
 `--plot`
-Generates and saves different plots to show the results.
+
+Generates and saves plots showing the results.
 
 ---
 
 ## Tools
 
-### demo_*.py
+### `demo_*.py`
 
-Demo applications for fast en- and decoding of sequences.
+Demo applications for fast encoding and decoding of sequences.
 
-### ru10_find_minimum_packets.py (Deprecated)
+### `ru10_find_minimum_packets.py` (deprecated)
+
 `--error_correction [nocode, crc, reedsolomon]`
 
-Defines the error detection / correction algorithm to use per packet. (Default: nocode = no error-detection/correction)
+Defines the error detection/correction algorithm to use per packet (default:
+`nocode`).
 
 `--split_input`
 
-Sets the number of pre-splits to perform Default: 1 (= do not split the input file into multiple NOREC rounds)
-WARNING: If set, this value _should_ be known during decoding (thus using a bruteforce approach this value might be reconstructed)
+Sets the number of pre-splits to perform (default: `1`, meaning no split into
+multiple NOREC rounds).
 
 `--store_as_fasta`
 
-If set, stores the result in a .fasta file instead of one file per sequence
+If set, stores the result in a `.fasta` file instead of one file per sequence.
 
 `--insert_header`
 
-If set, besides the created chunks an additional header chunk will be added. This chunk stores the filename and the correct padding for the last chunk.
-(Recommended!) WARNING: If not set, the reconstructed file will most likely be longer due to the \00-padding at the end.
+If set, an additional header chunk storing the filename and the correct padding
+for the last chunk is added. Recommended.
 
+### `ConfigWorker.py`
 
-### ConfigWorker.py
-Allows easy en- and decoding used .ini files.
-Since the supplied encoder can create such .ini files, this is especially useful for easy decoding.
+Allows easy encoding and decoding via `.ini` files. Since the supplied encoder
+can create such `.ini` files, this is especially useful for repeatable decode
+workflows.
 
+### `helpful_scripts`
 
-### helpful_scripts
-
-there are various more or less useful scripts inside `helpful_scripts/`
-
+There are additional helper scripts in `helpful_scripts/`.
 
 ---
 
-
 ## Example
-#### To try out NOREC4DNA you can use the demo_\*\_encode.py python scripts:
+
+To try out NOREC4DNA you can use the `demo_*_encode.py` scripts:
 
 `python -m norec4dna.demo_raptor_encode .INFILES/Dorn --error_correction=reedsolomon --repair_symbols=3 --as_dna --insert_header`
 
-###### this should create a new folder "RU10_Dorn" as well as an Dorn\_\*.ini file.
+This should create a new folder `RU10_Dorn` as well as a `Dorn_*.ini` file.
 
-#### To decode the file from DNA one could either use demo\_\*\_decode.py:
+To decode the file from DNA, either use `demo_*_decode.py`:
 
-`python -m norec4dna.demo_raptor_decode RU10_Dorn --use_header_chunk --error_correction=reedsolomon --repair_symbols=3 --number_of_chunks=145 (number as seen in the ini, unless --save_number_of_chunks was defined during encoding)`
+`python -m norec4dna.demo_raptor_decode RU10_Dorn --use_header_chunk --error_correction=reedsolomon --repair_symbols=3 --number_of_chunks=145`
 
-#### or use the ConfigWorker module:
+Or use the `ConfigWorker` module:
 
 `python -m norec4dna.ConfigWorker <name of the .ini-file>`
 
-The decoded file will be saved as DEC_RU10_Dorn if no header-chunk was added during encoding, otherwise the file will be saved under the correct filename.
-###### if the header-chunk was NOT used, the created file will have padding \00-bytes at the end.
+The decoded file will be saved as `DEC_RU10_Dorn` if no header chunk was added;
+otherwise it will be saved under the original filename.

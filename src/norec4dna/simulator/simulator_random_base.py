@@ -1,11 +1,23 @@
 import argparse
+import importlib
+import importlib.util
 import random
+import typing
 
-import matplotlib.pyplot as plt
 import numpy as np
-import scipy.stats
 
 from ..rules.FastDNARules import FastDNARules
+
+plt: typing.Any = (
+    importlib.import_module("matplotlib.pyplot")
+    if importlib.util.find_spec("matplotlib.pyplot") is not None
+    else None
+)
+scipy_stats: typing.Any = (
+    importlib.import_module("scipy.stats")
+    if importlib.util.find_spec("scipy.stats") is not None
+    else None
+)
 
 
 class RandomBaseSimulator:
@@ -58,8 +70,9 @@ if __name__ == "__main__":
 
     simulator = RandomBaseSimulator(length)
     err_prob_list = simulator.run_simulation(repeats, filename)
-    binwidth = 0.01
-    hist_dist = scipy.stats.rv_histogram(np.histogram(err_prob_list, bins=20))
+    if plt is None or scipy_stats is None:
+        raise ImportError("matplotlib and scipy are required for simulator plotting")
+    hist_dist = scipy_stats.rv_histogram(np.histogram(err_prob_list, bins=20))
     X = np.linspace(0, 4, 50)
     plt.xlabel(
         "Error probability as calculated by the ruleset"

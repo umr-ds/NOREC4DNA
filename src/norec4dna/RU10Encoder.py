@@ -12,9 +12,8 @@ from math import ceil, floor
 
 import numpy as np
 
-from .distributions.Distribution import Distribution
 from .distributions.RaptorDistribution import RaptorDistribution
-from .Encoder import Encoder
+from .Encoder import ChunkData, Encoder
 from .ErrorCorrection import get_error_correction_encode, get_error_correction_name, nocode
 from .helper import bitSet, buildGraySequence, calc_crc, calc_file_crc, listXOR, should_drop_packet
 from .helper.RU10Helper import choose_packet_numbers, int31, intermediate_symbols
@@ -29,7 +28,7 @@ class RU10Encoder(Encoder):
         self,
         file,
         number_of_chunks,
-        distribution: Distribution,
+        distribution: RaptorDistribution,
         insert_header=True,
         pseudo_decoder=None,
         chunk_size=0,
@@ -74,7 +73,7 @@ class RU10Encoder(Encoder):
         self.esi: int = 0
         self.debug: bool = False
         self.file: str = file
-        self.dist: Distribution = distribution
+        self.dist: RaptorDistribution = distribution
         self.chunk_size: int = chunk_size
         self.insert_header: bool = insert_header
         self.rules = rules
@@ -90,7 +89,7 @@ class RU10Encoder(Encoder):
             # we have to update the Dist noOfChunks..
             self.dist.S = self.number_of_chunks
             self.dist.rng.seed(self.number_of_chunks)
-        self.chunks: typing.List[bytes] = []
+        self.chunks: typing.List[ChunkData] = []
         self.pseudo_decoder = pseudo_decoder
         self.encodedPackets: typing.Set[RU10Packet] = set()
         self.overhead_limit: float = 2.50
@@ -104,9 +103,10 @@ class RU10Encoder(Encoder):
         # if we use None, we will mutate the RNG each call,
         # otherwise we will use the same RNG to generate different values
         self.random_state: np.random.RandomState = np.random.RandomState()
-        if self.random_state is not None:
-            self.__masterseed = self.random_state.get_state()[1][0]
-            # print("Master-Seed used: " + str(self.__masterseed))
+        state = typing.cast(
+            typing.Tuple[typing.Any, np.ndarray, int, int, float], self.random_state.get_state()
+        )
+        self.__masterseed = int(state[1][0])
         self.prepend = prepend
         self.append = append
         self.ruleDrop: int = 0
@@ -169,6 +169,8 @@ class RU10Encoder(Encoder):
                     new_pack = self.create_new_packet()
                     self.ruleDrop += 1
             if pseudo and new_pack not in self.encodedPackets:
+                if self.pseudo_decoder is None:
+                    raise RuntimeError("Pseudo decoder not configured")
                 self.pseudo_decoder.input_new_packet(new_pack)
             self.encodedPackets.add(new_pack)
             self.update_progress_bar()
@@ -198,13 +200,13 @@ class RU10Encoder(Encoder):
         if systematic and self.esi < self.number_of_chunks:
             self.esi += 1
             return self.esi - 1
-        if self.random_state is None:
+        random_generator = self.random_state
+        if random_generator is None:
             random_generator = np.random.RandomState()
-        else:
-            random_generator = self.random_state
+            self.random_state = random_generator
         # RU10 is only defined for max int31!
-        max_num = min(Encoder.calc_max_size(struct.calcsize("<" + self.id_len_format)), int31)
-        return random_generator.randint(0, max_num, dtype=np.uint32)
+        max_num = int(min(Encoder.calc_max_size(struct.calcsize("<" + self.id_len_format)), int31))
+        return int(random_generator.randint(0, max_num, dtype=np.uint32))
 
     def create_new_packet(
         self, systematic: bool = False, seed: typing.Optional[int] = None
@@ -322,7 +324,7 @@ class RU10Encoder(Encoder):
         self.encodedPackets.add(packet)
         return packet
 
-    def generate_intermediate_blocks(self) -> typing.List[bytes]:
+    def generate_intermediate_blocks(self) -> typing.List[ChunkData]:
         """
         Generates intermediate blocks used to generate the complete auxblocks afterwards.
         :return: Self.chunks containing the intermediate blocks
@@ -351,7 +353,7 @@ class RU10Encoder(Encoder):
         for i in range(0, h):
             hcomposition: typing.List[int] = []
             for j in range(0, k + s):
-                if bitSet(np.uint32(m[j]), np.uint32(i)):
+                if bitSet(int(np.uint32(m[j])), int(np.uint32(i))):
                     hcomposition.append(j)
             # self.encode_header_info(self.checksum, self.checksum_len_str, self.last_chunk_len_format)
             b = listXOR([self.chunks[x] for x in hcomposition])
@@ -369,6 +371,59 @@ class RU10Encoder(Encoder):
         """
         self.encode_to_packets()
         self.save_packets(split_to_multiple_files)
+
+    def _packet_output_mode(self, save_as_dna: bool) -> str:
+        return "w" if save_as_dna else "wb"
+
+    def _packet_output_data(self, packet, split_to_multiple_files: bool, save_as_dna: bool):
+        return (
+            packet.get_dna_struct(split_to_multiple_files)
+            if save_as_dna
+            else packet.get_struct(split_to_multiple_files)
+        )
+
+    def _default_output_folder(self, prefix: str, clear_output: bool) -> str:
+        fulldir, filename = os.path.split(os.path.realpath(self.file))
+        out_file = os.path.join(fulldir, prefix + filename)
+        files = glob.glob(out_file + ("*" if out_file.endswith("/") else "/*"))
+        if clear_output:
+            for file_name in files:
+                os.remove(file_name)
+        return out_file
+
+    def _save_packet_stream(
+        self, out_file: str, split_to_multiple_files: bool, save_as_dna: bool
+    ) -> None:
+        with open(out_file, self._packet_output_mode(save_as_dna)) as f:
+            for packet in self.encodedPackets:
+                f.write(self._packet_output_data(packet, split_to_multiple_files, save_as_dna))
+
+    def _save_packet_folder(
+        self,
+        out_file: str,
+        file_ending: str,
+        split_to_multiple_files: bool,
+        save_as_dna: bool,
+        seed_is_filename: bool,
+    ) -> None:
+        packet_index = 0
+        error_prefix = ""
+        if not os.path.exists(out_file):
+            os.makedirs(out_file)
+        for packet in sorted(
+            self.encodedPackets, key=lambda elem: (elem.error_prob, elem.__hash__())
+        ):
+            if seed_is_filename:
+                packet_index = packet.id
+                error_prefix = (
+                    (str(ceil(packet.error_prob * 100)) + "_")
+                    if packet.error_prob is not None
+                    else ""
+                )
+            packet_path = out_file + "/" + error_prefix + str(packet_index) + file_ending
+            with open(packet_path, self._packet_output_mode(save_as_dna)) as f:
+                f.write(self._packet_output_data(packet, split_to_multiple_files, save_as_dna))
+            packet_index += 1
 
     def save_packets(
         self,
@@ -392,51 +447,18 @@ class RU10Encoder(Encoder):
         if not split_to_multiple_files:
             if out_file is None:
                 out_file = self.file + file_ending
-            with open(out_file, "wb" if not save_as_dna else "w") as f:
-                for packet in self.encodedPackets:
-                    f.write(
-                        packet.get_dna_struct(split_to_multiple_files)
-                        if save_as_dna
-                        else packet.get_struct(split_to_multiple_files)
-                    )
+            self._save_packet_stream(out_file, split_to_multiple_files, save_as_dna)
+        elif out_file is None:
+            out_file = self._default_output_folder("RU10_", clear_output)
+            self._save_packet_folder(
+                out_file, file_ending, split_to_multiple_files, save_as_dna, seed_is_filename
+            )
         else:
-            # Folder:
-            if out_file is None:
-                fulldir, filename = os.path.split(os.path.realpath(self.file))
-                filename = "RU10_" + filename
-                out_file = os.path.join(fulldir, filename)
-                if not out_file.endswith("/"):
-                    files = glob.glob(out_file + "/*")
-                else:
-                    files = glob.glob(out_file + "*")
-                if clear_output:
-                    for f in files:
-                        os.remove(f)
-            i = 0
-            e_prob = ""
-            if not os.path.exists(out_file):
-                os.makedirs(out_file)
-            for packet in sorted(
-                self.encodedPackets, key=lambda elem: (elem.error_prob, elem.__hash__())
-            ):
-                if seed_is_filename:
-                    i = packet.id
-                    e_prob = (
-                        (str(ceil(packet.error_prob * 100)) + "_")
-                        if packet.error_prob is not None
-                        else ""
-                    )
-                with open(
-                    out_file + "/" + e_prob + str(i) + file_ending, "wb" if not save_as_dna else "w"
-                ) as f:
-                    f.write(
-                        packet.get_dna_struct(split_to_multiple_files)
-                        if save_as_dna
-                        else packet.get_struct(split_to_multiple_files)
-                    )
-                i += 1
-            self.out_file = os.path.relpath(out_file)
-            logger.info("Config: %s", self.getConfigStr(out_file))
+            self._save_packet_folder(
+                out_file, file_ending, split_to_multiple_files, save_as_dna, seed_is_filename
+            )
+        self.out_file = os.path.relpath(out_file)
+        logger.info("Config: %s", self.getConfigStr(out_file))
 
     def getConfigStr(self, out_file=""):
         res = (
@@ -466,33 +488,38 @@ class RU10Encoder(Encoder):
             default_map = {}
         if section_name is None:
             section_name = str(self.out_file) + (".fasta" if add_dot_fasta else "")
+        section_name = str(section_name)
         config = configparser.ConfigParser()
+        rules = list(self.rules.active_rules) if self.rules is not None else []
         config[section_name] = {
-            "algorithm": "RU10",
-            "error_correction": get_error_correction_name(self.error_correction),
-            "insert_header": self.insert_header,
-            "savenumberofchunks": self.save_number_of_chunks_in_packet,
-            "mode_1_bmp": self.mode_1_bmp,
-            "upper_bound": self.upper_bound,
-            "number_of_chunks": self.number_of_chunks,
-            "config_str": self.getConfigStr(),
-            "id_len_format": self.id_len_format,
-            "last_chunk_len_str": self.last_chunk_len_format,
-            "number_of_chunks_len_format": self.number_of_chunks_len_format,
-            "packet_len_format": self.packet_len_format,
-            "crc_len_format": self.crc_len_format,
-            "master_seed": self.__masterseed,
-            "distribution": self.dist.get_config_string(),
-            "rules": [rule for rule in self.rules.active_rules] if self.rules is not None else [],
-            "chunk_size": self.chunk_size,
-            "dropped_packets": self.ruleDrop,
-            "created_packets": len(self.encodedPackets),
-            "checksum": self.checksum if self.checksum is not None else "",
-            "checksum_len_str": self.checksum_len_str,
-            "mask_id": self.mask_id,
-            "xor_by_seed": self.xor_by_seed,
-            "id_spacing": self.id_spacing,
-            "repair_symbols": self.repair_symbols,
+            k: str(v)
+            for k, v in {
+                "algorithm": "RU10",
+                "error_correction": get_error_correction_name(self.error_correction),
+                "insert_header": self.insert_header,
+                "savenumberofchunks": self.save_number_of_chunks_in_packet,
+                "mode_1_bmp": self.mode_1_bmp,
+                "upper_bound": self.upper_bound,
+                "number_of_chunks": self.number_of_chunks,
+                "config_str": self.getConfigStr(),
+                "id_len_format": self.id_len_format,
+                "last_chunk_len_str": self.last_chunk_len_format,
+                "number_of_chunks_len_format": self.number_of_chunks_len_format,
+                "packet_len_format": self.packet_len_format,
+                "crc_len_format": self.crc_len_format,
+                "master_seed": self.__masterseed,
+                "distribution": self.dist.get_config_string(),
+                "rules": rules,
+                "chunk_size": self.chunk_size,
+                "dropped_packets": self.ruleDrop,
+                "created_packets": len(self.encodedPackets),
+                "checksum": self.checksum if self.checksum is not None else "",
+                "checksum_len_str": self.checksum_len_str,
+                "mask_id": self.mask_id,
+                "xor_by_seed": self.xor_by_seed,
+                "id_spacing": self.id_spacing,
+                "repair_symbols": self.repair_symbols,
+            }.items()
         }
         for key, val in default_map.items():
             config[section_name][str(key)] = str(val)

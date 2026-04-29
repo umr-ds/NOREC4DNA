@@ -13,15 +13,15 @@ from math import ceil
 
 import numpy
 import numpy as np
-from norec4dna.Decoder import Decoder
-from norec4dna.distributions.Distribution import Distribution
-from norec4dna.distributions.OnlineDistribution import OnlineDistribution
-from norec4dna.Encoder import Encoder
-from norec4dna.ErrorCorrection import get_error_correction_encode, get_error_correction_name, nocode
-from norec4dna.helper import calc_file_crc, listXOR, should_drop_packet
-from norec4dna.OnlineAuxPacket import OnlineAuxPacket
-from norec4dna.OnlinePacket import OnlinePacket
-from norec4dna.rules.FastDNARules import FastDNARules
+
+from .Decoder import Decoder
+from .distributions.OnlineDistribution import OnlineDistribution
+from .Encoder import ChunkData, Encoder
+from .ErrorCorrection import get_error_correction_encode, get_error_correction_name, nocode
+from .helper import calc_file_crc, listXOR, should_drop_packet
+from .OnlineAuxPacket import OnlineAuxPacket
+from .OnlinePacket import OnlinePacket
+from .rules.FastDNARules import FastDNARules
 
 
 class OnlineEncoder(Encoder):
@@ -29,7 +29,7 @@ class OnlineEncoder(Encoder):
         self,
         file: str,
         number_of_chunks: int,
-        distribution: Distribution,
+        distribution: OnlineDistribution,
         epsilon: float,
         quality: int,
         insert_header: bool = True,
@@ -51,8 +51,9 @@ class OnlineEncoder(Encoder):
         super().__init__(
             file, number_of_chunks, distribution, insert_header, pseudo_decoder, chunk_size
         )
+        dist_size = distribution.get_size()
         assert (
-            number_of_chunks >= distribution.get_size()
+            dist_size is not None and number_of_chunks >= dist_size
         ), "Epsilon too small for desired number_of_chunks"
         if checksum_len_str is None:
             checksum_len_str = ""
@@ -62,7 +63,7 @@ class OnlineEncoder(Encoder):
         else:
             self.checksum = None
         self.out_file: typing.Optional[str] = None
-        self.distribution: typing.Optional[Distribution] = distribution
+        self.distribution: OnlineDistribution = distribution
         self.insert_header: bool = insert_header
         self.chunk_size: int = chunk_size
         self.rules = rules
@@ -71,11 +72,11 @@ class OnlineEncoder(Encoder):
             self.number_of_chunks = number_of_chunks
         else:
             self.set_no_chunks_from_chunk_size()
-        self.rng: numpy.random = numpy.random
+        self.rng: typing.Any = numpy.random
         self.rng.seed(self.number_of_chunks)
-        self.chunks: typing.List[bytes] = []
-        self.auxBlockNumbers: typing.Dict[int, typing.Set[int]] = dict()
-        self.auxBlocks: typing.Dict[int, OnlineAuxPacket] = dict()
+        self.chunks: typing.List[ChunkData] = []
+        self.auxBlockNumbers: typing.Dict[int, typing.Set[int]] = {}
+        self.auxBlocks: typing.Dict[int, OnlineAuxPacket] = {}
         self.encodedPackets: typing.Set[OnlinePacket] = set()
         self.setOfEncodedPackets: typing.Set[int] = set()
         self.pseudo_decoder = pseudo_decoder
@@ -112,6 +113,8 @@ class OnlineEncoder(Encoder):
                     pack = self.create_new_packet()
                     self.ruleDrop += 1
             if pseudo and pack not in self.encodedPackets:
+                if self.pseudo_decoder is None:
+                    raise RuntimeError("Pseudo decoder not configured")
                 self.pseudo_decoder.input_new_packet(pack)
             self.encodedPackets.add(pack)
             self.update_progress_bar()
@@ -160,7 +163,7 @@ class OnlineEncoder(Encoder):
             self.auxBlockNumbers[i] = set()
         for chunk_num in range(0, self.number_of_chunks):
             # Insert this Chunk into quality different Aux-Packets
-            for i in range(0, self.quality):
+            for _ in range(0, self.quality):
                 # uniform choose a number of aux blocks
                 aux_no = self.rng.randint(0, self.getNumberOfAuxBlocks())
                 self.auxBlockNumbers[aux_no].add(chunk_num)
@@ -178,6 +181,59 @@ class OnlineEncoder(Encoder):
 
     def number_of_packets_encoded_already(self) -> int:
         return len(self.setOfEncodedPackets)
+
+    def _packet_output_mode(self, save_as_dna: bool) -> str:
+        return "w" if save_as_dna else "wb"
+
+    def _packet_output_data(self, packet, split_to_multiple_files: bool, save_as_dna: bool):
+        return (
+            packet.get_dna_struct(split_to_multiple_files)
+            if save_as_dna
+            else packet.get_struct(split_to_multiple_files)
+        )
+
+    def _default_output_folder(self, prefix: str, clear_output: bool) -> str:
+        fulldir, filename = os.path.split(os.path.realpath(self.file))
+        out_file = os.path.join(fulldir, prefix + filename)
+        files = glob.glob(out_file + ("*" if out_file.endswith("/") else "/*"))
+        if clear_output:
+            for file_name in files:
+                os.remove(file_name)
+        return out_file
+
+    def _save_packet_stream(
+        self, out_file: str, split_to_multiple_files: bool, save_as_dna: bool
+    ) -> None:
+        with open(out_file, self._packet_output_mode(save_as_dna)) as f:
+            for packet in self.encodedPackets:
+                f.write(self._packet_output_data(packet, split_to_multiple_files, save_as_dna))
+
+    def _save_packet_folder(
+        self,
+        out_file: str,
+        file_ending: str,
+        split_to_multiple_files: bool,
+        save_as_dna: bool,
+        seed_is_filename: bool,
+    ) -> None:
+        packet_index = 0
+        error_prefix = ""
+        if not os.path.exists(out_file):
+            os.makedirs(out_file)
+        for packet in sorted(
+            self.encodedPackets, key=lambda elem: (elem.error_prob, elem.__hash__())
+        ):
+            if seed_is_filename:
+                packet_index = packet.id
+                error_prefix = (
+                    (str(ceil(packet.error_prob * 100)) + "_")
+                    if packet.error_prob is not None
+                    else ""
+                )
+            packet_path = out_file + "/" + error_prefix + str(packet_index) + file_ending
+            with open(packet_path, self._packet_output_mode(save_as_dna)) as f:
+                f.write(self._packet_output_data(packet, split_to_multiple_files, save_as_dna))
+            packet_index += 1
 
     def save_packets(
         self,
@@ -201,51 +257,18 @@ class OnlineEncoder(Encoder):
         if not split_to_multiple_files:
             if out_file is None:
                 out_file = self.file + file_ending
-            with open(out_file, "wb" if not save_as_dna else "w") as f:
-                for packet in self.encodedPackets:
-                    f.write(
-                        packet.get_dna_struct(split_to_multiple_files)
-                        if save_as_dna
-                        else packet.get_struct(split_to_multiple_files)
-                    )
+            self._save_packet_stream(out_file, split_to_multiple_files, save_as_dna)
+        elif out_file is None:
+            out_file = self._default_output_folder("ONLINE_", clear_output)
+            self._save_packet_folder(
+                out_file, file_ending, split_to_multiple_files, save_as_dna, seed_is_filename
+            )
         else:
-            # Folder:
-            if out_file is None:
-                fulldir, filename = os.path.split(os.path.realpath(self.file))
-                filename = "ONLINE_" + filename
-                out_file = os.path.join(fulldir, filename)
-                if not out_file.endswith("/"):
-                    files = glob.glob(out_file + "/*")
-                else:
-                    files = glob.glob(out_file + "*")
-                if clear_output:
-                    for f in files:
-                        os.remove(f)
-            i = 0
-            e_prob = ""
-            if not os.path.exists(out_file):
-                os.makedirs(out_file)
-            for packet in sorted(
-                self.encodedPackets, key=lambda elem: (elem.error_prob, elem.__hash__())
-            ):
-                if seed_is_filename:
-                    i = packet.id
-                    e_prob = (
-                        (str(ceil(packet.error_prob * 100)) + "_")
-                        if packet.error_prob is not None
-                        else ""
-                    )
-                with open(
-                    out_file + "/" + e_prob + str(i) + file_ending, "wb" if not save_as_dna else "w"
-                ) as f:
-                    f.write(
-                        packet.get_dna_struct(split_to_multiple_files)
-                        if save_as_dna
-                        else packet.get_struct(split_to_multiple_files)
-                    )
-                i += 1
-            self.out_file = os.path.relpath(out_file)
-            print("Config: " + self.getConfigStr(out_file))
+            self._save_packet_folder(
+                out_file, file_ending, split_to_multiple_files, save_as_dna, seed_is_filename
+            )
+        self.out_file = os.path.relpath(out_file)
+        print("Config: " + self.getConfigStr(out_file))
 
     def create_new_packet(self, seed: typing.Optional[int] = None) -> OnlinePacket:
         """Creates a new CheckBlock"""
@@ -321,30 +344,35 @@ class OnlineEncoder(Encoder):
         if default_map is None:
             default_map = {}
         if section_name is None:
-            section_name = self.out_file
+            section_name = self.out_file if self.out_file is not None else self.file
+        section_name = str(section_name)
         config = configparser.ConfigParser()
+        rules = list(self.rules.active_rules) if self.rules is not None else []
         config[section_name] = {
-            "algorithm": "Online",
-            "error_correction": get_error_correction_name(self.error_correction),
-            "insert_header": self.insert_header,
-            "savenumberofchunks": self.save_number_of_chunks_in_packet,
-            "upper_bound": self.upper_bound,
-            "number_of_chunks": self.number_of_chunks,
-            "config_str": self.getConfigStr(),
-            "id_len_format": self.check_block_number_len_format,
-            "number_of_chunks_len_format": self.number_of_chunks_len_format,
-            "packet_len_format": self.packet_len_format,
-            "crc_len_format": self.crc_len_format,
-            "quality_len_format": self.quality_len_format,
-            "epsilon_len_format": self.epsilon_len_format,
-            "master_seed": 0,
-            "distribution": self.distribution.get_config_string(),
-            "rules": [rule for rule in self.rules.active_rules],
-            "chunk_size": self.chunk_size,
-            "dropped_packets": self.ruleDrop,
-            "created_packets": len(self.encodedPackets),
-            "checksum": self.checksum,
-            "checksum_len_str": self.checksum_len_str,
+            k: str(v)
+            for k, v in {
+                "algorithm": "Online",
+                "error_correction": get_error_correction_name(self.error_correction),
+                "insert_header": self.insert_header,
+                "savenumberofchunks": self.save_number_of_chunks_in_packet,
+                "upper_bound": self.upper_bound,
+                "number_of_chunks": self.number_of_chunks,
+                "config_str": self.getConfigStr(),
+                "id_len_format": self.check_block_number_len_format,
+                "number_of_chunks_len_format": self.number_of_chunks_len_format,
+                "packet_len_format": self.packet_len_format,
+                "crc_len_format": self.crc_len_format,
+                "quality_len_format": self.quality_len_format,
+                "epsilon_len_format": self.epsilon_len_format,
+                "master_seed": 0,
+                "distribution": self.distribution.get_config_string(),
+                "rules": rules,
+                "chunk_size": self.chunk_size,
+                "dropped_packets": self.ruleDrop,
+                "created_packets": len(self.encodedPackets),
+                "checksum": self.checksum,
+                "checksum_len_str": self.checksum_len_str,
+            }.items()
         }
         for key, val in default_map.items():
             config[section_name][str(key)] = str(val)

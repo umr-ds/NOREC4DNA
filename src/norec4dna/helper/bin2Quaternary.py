@@ -2,39 +2,52 @@
 # -*- coding: latin-1 -*-
 """Helpers for converting binary payloads to quaternary DNA bases."""
 
+from __future__ import annotations
+
 import os
 import typing
+from importlib import import_module
 from typing import List, Union
 
-try:
-    from cdnarules import byte2QUATS, getQUAT
-except ImportError:
-    print("C Module failed to load, falling back to slow mode")
 
-    def getQUAT(bit1: bool, bit2: bool) -> str:
-        if not (bit1 or bit2):
-            return "A"
-        elif (not bit1) and bit2:
-            return "C"
-        elif bit1 and (not bit2):
-            return "G"
-        elif bit1 and bit2:
-            return "T"
-        else:
-            print("ERROR, this might never happen.")
-            return "E"
+def _fallback_get_quat(bit1: bool, bit2: bool) -> str:
+    if not (bit1 or bit2):
+        return "A"
+    if (not bit1) and bit2:
+        return "C"
+    if bit1 and (not bit2):
+        return "G"
+    if bit1 and bit2:
+        return "T"
+    print("ERROR, this might never happen.")
+    return "E"
 
-    def byte2QUATS(byte: int) -> str:
-        res = ""
-        if not isinstance(byte, int):
-            byte = byte[0]
-        if not isinstance(byte, str):
-            byt = iter(bin(byte)[2:].rjust(8, "0"))
-        else:
-            byt = iter(bin(ord(byte))[2:].rjust(8, "0"))
-        for x, y in zip(byt, byt):
-            res += getQUAT(str2bool(x), str2bool(y))
-        return res
+
+def _fallback_byte_to_quats(byte: int) -> str:
+    res = ""
+    if not isinstance(byte, int):
+        byte = byte[0]
+    if not isinstance(byte, str):
+        byt = iter(bin(byte)[2:].rjust(8, "0"))
+    else:
+        byt = iter(bin(ord(byte))[2:].rjust(8, "0"))
+    for x, y in zip(byt, byt):
+        res += _fallback_get_quat(str2bool(x), str2bool(y))
+    return res
+
+
+def _load_quat_helpers() -> (
+    typing.Tuple[typing.Callable[[int], str], typing.Callable[[bool, bool], str]]
+):
+    try:
+        cdnarules = import_module("cdnarules")
+        return cdnarules.byte2QUATS, cdnarules.getQUAT
+    except ImportError:
+        print("C Module failed to load, falling back to slow mode")
+        return _fallback_byte_to_quats, _fallback_get_quat
+
+
+byte2QUATS, getQUAT = _load_quat_helpers()
 
 
 def bin2Quaternary(filename: str) -> None:
@@ -92,5 +105,8 @@ if __name__ == "__main__":
             v >>= 8
         return bytes(b[::-1])
 
-    s = "001011000110100101011110001010110000110110101110011111000101000100000011111110110001011010010011101110001111101010110100"
+    s = (
+        "0010110001101001010111100010101100001101101011100111110001010001"
+        "00000011111110110001011010010011101110001111101010110100"
+    )
     print("".join(string2QUATS(bitstring_to_bytes(s))))

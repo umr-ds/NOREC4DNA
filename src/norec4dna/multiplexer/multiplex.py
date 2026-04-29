@@ -2,15 +2,23 @@ import math
 import random
 import secrets
 import struct
+from importlib import import_module, util
+from typing import Any
 
 from bitarray import bitarray
-from Cryptodome.Protocol.SecretSharing import Shamir
 from norec4dna.distributions.RaptorDistribution import RaptorDistribution
 from norec4dna.Encoder import Encoder
 from norec4dna.ErrorCorrection import crc32, nocode, reed_solomon_encode
 from norec4dna.helper.RU10Helper import from_true_false_list, intermediate_symbols
 from norec4dna.RU10Decoder import RU10Decoder
 from norec4dna.RU10Encoder import RU10Encoder
+
+_secret_sharing = (
+    import_module("Cryptodome.Protocol.SecretSharing")
+    if util.find_spec("Cryptodome.Protocol.SecretSharing") is not None
+    else None
+)
+Shamir: Any = _secret_sharing.Shamir if _secret_sharing is not None else None
 
 
 class Multiplex:
@@ -47,7 +55,7 @@ class Multiplex:
         self.decoder = self.init_decoder()
         self.channel, self.used_methods = self.init_channel()
         print("Created decoder and " + str(no_channel) + " channel.")
-        self.packets = list()
+        self.packets = []
 
     def init_decoder(self):
         """
@@ -77,7 +85,7 @@ class Multiplex:
             for pack in packets:
                 self.decoder.input_new_packet(pack)
             return packets
-        except:
+        except IndexError:
             print("Channel not available.")
 
     def file_potentially_decodable(self):
@@ -106,7 +114,7 @@ class Multiplex:
         with the packets of these channels.
         :return:
         """
-        channel = list()
+        channel = []
         methods = self.get_channel_methods()
         for x in range(0, self.no_secure_channel):
             channel.append(
@@ -142,7 +150,7 @@ class Multiplex:
         sure that there is an intersection in the chunks used for the channels.
         :return:
         """
-        methods = list()
+        methods = []
         methods.append(("even", 0))
         methods.append(("odd", 0))
         methods.append(("window_30", 0))
@@ -211,7 +219,7 @@ class Multiplex:
                 del self.channel[channel_no]
                 print("Channel " + str(channel_no) + " deleted.")
                 return True
-            except:
+            except IndexError:
                 print("Channel " + str(channel_no) + " not available.")
                 return False
 
@@ -221,7 +229,7 @@ class Multiplex:
         packets from the channels.
         :return:
         """
-        chunk_list = [x for x in range(0, self.no_chunks)]
+        chunk_list = list(range(0, self.no_chunks))
         for method in self.used_methods:
             if method[0] == "even":
                 chunk_list = [x for x in chunk_list if x % 2 != 0]
@@ -231,7 +239,7 @@ class Multiplex:
                 window_size = 30
                 window = method[1]
                 start = window * (window_size - 10)
-                chunks = [y for y in range(start, start + window_size)]
+                chunks = list(range(start, start + window_size))
                 chunk_list = [x for x in chunk_list if x not in chunks]
             if len(chunk_list) == 0:
                 return True
@@ -260,7 +268,7 @@ class Multiplex:
             arr.append(random.getrandbits(1))
         fill = secrets.token_bytes(11)
         secret = noc + bytes(arr) + fill
-        return Shamir.split(min_shares, self.no_channel, secret)
+        return Shamir.split(min_shares, self.no_channel, secret, ssss=False)
 
     @staticmethod
     def combine_shamir_shares(shares):
@@ -270,7 +278,7 @@ class Multiplex:
         :param shares:
         :return:
         """
-        byte_str = Shamir.combine(shares)
+        byte_str = Shamir.combine(shares, ssss=False)
         no_chunks = struct.unpack("I", byte_str[:4])[0]
         bool_byte = byte_str[4:5]
         header = bool((bool_byte[0] >> 7) & 1)
@@ -309,7 +317,7 @@ class MultiplexChannel:
         self.header = header
         self.encoder = self.init_encoder()
         self.decoder = self.init_decoder()
-        self.packets = list()
+        self.packets = []
 
     def init_encoder(self):
         """
@@ -360,6 +368,9 @@ class MultiplexChannel:
             packet = self.encoder.create_new_packet_from_chunks(
                 method=self.method, window=self.window
             )
+            if packet is None:
+                discarded_packets += 1
+                continue
             packet_chunks = from_true_false_list(self.decoder.removeAndXorAuxPackets(packet))
             if (
                 len(packet_chunks) > 1
@@ -394,7 +405,7 @@ if __name__ == "__main__":
 
     def do_test_decodable(error_correction=nocode, header=True, no_channel=5):
         mlt = Multiplex(file, 50, no_channel, 1, error_correction=error_correction, header=header)
-        for ind, ch in enumerate(mlt.channel):
+        for ind, _ch in enumerate(mlt.channel):
             mlt.get_packets_for_channel(200, ind)
         assert mlt.file_potentially_decodable() is True
         for ch in mlt.channel:

@@ -12,6 +12,7 @@ except ImportError:
 
 rscodec: Optional[RSCodec] = None
 number_r_symbols: int = 2
+ErrorCorrectionCallable = Callable[..., bytes]
 
 
 def nocode(txt: bytes, *args: Any) -> bytes:
@@ -175,6 +176,35 @@ def get_error_correction_encode(e_correction: str, repair_symbols: int) -> Calla
     return error_correction
 
 
+_ERROR_CORRECTION_NAMES = {
+    "nocode": "nocode",
+    "crc32": "crc",
+    "reed_solomon_encode": "reedsolomon",
+    "dna_reed_solomon_encode": "dna_reedsolomon",
+}
+
+
+def _get_callable_name(error_correction_func: Callable[..., Any]) -> Optional[str]:
+    code = getattr(error_correction_func, "__code__", None)
+    if code is None:
+        return None
+    return code.co_name
+
+
+def _get_lambda_closure_name(error_correction_func: Callable[..., Any]) -> Optional[str]:
+    if _get_callable_name(error_correction_func) != "<lambda>":
+        return None
+    for cell in getattr(error_correction_func, "__closure__", ()) or ():
+        try:
+            cell_func = cell.cell_contents
+            cell_name = _get_callable_name(cell_func)
+            if cell_name in _ERROR_CORRECTION_NAMES:
+                return cell_name
+        except (ValueError, AttributeError):
+            continue
+    return None
+
+
 def get_error_correction_name(error_correction_func: Callable[..., Any]) -> str:
     """
     Get the error correction name string from an error correction function.
@@ -191,37 +221,12 @@ def get_error_correction_name(error_correction_func: Callable[..., Any]) -> str:
         >>> get_error_correction_name(crc32)
         'crc'
     """
-    # Try to get the function name
-    if hasattr(error_correction_func, "__code__"):
-        func_name = error_correction_func.__code__.co_name
-        if func_name == "nocode":
-            return "nocode"
-        elif func_name == "crc32":
-            return "crc"
-        elif func_name == "reed_solomon_encode":
-            return "reedsolomon"
-        elif func_name == "dna_reed_solomon_encode":
-            return "dna_reedsolomon"
+    func_name = _get_callable_name(error_correction_func)
+    if func_name in _ERROR_CORRECTION_NAMES:
+        return _ERROR_CORRECTION_NAMES[func_name]
 
-    # For lambda wrappers, check if it references the original function
-    # Lambda functions have __code__.co_name = '<lambda>'
-    if (
-        hasattr(error_correction_func, "__code__")
-        and error_correction_func.__code__.co_name == "<lambda>"
-    ):
-        # Try to identify by checking the function's closure or code constants
-        if hasattr(error_correction_func, "__closure__") and error_correction_func.__closure__:
-            for cell in error_correction_func.__closure__:
-                try:
-                    cell_func = cell.cell_contents
-                    if hasattr(cell_func, "__code__"):
-                        cell_name = cell_func.__code__.co_name
-                        if cell_name == "reed_solomon_encode":
-                            return "reedsolomon"
-                        elif cell_name == "dna_reed_solomon_encode":
-                            return "dna_reedsolomon"
-                except (ValueError, AttributeError):
-                    pass
+    closure_name = _get_lambda_closure_name(error_correction_func)
+    if closure_name in _ERROR_CORRECTION_NAMES:
+        return _ERROR_CORRECTION_NAMES[closure_name]
 
-    # Default fallback
     return "nocode"

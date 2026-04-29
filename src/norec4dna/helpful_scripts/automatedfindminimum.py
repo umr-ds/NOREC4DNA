@@ -1,14 +1,26 @@
+import importlib
+import importlib.util
 import math
+from typing import Any, Union
 
-import matplotlib.pyplot as plt
 import numpy as np
-from norec4dna.helper.RU10Helper import from_true_false_list
-from norec4dna.LTDecoder import LTDecoder
-from norec4dna.OnlineDecoder import OnlineDecoder
-from norec4dna.OnlinePacket import OnlinePacket
-from norec4dna.Packet import Packet
-from norec4dna.RU10Decoder import RU10Decoder
-from norec4dna.RU10Packet import RU10Packet
+
+from ..helper.RU10Helper import from_true_false_list
+from ..LTDecoder import LTDecoder
+from ..OnlineDecoder import OnlineDecoder
+from ..OnlinePacket import OnlinePacket
+from ..Packet import Packet
+from ..RU10Decoder import RU10Decoder
+from ..RU10Packet import RU10Packet
+
+plt: Any = (
+    importlib.import_module("matplotlib.pyplot")
+    if importlib.util.find_spec("matplotlib.pyplot") is not None
+    else None
+)
+
+PacketLike = Union[RU10Packet, Packet, OnlinePacket]
+DecoderLike = Union[RU10Decoder, LTDecoder, OnlineDecoder]
 
 
 class AutomatedFindMinimum:
@@ -83,18 +95,19 @@ class AutomatedFindMinimum:
             raise RuntimeError("Unsupported packet type")
         return packet
 
-    def init_dec(self):
+    def init_dec(self) -> DecoderLike:
         """
         Gets the pseudodecoder based on the original class of the first packet in the packet list.
         :return: Pseudodecoder
         """
         packet = self.normal_packets[0]
-        if packet.get_org_class() == "RU10Packet":
+        if isinstance(packet, RU10Packet):
             return RU10Decoder.pseudo_decoder(packet.total_number_of_chunks)
-        elif packet.get_org_class() == "OnlinePacket":
+        if isinstance(packet, OnlinePacket):
             return OnlineDecoder.pseudo_decoder(packet.total_number_of_chunks)
-        elif packet.get_org_class() == "Packet":
+        if isinstance(packet, Packet):
             return LTDecoder.pseudo_decoder(packet.total_number_of_chunks)
+        raise RuntimeError("Unsupported packet type")
 
     @staticmethod
     def get_packet_dist(packets_bool_arrays, number_of_chunks):
@@ -108,7 +121,7 @@ class AutomatedFindMinimum:
         for arr in packets_bool_arrays:
             i = 0
             for bo in arr:
-                if bo == True:
+                if bo:
                     used_chunks[i] += 1
                 i += 1
         return used_chunks
@@ -118,12 +131,21 @@ class AutomatedFindMinimum:
         Finds all packets needed to decode the file.
         :return: Decoding packets
         """
+        decoder = self.decoder
         for packet in self.normal_packets:
-            self.decoder.input_new_packet(packet)
-        self.decoder.solve()
-        decoding_packet_indices = self.decoder.GEPP.packet_mapping[
-            : self.decoder.GEPP.result_mapping.size
-        ]
+            if isinstance(decoder, RU10Decoder) and isinstance(packet, RU10Packet):
+                decoder.input_new_packet(packet)
+            elif isinstance(decoder, OnlineDecoder) and isinstance(packet, OnlinePacket):
+                decoder.input_new_packet(packet)
+            elif isinstance(decoder, LTDecoder) and isinstance(packet, Packet):
+                decoder.input_new_packet(packet)
+            else:
+                raise RuntimeError("Packet type does not match decoder type")
+        decoder.solve()
+        gepp = decoder.GEPP
+        if gepp is None:
+            raise RuntimeError("Pseudo decoder GEPP was not initialized")
+        decoding_packet_indices = gepp.packet_mapping[: gepp.result_mapping.size]
         decoding_packets = []
         for x in decoding_packet_indices:
             packet = self.normal_packets[x[0]]
@@ -139,9 +161,12 @@ class AutomatedFindMinimum:
         :return: List of bool_arrays for the given packets
         """
         bool_arr = []
+        decoder = self.decoder
         if isinstance(packets[0], RU10Packet):
+            if not isinstance(decoder, RU10Decoder):
+                raise RuntimeError("RU10 packets require an RU10 decoder")
             for pack in packets:
-                bool_arr.append(self.decoder.removeAndXorAuxPackets(pack))
+                bool_arr.append(decoder.removeAndXorAuxPackets(pack))
         else:
             for pack in packets:
                 bool_arr.append(pack.get_bool_array_used_packets())
@@ -247,10 +272,13 @@ class AutomatedFindMinimum:
         :return:
         """
         tmp = []
+        decoder = self.decoder
         for packet in packets:
             if isinstance(packet, RU10Packet):
+                if not isinstance(decoder, RU10Decoder):
+                    raise RuntimeError("RU10 packets require an RU10 decoder")
                 if self.packet_already_exists(
-                    self.decoder.removeAndXorAuxPackets(packet), used_packets_boolarr
+                    decoder.removeAndXorAuxPackets(packet), used_packets_boolarr
                 ):
                     tmp.append(packet)
             elif self.packet_already_exists(
@@ -370,6 +398,8 @@ class AutomatedFindMinimum:
         :return:
         """
         if isinstance(packet, RU10Packet):
+            if not isinstance(self.decoder, RU10Decoder):
+                raise RuntimeError("RU10 packets require an RU10 decoder")
             arr = self.decoder.removeAndXorAuxPackets(packet)
         else:
             arr = packet.get_bool_array_used_packets()
@@ -386,7 +416,7 @@ class AutomatedFindMinimum:
         used_chunks = np.array([0 for _ in range(number_of_chunks)])
         for arr in bool_arr:
             for x in range(number_of_chunks):
-                if arr[x] == True:
+                if arr[x]:
                     used_chunks[x] += 1
         return used_chunks
 
@@ -518,21 +548,14 @@ class AutomatedFindMinimum:
         decoding_packets = self.org_decoding_packets.copy()
         number_of_chunks = decoding_packets[0].total_number_of_chunks
         decoding_packets_bool_arrays = self.get_bool_arrays(decoding_packets)
-        if plot:
-            plotting = [(decoding_packets_bool_arrays, "firebrick")]
-            used_chunks = self.calc_used_chunks(number_of_chunks, decoding_packets_bool_arrays)
-            decoding_err_probs = self.get_chunk_err_probs(decoding_packets, number_of_chunks)
-            if plot_avg:
-                self.plot_with_average(used_chunks, decoding_err_probs, "opt_decoding")
-            else:
-                self.plot_err_probs(used_chunks, decoding_err_probs, "opt_decoding")
+        plotting = self._plot_decoding_packets(
+            plot, plot_avg, number_of_chunks, decoding_packets, decoding_packets_bool_arrays
+        )
         # Get and add the optimal new packets without exceeding the overhead_limit
         if chunk_min_occ is None:
-            packet_dist = self.get_packet_dist(decoding_packets_bool_arrays, number_of_chunks)
-            _sum = 0
-            for occ in packet_dist:
-                _sum += occ
-            chunk_min_occ = math.floor((_sum / len(packet_dist)) * 0.9)
+            chunk_min_occ = self._derive_chunk_min_occ(
+                decoding_packets_bool_arrays, number_of_chunks
+            )
             print(
                 "-> No minimum chunk occurence set. The calculated values is "
                 + str(chunk_min_occ)
@@ -549,62 +572,136 @@ class AutomatedFindMinimum:
             prio_chunks,
         )
         print("-> Number of packets needed to decode: " + str(len(decoding_packets)))
-        for pack in add_packets:
-            decoding_packets.append(pack)
+        decoding_packets.extend(add_packets)
         print("-> Number of packets using the overhead to optimize: " + str(len(decoding_packets)))
         # Check if any chunks are still underrepresented and use the overhead_factor to fix it if possible
         new_decoding_packets_bool_arrays = self.get_bool_arrays(decoding_packets)
-        if plot:
-            plotting.append((new_decoding_packets_bool_arrays, "orange"))
-            new_decoding_err_probs = self.get_chunk_err_probs(decoding_packets, number_of_chunks)
-            used_chunks = self.calc_used_chunks(number_of_chunks, new_decoding_packets_bool_arrays)
-            if plot_avg:
-                self.plot_with_average(used_chunks, new_decoding_err_probs, "opt_overhead")
-            else:
-                self.plot_err_probs(used_chunks, new_decoding_err_probs, "opt_overhead")
-        if len(self.underrep_chunks) > 0:
-            print("-> Some chunks are still underrepresented. Using the overhead factor now.")
-            overhead_ex = math.floor(no_new_packets * overhead_fac)
-            if overhead_ex == 0:
-                print(
-                    "-> The overhead factor doesn't allow additional packets. Please check your parameters."
-                )
-            else:
-                exceeding_packets = self.get_optimal_packets(
-                    decoding_packets,
-                    new_decoding_packets_bool_arrays,
-                    number_of_chunks,
-                    overhead_ex,
-                    err_prob_fac,
-                    chunk_min_occ,
-                )
-                for pack in exceeding_packets:
-                    decoding_packets.append(pack)
-                print(
-                    "-> Number of packets exceeding the overhead limit based on the overhead_fac: "
-                    + str(len(decoding_packets))
-                )
-                exceeding_packets_bool_arrays = self.get_bool_arrays(decoding_packets)
-                if plot:
-                    plotting.append((exceeding_packets_bool_arrays, "forestgreen"))
-                    used_chunks = self.calc_used_chunks(
-                        number_of_chunks, exceeding_packets_bool_arrays
-                    )
-                    exceeding_err_probs = self.get_chunk_err_probs(
-                        decoding_packets, number_of_chunks
-                    )
-                    if plot_avg:
-                        self.plot_with_average(used_chunks, exceeding_err_probs, "opt_exceeding")
-                    else:
-                        self.plot_err_probs(used_chunks, exceeding_err_probs, "opt_exceeding")
-                if len(self.underrep_chunks) > 0:
-                    print(
-                        "-> There are still underrepresented chunks, but no more packets can be added with the given limitations."
-                    )
+        self._plot_overhead_packets(
+            plot,
+            plot_avg,
+            plotting,
+            number_of_chunks,
+            decoding_packets,
+            new_decoding_packets_bool_arrays,
+        )
+        self._apply_overhead_factor(
+            decoding_packets,
+            new_decoding_packets_bool_arrays,
+            number_of_chunks,
+            no_new_packets,
+            overhead_fac,
+            err_prob_fac,
+            chunk_min_occ,
+            plot,
+            plot_avg,
+            plotting,
+        )
         if plot:
             self.plot_chunk_usage(plotting, number_of_chunks, "opt_all")
         print("----- Finished automated optimization -----")
         return decoding_packets
+
+    def _plot_decoding_packets(
+        self, plot, plot_avg, number_of_chunks, decoding_packets, decoding_packets_bool_arrays
+    ):
+        plotting = []
+        if plot:
+            plotting.append((decoding_packets_bool_arrays, "firebrick"))
+            used_chunks = self.calc_used_chunks(number_of_chunks, decoding_packets_bool_arrays)
+            decoding_err_probs = self.get_chunk_err_probs(decoding_packets, number_of_chunks)
+            if plot_avg:
+                self.plot_with_average(used_chunks, decoding_err_probs, "opt_decoding")
+            else:
+                self.plot_err_probs(used_chunks, decoding_err_probs, "opt_decoding")
+        return plotting
+
+    def _derive_chunk_min_occ(self, decoding_packets_bool_arrays, number_of_chunks):
+        packet_dist = self.get_packet_dist(decoding_packets_bool_arrays, number_of_chunks)
+        packet_sum = 0
+        for occurrence in packet_dist:
+            packet_sum += occurrence
+        return math.floor((packet_sum / len(packet_dist)) * 0.9)
+
+    def _plot_overhead_packets(
+        self,
+        plot,
+        plot_avg,
+        plotting,
+        number_of_chunks,
+        decoding_packets,
+        decoding_packets_bool_arrays,
+    ) -> None:
+        if not plot:
+            return
+        plotting.append((decoding_packets_bool_arrays, "orange"))
+        decoding_err_probs = self.get_chunk_err_probs(decoding_packets, number_of_chunks)
+        used_chunks = self.calc_used_chunks(number_of_chunks, decoding_packets_bool_arrays)
+        if plot_avg:
+            self.plot_with_average(used_chunks, decoding_err_probs, "opt_overhead")
+        else:
+            self.plot_err_probs(used_chunks, decoding_err_probs, "opt_overhead")
+
+    def _plot_exceeding_packets(
+        self, plot_avg, plotting, number_of_chunks, decoding_packets, decoding_packets_bool_arrays
+    ) -> None:
+        plotting.append((decoding_packets_bool_arrays, "forestgreen"))
+        used_chunks = self.calc_used_chunks(number_of_chunks, decoding_packets_bool_arrays)
+        exceeding_err_probs = self.get_chunk_err_probs(decoding_packets, number_of_chunks)
+        if plot_avg:
+            self.plot_with_average(used_chunks, exceeding_err_probs, "opt_exceeding")
+        else:
+            self.plot_err_probs(used_chunks, exceeding_err_probs, "opt_exceeding")
+
+    def _apply_overhead_factor(
+        self,
+        decoding_packets,
+        decoding_packets_bool_arrays,
+        number_of_chunks,
+        no_new_packets,
+        overhead_fac,
+        err_prob_fac,
+        chunk_min_occ,
+        plot,
+        plot_avg,
+        plotting,
+    ) -> None:
+        if len(self.underrep_chunks) == 0:
+            return
+        print("-> Some chunks are still underrepresented. Using the overhead factor now.")
+        overhead_ex = math.floor(no_new_packets * overhead_fac)
+        if overhead_ex == 0:
+            print(
+                "-> The overhead factor doesn't allow additional packets. Please check your parameters."
+            )
+            return
+
+        exceeding_packets = self.get_optimal_packets(
+            decoding_packets,
+            decoding_packets_bool_arrays,
+            number_of_chunks,
+            overhead_ex,
+            err_prob_fac,
+            chunk_min_occ,
+        )
+        decoding_packets.extend(exceeding_packets)
+        print(
+            "-> Number of packets exceeding the overhead limit based on the overhead_fac: "
+            + str(len(decoding_packets))
+        )
+        exceeding_packets_bool_arrays = self.get_bool_arrays(decoding_packets)
+        if plot:
+            self._plot_exceeding_packets(
+                plot_avg,
+                plotting,
+                number_of_chunks,
+                decoding_packets,
+                exceeding_packets_bool_arrays,
+            )
+        if len(self.underrep_chunks) > 0:
+            print(
+                "-> There are still underrepresented chunks, "
+                "but no more packets can be added with the given limitations."
+            )
 
     def interactive_optimization(self):
         """
@@ -615,7 +712,8 @@ class AutomatedFindMinimum:
         overhead_lim = float(input("-> Set an overhead limit (0.1 = 10%): "))
         overhead_fac = float(
             input(
-                "-> If you want to allow exceeding these limit if necessary to optimize the chunk occurence set a factor, otherwise type 0: "
+                "-> If you want to allow exceeding this limit to optimize chunk occurrence, "
+                "set a factor, otherwise type 0: "
             )
         )
         err_prob_fac = float(

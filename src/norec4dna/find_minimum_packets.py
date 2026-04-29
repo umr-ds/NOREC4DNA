@@ -11,30 +11,32 @@ from functools import partial
 from math import ceil, floor
 from zipfile import ZipFile
 
+import numpy as np
+
 # from pathos.multiprocessing import ProcessingPool as Pool
 # from pathos import multiprocessing
 # import dill
 import progressbar
-from norec4dna.distributions.ErlichZielinskiRobustSolitonDisribution import (
+
+from .distributions.ErlichZielinskiRobustSolitonDisribution import (
     ErlichZielinskiRobustSolitonDistribution,
 )
-from norec4dna.distributions.OnlineDistribution import OnlineDistribution
-from norec4dna.distributions.RaptorDistribution import RaptorDistribution
-from norec4dna.Encoder import Encoder
-from norec4dna.ErrorCorrection import crc32, dna_reed_solomon_encode, nocode, reed_solomon_encode
-from norec4dna.helper import (
+from .distributions.OnlineDistribution import OnlineDistribution
+from .distributions.RaptorDistribution import RaptorDistribution
+from .Encoder import Encoder
+from .ErrorCorrection import crc32, dna_reed_solomon_encode, nocode, reed_solomon_encode
+from .helper import (
     find_ceil_power_of_four,
     number_to_base_str,
     should_drop_packet,
     split_file,
 )
-from norec4dna.LTEncoder import LTEncoder
-from norec4dna.OnlineEncoder import OnlineEncoder
-from norec4dna.Packet import ParallelPacket
-from norec4dna.RU10Encoder import RU10Encoder
-
 from .helper.RepeatedTimer import RepeatedTimer
 from .helpful_scripts.automatedfindminimum import AutomatedFindMinimum
+from .LTEncoder import LTEncoder
+from .OnlineEncoder import OnlineEncoder
+from .Packet import ParallelPacket
+from .RU10Encoder import RU10Encoder
 from .rules.FastDNARules import FastDNARules
 
 DEFAULT_ID_LEN_FORMAT = "H"
@@ -50,6 +52,124 @@ ONLINE_EPS = 0.068
 # global counter for progressbar
 # counter = None
 progress_bar = None
+
+
+def _get_distribution(method, number_of_chunks, repair_symbols):
+    if repair_symbols != 0:
+        return get_err_dist(method, number_of_chunks, repair_symbols)
+    if method == "RU10":
+        return RaptorDistribution(number_of_chunks), None
+    if method == "LT":
+        return ErlichZielinskiRobustSolitonDistribution(number_of_chunks, seed=2), None
+    if method == "Online":
+        return OnlineDistribution(ONLINE_EPS), None
+    raise NotImplementedError("Choose: RU10, LT or Online")
+
+
+def _apply_custom_distribution(dist, custom_dist):
+    if custom_dist is not None and isinstance(dist, RaptorDistribution):
+        dist.f = np.asarray(custom_dist, dtype=np.int32)
+        dist.d = np.arange(0, 41, dtype=np.int8)
+
+
+def _create_encoder(
+    method,
+    file,
+    number_of_chunks,
+    dist,
+    chunk_size,
+    insert_header,
+    rules,
+    error_correction,
+    seed_len_format,
+    number_of_chunks_len_format,
+    save_number_of_chunks_in_packet,
+    mode1bmp,
+    prepend,
+    append,
+    xor_by_seed,
+    id_spacing,
+):
+    if method == "RU10":
+        if not isinstance(dist, RaptorDistribution):
+            raise RuntimeError("RU10 encoding requires a RaptorDistribution")
+        encoder = RU10Encoder(
+            file,
+            number_of_chunks,
+            dist,
+            chunk_size=chunk_size,
+            insert_header=insert_header,
+            rules=rules,
+            error_correction=error_correction,
+            id_len_format=seed_len_format,
+            number_of_chunks_len_format=number_of_chunks_len_format,
+            save_number_of_chunks_in_packet=save_number_of_chunks_in_packet,
+            mode_1_bmp=mode1bmp,
+            prepend=prepend,
+            append=append,
+            xor_by_seed=xor_by_seed,
+            id_spacing=id_spacing,
+        )
+        encoder.prepare()
+        return encoder, number_of_chunks
+    if method == "LT":
+        if not isinstance(dist, ErlichZielinskiRobustSolitonDistribution):
+            raise RuntimeError("LT encoding requires an Erlich-Zielinski distribution")
+        encoder = LTEncoder(
+            file,
+            number_of_chunks,
+            dist,
+            chunk_size=chunk_size,
+            insert_header=insert_header,
+            rules=rules,
+            error_correction=error_correction,
+            number_of_chunks_len_format=number_of_chunks_len_format,
+            id_len_format=seed_len_format,
+            save_number_of_chunks_in_packet=save_number_of_chunks_in_packet,
+        )
+        encoder.prepareEncoder()
+        return encoder, number_of_chunks
+    if method == "Online":
+        if not isinstance(dist, OnlineDistribution):
+            raise RuntimeError("Online encoding requires an OnlineDistribution")
+        online_chunks = dist.get_size()
+        assert online_chunks is not None, "Distribution size must be set for Online method"
+        encoder = OnlineEncoder(
+            file,
+            online_chunks,
+            dist,
+            ONLINE_EPS,
+            ONLINE_QUALITY,
+            error_correction=error_correction,
+            quality_len_format="B",
+            insert_header=False,
+            check_block_number_len_format=seed_len_format,
+            number_of_chunks_len_format=number_of_chunks_len_format,
+            rules=rules,
+            save_number_of_chunks_in_packet=False,
+        )
+        encoder.prepare()
+        return encoder, online_chunks
+    raise NotImplementedError("Choose: RU10, LT or Online")
+
+
+def _create_packet_for_iteration(encoder, seq_seed, iteration, packets_to_create):
+    if seq_seed is None:
+        return encoder.create_new_packet()
+    if seq_seed + iteration >= packets_to_create:
+        return None
+    return encoder.create_new_packet(seed=seq_seed + iteration)
+
+
+def _update_best_packets(tmp_list, packet, l_size):
+    if packet not in tmp_list:
+        bisect.insort_left(tmp_list, packet)
+    else:
+        elem = next((x for x in tmp_list if x == packet), None)
+        if elem is not None and packet < elem:
+            tmp_list.remove(elem)
+            bisect.insort_left(tmp_list, packet)
+    return tmp_list[:l_size]
 
 
 def run(
@@ -73,7 +193,7 @@ def run(
     packets_to_create=None,
     xor_by_seed=False,
     id_spacing=0,
-    custom_dist=None,
+    custom_dist: typing.Optional[typing.List[float]] = None,
 ):
     # global counter
     if chunk_size != 0:
@@ -82,75 +202,34 @@ def run(
     if packets_to_create is None:
         packets_to_create = math.pow(2, 8 * struct.calcsize(seed_len_format))
     rules = dna_rules
-    if repair_symbols != 0:
-        dist, error_correction = get_err_dist(method, number_of_chunks, repair_symbols)
-    else:
-        dist = RaptorDistribution(number_of_chunks)
-    if custom_dist is not None:
-        dist.f = custom_dist
-        dist.d = [x for x in range(0, 41)]
-    if method == "RU10":
-        x = RU10Encoder(
-            file,
-            number_of_chunks,
-            dist,
-            chunk_size=chunk_size,
-            insert_header=insert_header,
-            rules=rules,
-            error_correction=error_correction,
-            id_len_format=seed_len_format,
-            number_of_chunks_len_format=number_of_chunks_len_format,
-            save_number_of_chunks_in_packet=save_number_of_chunks_in_packet,
-            mode_1_bmp=mode1bmp,
-            prepend=prepend,
-            append=append,
-            xor_by_seed=xor_by_seed,
-            id_spacing=id_spacing,
-        )
-        x.prepare()
-    elif method == "LT":
-        x = LTEncoder(
-            file,
-            number_of_chunks,
-            dist,
-            chunk_size=chunk_size,
-            insert_header=insert_header,
-            rules=rules,
-            error_correction=error_correction,
-            number_of_chunks_len_format=number_of_chunks_len_format,
-            id_len_format=seed_len_format,
-            save_number_of_chunks_in_packet=save_number_of_chunks_in_packet,
-        )
-        x.prepareEncoder()
-    elif method == "Online":
-        number_of_chunks = dist.get_size()
-        assert number_of_chunks is not None, "Distribution size must be set for Online method"
-        x = OnlineEncoder(
-            file,
-            number_of_chunks,
-            dist,
-            ONLINE_EPS,
-            ONLINE_QUALITY,
-            error_correction=error_correction,
-            quality_len_format="B",
-            insert_header=False,
-            check_block_number_len_format=seed_len_format,
-            number_of_chunks_len_format=number_of_chunks_len_format,
-            rules=rules,
-            save_number_of_chunks_in_packet=False,
-        )
-        x.prepare()
-    else:
-        raise NotImplementedError("Choose: RU10, LT or Online")
+    dist, derived_error_correction = _get_distribution(method, number_of_chunks, repair_symbols)
+    if derived_error_correction is not None:
+        error_correction = derived_error_correction
+    _apply_custom_distribution(dist, custom_dist)
+    x, number_of_chunks = _create_encoder(
+        method,
+        file,
+        number_of_chunks,
+        dist,
+        chunk_size,
+        insert_header,
+        rules,
+        error_correction,
+        seed_len_format,
+        number_of_chunks_len_format,
+        save_number_of_chunks_in_packet,
+        mode1bmp,
+        prepend,
+        append,
+        xor_by_seed,
+        id_spacing,
+    )
     i = 0
     tmp_list = []
     while i < while_count:
-        if seq_seed is not None:
-            if seq_seed + i >= packets_to_create:
-                break
-            packet = x.create_new_packet(seed=seq_seed + i)
-        else:
-            packet = x.create_new_packet()
+        packet = _create_packet_for_iteration(x, seq_seed, i, packets_to_create)
+        if packet is None:
+            break
         # if i == 0:
         #    print(f"%i , %s" % (len(packet.get_dna_struct(True)), packet.get_dna_struct(True)))
         _ = should_drop_packet(rules, packet)
@@ -159,34 +238,13 @@ def run(
             and packet.error_prob <= drop_above
             and (len(tmp_list) < l_size or packet.error_prob < tmp_list[-1].error_prob)
         ):
-            if packet not in tmp_list:
-                bisect.insort_left(tmp_list, packet)
-            else:
-                elem = next((x for x in tmp_list if x == packet), None)
-                if elem is not None and packet < elem:
-                    tmp_list.remove(elem)
-                    del elem
-                    bisect.insort_left(tmp_list, packet)
-            if len(tmp_list) > l_size:
-                for ele1m in tmp_list[l_size + 1 :]:
-                    del ele1m
-                tmp_list = tmp_list[:l_size]
-
-        else:
-            del packet
+            tmp_list = _update_best_packets(tmp_list, packet, l_size)
         i += 1
         # += operation is not atomic, so we need to get a lock:
         # with counter.get_lock():
         #    counter.value += 1
     # save_packets_fasta(tmp_list, out_file=method + "_out_partial", file_ending="." + method + "_DNA",
     #                   clear_output=False)
-    conf = {
-        "error_correction": error_correction,
-        "repair_symbols": repair_symbols,
-        # 'number_of_splits': _number_of_splits,
-        "find_minimum_mode": True,
-        "seq_seed": seq_seed,
-    }
     # x.save_config_file(conf, section_name=method + "_" + file)
     if x.progress_bar is not None:
         x.progress_bar.finish()
@@ -196,6 +254,8 @@ def run(
 def save_packets_zip(
     encodedPackets, out_file: typing.Optional[str] = None, file_ending=".zip", seed_is_filename=True
 ):
+    if out_file is None:
+        out_file = "packets"
     if not out_file.endswith(file_ending):
         out_file = out_file + "." + file_ending
     i = 0
@@ -277,6 +337,8 @@ def reduce_lists(base, input_list=None, l_size=100):
         input_list = base[1]
         base = base[0]
     base = base[:l_size]
+    if input_list is None:
+        return base
     for packet in input_list:
         if packet.error_prob < base[-1].error_prob:
             if packet not in base:
@@ -399,7 +461,10 @@ def main(
         for i in range(0, len(a) - 1, 2):
             tmp.append([a[i], a[i + 1]])
         a = p.map(partial(reduce_lists, input_list=None, l_size=out_size), tmp)
-        progress_bar.update(progress_bar.max_value - len(a))
+        progress_max = progress_bar.max_value
+        if not isinstance(progress_max, int):
+            raise RuntimeError("Progress bar max value must be an int")
+        progress_bar.update(progress_max - len(a))
     a = a[0]
     rt.stop()
 
@@ -570,7 +635,10 @@ if __name__ == "__main__":
         required=False,
         type=str,
         default=DEFAULT_ID_LEN_FORMAT,
-        help="struct-string for seed - possible values: I,H,B (see struct) This impacts the amount of generated packets on sequential mode",
+        help=(
+            "struct-string for seed - possible values: I,H,B (see struct). "
+            "This impacts the amount of generated packets in sequential mode"
+        ),
     )
     parser.add_argument(
         "--store_as_fasta",

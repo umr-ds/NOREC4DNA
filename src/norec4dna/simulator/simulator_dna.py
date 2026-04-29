@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: latin-1 -*-
 import argparse
+import importlib
+import importlib.util
 import math
 import os
 import time
@@ -36,6 +38,43 @@ algo_type = []
 packetToDropChance = {}
 
 
+def _handle_bp_packet(decoder, packet, dec_input, invalid_drop, scale_first, scale_second):
+    if should_drop_packet(packet, scale=scale_first):
+        return None, dec_input, invalid_drop
+    if should_drop_packet(packet, False, scale=scale_second):
+        return None, dec_input, invalid_drop + 1
+    if decoder.input_new_packet(packet):
+        dec_input += 1
+        decoder.solve()
+        return decoder.is_decoded(), dec_input, invalid_drop
+    return None, dec_input, invalid_drop
+
+
+def _handle_fast_packet(decoder, packet, dec_input, invalid_drop, scale_first, scale_second):
+    if should_drop_packet(packet, scale=scale_first):
+        return None, dec_input, invalid_drop + 1
+    if should_drop_packet(packet, False, scale=scale_second):
+        return None, dec_input, invalid_drop
+    dec_input += 1
+    decoder.input_new_packet(packet)
+    if packet.total_number_of_chunks <= dec_input - invalid_drop and decoder.solve():
+        return decoder.is_decoded(), dec_input, invalid_drop
+    return None, dec_input, invalid_drop
+
+
+def _feed_replacement_packets(encoder, decoder, invalid_drop, dec_input, scale_first, scale_second):
+    inserted_packets = 0
+    while inserted_packets < invalid_drop:
+        packet = encoder.create_and_add_new_packet()
+        if should_drop_packet(packet, scale=scale_first):
+            continue
+        if not should_drop_packet(packet, False, scale=scale_second):
+            decoder.input_new_packet(packet)
+            dec_input += 1
+        inserted_packets += 1
+    return dec_input
+
+
 def blackbox(encoder, decoder, scale_first=1.0, scale_second=1.0):
     encoder.encode_to_packets()
     encoded_packets = encoder.get_encoded_packets()
@@ -44,50 +83,20 @@ def blackbox(encoder, decoder, scale_first=1.0, scale_second=1.0):
     print(bcolors.BOLD + "[+] Created " + str(len(encoded_packets)) + " Packets" + bcolors.ENDC)
     for packet in encoded_packets:
         if isinstance(decoder, LTBPDecoder) or isinstance(decoder, OnlineBPDecoder):
-            if not should_drop_packet(packet, scale=scale_first):
-                # first stage: we detect error and generate new packet (simulates encoding)
-                if not should_drop_packet(packet, False, scale=scale_second):
-                    # second stage: simulate error for real DNA-Storage (simulates decoding)
-                    if decoder.input_new_packet(packet):
-                        dec_input += 1
-                        decoder.solve()
-                        print(
-                            "[!] DNA-Simulator dropped "
-                            + str(invalid_drop)
-                            + " Packets and finished successful"
-                        )
-                        return decoder.is_decoded(), dec_input, invalid_drop
-                else:
-                    invalid_drop += 1
+            result, dec_input, invalid_drop = _handle_bp_packet(
+                decoder, packet, dec_input, invalid_drop, scale_first, scale_second
+            )
         else:
-            # we are in the FAST_decoder part...
-            if not should_drop_packet(packet, scale=scale_first):
-                # first stage: we detect error and generate new packet (simulates encoding)
-                if not should_drop_packet(packet, False, scale=scale_second):
-                    # second stage: simulate error for real DNA-Storage (simulates decoding)
-                    dec_input += 1
-                    decoder.input_new_packet(packet)
-            else:
-                invalid_drop += 1
-            if (packet.total_number_of_chunks <= dec_input - invalid_drop) and decoder.solve():
-                print(
-                    "DNA-Simulator dropped "
-                    + str(invalid_drop)
-                    + " Packets and finished successful"
-                )
-                return decoder.is_decoded(), dec_input, invalid_drop
-    j = 0
-    while j < invalid_drop:
-        packet = encoder.create_and_add_new_packet()
-        if not should_drop_packet(packet, scale=scale_first):
-            # first stage: we detect error and generate new packet (simulates encoding)
-            # this might happen transitive
-            if not should_drop_packet(packet, False, scale=scale_second):
-                # second stage: simulate error for real DNA-Storage (simulates decoding)
-                decoder.input_new_packet(packet)
-                dec_input += 1
-            # only increase j if the new packet has made it trough first stage
-            j += 1
+            result, dec_input, invalid_drop = _handle_fast_packet(
+                decoder, packet, dec_input, invalid_drop, scale_first, scale_second
+            )
+        if result is not None:
+            print("DNA-Simulator dropped " + str(invalid_drop) + " Packets and finished successful")
+            return result, dec_input, invalid_drop
+
+    dec_input = _feed_replacement_packets(
+        encoder, decoder, invalid_drop, dec_input, scale_first, scale_second
+    )
     decoder.solve()
     print("[!] DNA-Simulator dropped " + str(invalid_drop) + " Packets.")
     return decoder.is_decoded(), dec_input, invalid_drop
@@ -132,6 +141,7 @@ def blackboxOnlineTest(
     quality = 5
     dist = OnlineDistribution(epsilon, seed)
     number_of_chunks = dist.get_size()
+    assert number_of_chunks is not None
     algo_type.clear()
     algo_type.append("Online_" + str(number_of_chunks) + "_" + str(dist.get_config_string()))
     print(
@@ -324,6 +334,101 @@ def get_random_int(max_int):
     return int(random() * max_int)
 
 
+def _get_number_of_chunks(file, chunk_size, insert_header):
+    if chunk_size != 0:
+        return Encoder.get_number_of_chunks_for_file_with_chunk_size(
+            file, chunk_size=chunk_size, insert_header=insert_header
+        )
+    return 800
+
+
+def _run_simulation_case(file, mode, number_of_chunks, rnd, overhead, scale_first, scale_second):
+    if mode == "Online":
+        return blackboxOnlineTest(
+            file,
+            number_of_chunks=number_of_chunks,
+            seed=rnd,
+            overhead=overhead,
+            scale_first=scale_first,
+            scale_second=scale_second,
+        )
+    if mode == "LT":
+        return blackboxLTTest(
+            file,
+            number_of_chunks=number_of_chunks,
+            seed=rnd,
+            chunk_size=100,
+            overhead=overhead,
+            scale_first=scale_first,
+            scale_second=scale_second,
+        )
+    if mode == "LTIdeal":
+        return blackboxLTIdealTest(
+            file,
+            number_of_chunks=number_of_chunks,
+            seed=rnd,
+            chunk_size=100,
+            overhead=overhead,
+            scale_first=scale_first,
+            scale_second=scale_second,
+        )
+    return blackboxRU10Test(
+        file,
+        number_of_chunks=number_of_chunks,
+        seed=rnd,
+        chunk_size=100,
+        overhead=overhead,
+        scale_first=scale_first,
+        scale_second=scale_second,
+    )
+
+
+def _format_simulation_line(
+    file, overhead, name, number_of_chunks, dec_input, invalid_drop, rnd, result, time_needed
+):
+    return (
+        str(file)
+        + ","
+        + str(overhead)
+        + ","
+        + str(name)
+        + ","
+        + str(number_of_chunks)
+        + ","
+        + str(dec_input)
+        + ","
+        + str(invalid_drop)
+        + ","
+        + str(rnd)
+        + ","
+        + str(result)
+        + ","
+        + str(time_needed)
+    )
+
+
+def _write_simulation_outputs(mode, overhead, csv):
+    dtimeno = (
+        mode
+        + "_"
+        + str(overhead)
+        + "_sim"
+        + str(time.strftime("%Y-%m-%d_%H-%M", time.localtime()))
+        + ".csv"
+    )
+    with open("DNA_" + dtimeno, "w") as f:
+        for line in lines:
+            f.write(line + "\n")
+    lines.clear()
+    lines.append(
+        "Algorithm,ID,A_Permutation,T_Permutation,C_Permutation,G_Permutation,dinucleotid_Runs,Homopolymers,"
+        "GC_Content,Trinucleotid_Runs,Random_Permutation,Overall_Dropchance,Random_Number,Did_Drop"
+    )
+    with open(dtimeno, "w") as f:
+        for line in csv:
+            f.write(line + "\n")
+
+
 def main(file=".INFILES/logo.jpg", repeats=5):
     csv = [
         "filename, overhead, codecName, number_of_chunks, dec_input, invalid_drop, seed, result, time_needed"
@@ -348,101 +453,26 @@ def main(file=".INFILES/logo.jpg", repeats=5):
         ]:
             for _ in range(repeats):
                 rnd = get_random_int(math.pow(2, 31) - 1)
-                chunk_size = 100
-                insert_header = True
-                if chunk_size != 0:
-                    number_of_chunks = Encoder.get_number_of_chunks_for_file_with_chunk_size(
-                        file, chunk_size=chunk_size, insert_header=insert_header
+                number_of_chunks = _get_number_of_chunks(file, 100, True)
+                name, result, number_of_chunks, dec_input, invalid_drop, time_needed = (
+                    _run_simulation_case(
+                        file, mode, number_of_chunks, rnd, overhead, scale_first, scale_second
                     )
-                else:
-                    number_of_chunks = 800
-
-                try:
-                    if mode == "Online":
-                        res = blackboxOnlineTest(
-                            file,
-                            number_of_chunks=number_of_chunks,
-                            seed=rnd,
-                            overhead=overhead,
-                            scale_first=scale_first,
-                            scale_second=scale_second,
-                        )
-                    # chunk_size=chunk_size)
-                    elif mode == "LT":
-                        res = blackboxLTTest(
-                            file,
-                            number_of_chunks=number_of_chunks,
-                            seed=rnd,
-                            chunk_size=chunk_size,
-                            overhead=overhead,
-                            scale_first=scale_first,
-                            scale_second=scale_second,
-                        )
-                    elif mode == "LTIdeal":
-                        res = blackboxLTIdealTest(
-                            file,
-                            number_of_chunks=number_of_chunks,
-                            seed=rnd,
-                            chunk_size=chunk_size,
-                            overhead=overhead,
-                            scale_first=scale_first,
-                            scale_second=scale_second,
-                        )
-                    else:
-                        res = blackboxRU10Test(
-                            file,
-                            number_of_chunks=number_of_chunks,
-                            seed=rnd,
-                            chunk_size=chunk_size,
-                            overhead=overhead,
-                            scale_first=scale_first,
-                            scale_second=scale_second,
-                        )
-                    name, result, number_of_chunks, dec_input, invalid_drop, time_needed = res
-                    line = (
-                        str(file)
-                        + ","
-                        + str(overhead)
-                        + ","
-                        + str(name)
-                        + ","
-                        + str(number_of_chunks)
-                        + ","
-                        + str(dec_input)
-                        + ","
-                        + str(invalid_drop)
-                        + ","
-                        + str(rnd)
-                        + ","
-                        + str(result)
-                        + ","
-                        + str(time_needed)
-                    )
-                except Exception as ex:
-                    raise ex
+                )
+                line = _format_simulation_line(
+                    file,
+                    overhead,
+                    name,
+                    number_of_chunks,
+                    dec_input,
+                    invalid_drop,
+                    rnd,
+                    result,
+                    time_needed,
+                )
                 print(line)
                 csv.append(line)
-            dtimeno = (
-                mode
-                + "_"
-                + str(overhead)
-                + "_sim"
-                + str(time.strftime("%Y-%m-%d_%H-%M", time.localtime()))
-                + ".csv"
-            )
-
-            with open("DNA_" + dtimeno, "w") as f:
-                for line in lines:
-                    f.write(line + "\n")
-            lines.clear()
-            lines.append(
-                "Algorithm,ID,A_Permutation,T_Permutation,C_Permutation,G_Permutation,dinucleotid_Runs,Homopolymers,"
-                "GC_Content,Trinucleotid_Runs,Random_Permutation,Overall_Dropchance,Random_Number,Did_Drop"
-            )
-
-        with open(dtimeno, "w") as f:
-            for line in csv:
-                f.write(line + "\n")
+            _write_simulation_outputs(mode, overhead, csv)
         csv = [
             "filename, codecName, number_of_chunks, dec_input, invalid_drop, seed, result, time_needed"
         ]
@@ -470,15 +500,17 @@ if __name__ == "__main__":
     filename = str(args.file)
     repeats = int(args.repeats)
     if profile:
-        from pycallgraph import PyCallGraph
-        from pycallgraph.output import GraphvizOutput
+        if importlib.util.find_spec("pycallgraph") is None:
+            raise ImportError("pycallgraph is required for profiling")
+        pycallgraph = importlib.import_module("pycallgraph")
+        pycallgraph_output = importlib.import_module("pycallgraph.output")
 
         print(
             bcolors.WARN
             + "[!] running with Profiler - this might decrease performance"
             + bcolors.ENDC
         )
-        with PyCallGraph(output=GraphvizOutput()):
+        with pycallgraph.PyCallGraph(output=pycallgraph_output.GraphvizOutput()):
             main(filename, repeats)
         print(bcolors.BLUE + '[*] profiling Graph saved as "pycallgraph.png"' + bcolors.ENDC)
     else:

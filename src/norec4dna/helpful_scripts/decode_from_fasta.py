@@ -1,10 +1,11 @@
 import multiprocessing
+import typing
 from functools import partial
 from io import BytesIO
 
-from norec4dna import RU10Decoder
-from norec4dna.ErrorCorrection import reed_solomon_decode
-from norec4dna.helper.quaternary2Bin import tranlate_quat_to_byte
+from ..ErrorCorrection import reed_solomon_decode
+from ..helper.quaternary2Bin import tranlate_quat_to_byte
+from ..RU10Decoder import RU10Decoder
 
 STATIC_NUMBER_OF_CHUNKS = 338884
 spare1core = True
@@ -26,7 +27,7 @@ def reconstruct_Packets(lst):
     """
     packet_list = []
     i = 0
-    for error_prob, seed, dna_str in lst:
+    for _error_prob, _seed, dna_str in lst:
         packet = decoder.parse_raw_packet(
             BytesIO(tranlate_quat_to_byte(dna_str)).read(),
             crc_len_format="L",
@@ -34,6 +35,9 @@ def reconstruct_Packets(lst):
             packet_len_format="H",
             id_len_format="I",
         )
+        if isinstance(packet, str):
+            i += 1
+            continue
         packet_list.append((decoder.removeAndXorAuxPackets(packet), packet.get_data()))
         if i % 100 == 0:
             print(str(i))
@@ -70,9 +74,12 @@ with open(infile, "r") as in_file:
                 packet_len_format="H",
                 id_len_format="I",
             )
+            if isinstance(packet, str):
+                continue
             res = decoder.input_new_packet(packet)
-            if decoder.GEPP.n % 100 == 0:
-                print("Parsed packet " + str(seed) + " - " + str(decoder.GEPP.n))
+            gepp = decoder.GEPP
+            if gepp is not None and gepp.n % 100 == 0:
+                print("Parsed packet " + str(seed) + " - " + str(gepp.n))
             if res:
                 decoder.saveDecodedFile(
                     last_chunk_len_format="H", null_is_terminator=False, print_to_output=False
@@ -102,6 +109,7 @@ with open(infile, "r") as in_file:
             cores = cores - 1
         p = multiprocessing.Pool(cores)
         list_of_lists = p.map(partial(reconstruct_Packets), split(raw_packet_list, cores))
-        l = []
-        map(l.extend, list_of_lists)
+        l: typing.List[typing.Any] = []
+        for packet_entries in list_of_lists:
+            l.extend(packet_entries)
         print(len(l))
