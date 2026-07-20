@@ -693,6 +693,7 @@ class RU10Decoder(Decoder):
                 input_str[i] = " "
                 i += self.id_spacing + 1
             input_str = "".join(input_str)
+            input_str = input_str.replace(" ", "")
             res += input_str
             return res
         return dna_str
