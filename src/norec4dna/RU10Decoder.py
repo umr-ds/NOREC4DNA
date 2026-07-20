@@ -276,9 +276,11 @@ class RU10Decoder(Decoder):
             if entry is None:
                 break
             _, _, dna_str = entry
+            # Strip appended version fields if enabled
+            dna_str_stripped = self.strip_appended_version_fields(dna_str)
             try:
                 new_pack = self._decode_fasta_packet(
-                    dna_str,
+                    dna_str_stripped,
                     packet_len_format,
                     crc_len_format,
                     number_of_chunks_len_format,
@@ -286,7 +288,7 @@ class RU10Decoder(Decoder):
                 )
             except Exception:
                 new_pack = "CORRUPT"
-                self.packets.append(dna_str)
+                self.packets.append(dna_str_stripped)
             if new_pack != "CORRUPT":
                 assert isinstance(new_pack, RU10Packet), "new_pack must be RU10Packet"
                 decoded = self._record_packet(new_pack)
@@ -691,9 +693,49 @@ class RU10Decoder(Decoder):
                 input_str[i] = " "
                 i += self.id_spacing + 1
             input_str = "".join(input_str)
-            input_str = input_str.replace(" ", "")
             res += input_str
             return res
+        return dna_str
+
+    def strip_appended_version_fields(self, dna_str: str) -> str:
+        """Strip appended version fields from DNA string if enabled in config."""
+        if self.config_map is None:
+            return dna_str
+        
+        # Check if appended version fields are enabled
+        append_version_fields = self.config_map.get("append_version_fields", False)
+        if isinstance(append_version_fields, str):
+            append_version_fields = append_version_fields.lower() in ("true", "1", "yes", "on")
+        
+        if not append_version_fields:
+            return dna_str
+        
+        # Calculate version fields length from config bit widths
+        try:
+            version_bits = int(self.config_map.get("version_bits", 8))
+            chunk_idx_bits = int(self.config_map.get("chunk_idx_bits", 8))
+            algo_id_bits = 8  # Always 8 bits for algo_id to accommodate marker 0xFF
+            iter_pos_bits = int(self.config_map.get("iter_pos_bits", 5))
+            append_version_include_magic = self.config_map.get("append_version_include_magic", True)
+            if isinstance(append_version_include_magic, str):
+                append_version_include_magic = append_version_include_magic.lower() in ("true", "1", "yes", "on")
+            
+            # Calculate total bits and bytes
+            total_bits = version_bits + chunk_idx_bits + algo_id_bits + iter_pos_bits
+            total_bytes = (total_bits + 7) // 8  # Ceiling division
+            total_bases = total_bytes * 4
+            
+            # Add magic bases if enabled
+            if append_version_include_magic:
+                magic_string = self.config_map.get("magic_string", "GAGCCAGTGAGTCGTA")
+                total_bases += len(magic_string)
+            
+            # Strip from end of DNA string
+            if total_bases > 0 and len(dna_str) >= total_bases:
+                return dna_str[:-total_bases]
+        except Exception:
+            pass  # If config is invalid, return original string
+        
         return dna_str
 
     def decodeFile(

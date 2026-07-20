@@ -314,6 +314,9 @@ class RU10Packet(Packet):
             mask_id=self.mask_id,
             id_spacing=self.id_spacing,
         )
+        # Preserve dna_data if set (for appended version fields)
+        if hasattr(self, 'dna_data') and self.dna_data is not None:
+            new_packet.dna_data = self.dna_data
         return new_packet
 
 
