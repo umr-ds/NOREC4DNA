@@ -715,7 +715,7 @@ class RU10Decoder(Decoder):
         try:
             version_bits = int(self.config_map.get("version_bits", 8))
             chunk_idx_bits = int(self.config_map.get("chunk_idx_bits", 8))
-            algo_id_bits = 8  # Always 8 bits for algo_id to accommodate marker 0xFF
+            algo_id_bits = int(self.config_map.get("algo_id_bits", 3))  # Read from config, not hardcoded
             iter_pos_bits = int(self.config_map.get("iter_pos_bits", 5))
             append_version_include_magic = self.config_map.get("append_version_include_magic", True)
             if isinstance(append_version_include_magic, str):

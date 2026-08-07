@@ -192,8 +192,10 @@ def _get_callable_name(error_correction_func: Callable[..., Any]) -> Optional[st
 
 
 def _get_lambda_closure_name(error_correction_func: Callable[..., Any]) -> Optional[str]:
-    if _get_callable_name(error_correction_func) != "<lambda>":
-        return None
+    # Handles both real lambdas AND named closures such as
+    # ``reed_solomon_encode_with_symbols`` (returned by
+    # ``get_error_correction_encode``): their ``__closure__`` cells contain the
+    # underlying named encode function (``reed_solomon_encode`` etc.).
     for cell in getattr(error_correction_func, "__closure__", ()) or ():
         try:
             cell_func = cell.cell_contents
@@ -224,6 +226,15 @@ def get_error_correction_name(error_correction_func: Callable[..., Any]) -> str:
     func_name = _get_callable_name(error_correction_func)
     if func_name in _ERROR_CORRECTION_NAMES:
         return _ERROR_CORRECTION_NAMES[func_name]
+
+    # Named wrappers such as ``reed_solomon_encode_with_symbols`` /
+    # ``dna_reed_solomon_encode_with_symbols`` (returned by
+    # ``get_error_correction_encode``) capture only the repair_symbols int in
+    # their closure, so resolve by stripping the ``_with_symbols`` suffix.
+    if func_name is not None and func_name.endswith("_with_symbols"):
+        base_name = func_name[: -len("_with_symbols")]
+        if base_name in _ERROR_CORRECTION_NAMES:
+            return _ERROR_CORRECTION_NAMES[base_name]
 
     closure_name = _get_lambda_closure_name(error_correction_func)
     if closure_name in _ERROR_CORRECTION_NAMES:
