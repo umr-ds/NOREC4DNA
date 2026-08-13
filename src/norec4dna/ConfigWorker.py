@@ -23,11 +23,11 @@ logger = logging.getLogger(__name__)
 
 def _create_demo(algorithm: str) -> "DecoderDemo":
     normalized_algorithm = algorithm.lower()
-    if normalized_algorithm == "ru10":
+    if normalized_algorithm in ("ru10", "raptor", "ru10_bp", "ru10bp", "raptor_bp", "raptorbp"):
         return typing.cast(DecoderDemo, demo_raptor_decode())
-    if normalized_algorithm == "lt":
+    if normalized_algorithm in ("lt", "lt_bp", "ltbp"):
         return typing.cast(DecoderDemo, demo_lt_decode())
-    if normalized_algorithm == "online":
+    if normalized_algorithm in ("online", "online_bp", "onlinebp"):
         return typing.cast(DecoderDemo, demo_online_decode())
     raise RuntimeError('unsupported algorithm, this version supports: "RU10", "Online" and "LT"')
 
@@ -203,6 +203,8 @@ class ConfigReadAndExecute:
             "id_spacing",
             "mask_id",
             "last_chunk_len_str",
+            "solver",
+            "use_bp",
         ]
         for cfg in config:
             if cfg not in known:

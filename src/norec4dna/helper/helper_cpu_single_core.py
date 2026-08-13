@@ -11,7 +11,12 @@ import numpy
 from crccheck.crc import Crc8Lte as crc8
 from crccheck.crc import Crc16, Crc32, Crc64
 
-from .fallback_code import buildGraySequence as fallback_build_gray_sequence
+from .fallback_code import (
+    bitSet as fallback_bit_set,
+    bitsSet as fallback_bits_set,
+    buildGraySequence as fallback_build_gray_sequence,
+    grayCode as fallback_gray_code,
+)
 
 UInt8Array = Any
 Int64Array = Any
@@ -132,7 +137,7 @@ try:
         return bitSet_c(int(x), int(b))
 
 except ImportError:
-    print("BitSet - C Module failed to load, falling back to slow mode")
+    bitSet = fallback_bit_set
 
 try:
     from cdnarules import bitsSet as bitsSet_c
@@ -141,7 +146,7 @@ try:
         return bitsSet_c(int(x))
 
 except ImportError:
-    print("BitsSet - C Module failed to load, falling back to slow mode")
+    bitsSet = fallback_bits_set
 
 try:
     from cdnarules import grayCode as grayCode_c
@@ -150,7 +155,7 @@ try:
         return numpy.uint64(grayCode_c(int(x)))
 
 except ImportError:
-    print("Gray-Code - C Module failed to load, falling back to slow mode")
+    grayCode = fallback_gray_code
 
 try:
     from cdnarules import buildGraySequence as cdnarules_build_gray_sequence

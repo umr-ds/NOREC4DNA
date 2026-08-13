@@ -32,13 +32,18 @@ class BPDecoder(Decoder):
         if file is not None:
             self.isFolder = os.path.isdir(file)
             if not self.isFolder:
-                self.f = open(file, "rb")
+                try:
+                    self.f = open(file, "rb")
+                except Exception:
+                    self.f = None
         self.correct: int = 0
         self.corrupt: int = 0
         self.number_of_chunks: int = 1000000
         self.headerChunk: Optional[HeaderChunk] = None
         self.decodedPackets: Set[Packet] = set()
         self.queue: Deque[Packet] = deque()
+        self.symbol_to_packets: Dict[int, Set[Packet]] = {}
+        self.solved_symbols: Dict[int, Packet] = {}
         self.pseudoCount: int = 0
         self.repairBlockNumbers: Dict[int, Set[int]] = {}
         self.s: int = -1
@@ -58,102 +63,103 @@ class BPDecoder(Decoder):
     def addPacket(self, packet: Union[Packet, RU10Packet, OnlinePacket]) -> None:
         removed = self.removeAndXorAuxPackets(packet)
         packet.set_used_packets(set(from_true_false_list(removed)))
-        if (packet.get_degree() not in self.degreeToPacket) or (
-            not isinstance(self.degreeToPacket[packet.get_degree()], set)
-        ):
-            self.degreeToPacket[packet.get_degree()] = set()
         if self.static_number_of_chunks is None:
             self.number_of_chunks = packet.get_total_number_of_chunks()
-        self.degreeToPacket[packet.get_degree()].add(packet)
-        # Correct
 
     def updatePackets(self, packet: Packet) -> bool:
-        if (
-            packet.get_degree() == 1
-            and next(iter(packet.get_used_packets())) < self.number_of_chunks
-            and (next(iter(packet.get_used_packets())) != 0 or not self.use_headerchunk)
-        ):
-            # Directly add Packets that are degree == 1 (except for HeaderPacket)
-            self.decodedPackets.add(packet)
+        deg = packet.get_degree()
+        if deg == 0:
             return self.is_decoded()
-        self.queue.append(packet)
-        return self.solve()
 
-    def solve(self) -> bool:
-        finished = False
-        while len(self.queue) > 0 and not finished:
-            finished = self.reduceAll(self.queue.popleft())
-        return finished
+        # Un-XOR already solved symbols from this incoming packet first
+        for sym_id in list(packet.get_used_packets()):
+            if sym_id in self.solved_symbols:
+                packet.xor_and_remove_packet(self.solved_symbols[sym_id])
 
-    def removeAndXorAuxPackets(self, packet: Union[Packet, RU10Packet, OnlinePacket]) -> List[bool]:
-        # Abstract method - implemented in subclasses
-        # Return empty list as default (no packets removed)
-        return []
+        deg = packet.get_degree()
+        if deg == 0:
+            return self.is_decoded()
 
-    def compareAndReduce(self, packet: Packet, other: Packet) -> Union[bool, int]:
-        if self.file is None:
-            packet.remove_packets(other.get_used_packets())
+        if deg == 1:
+            self.queue.append(packet)
         else:
-            packet.xor_and_remove_packet(other)
-        degree = packet.get_degree()
-        if (degree not in self.degreeToPacket) or (
-            not isinstance(self.degreeToPacket[degree], set)
-        ):
-            self.degreeToPacket[degree] = set()
-        if degree == 1:
-            [x] = packet.get_used_packets()  # Unpacking -> Fastest way to extract Element from Set
-            if x > self.number_of_chunks:  # we got a new AUX-Packet
-                raise RuntimeError("this should not have happened!")
-            else:
-                if x != 0 or not self.use_headerchunk:
-                    self.decodedPackets.add(packet)  # Add Packet to decoded Packets
-        self.degreeToPacket[degree].add(packet)
-        if self.is_decoded():
-            return True
-        self.queue.append(packet)
-        return degree
+            for sym_id in packet.get_used_packets():
+                if sym_id not in self.symbol_to_packets:
+                    self.symbol_to_packets[sym_id] = set()
+                self.symbol_to_packets[sym_id].add(packet)
 
-    def reduceAll(self, packet: Packet) -> bool:
-        # lookup all packets for this to solve with ( when this packet has a subset of used Packets)
-        if self._reduce_larger_degree_packets(packet):
-            return True
-        if self._reduce_smaller_degree_packets(packet):
-            return True
+        # Peeling only: the expensive inactivation step (if any) is deferred to
+        # the explicit solve() call so the per-packet path stays near-linear.
+        return self._peel()
+
+    def _peel(self) -> bool:
+        """Run one belief-propagation peeling pass (near-linear).
+
+        Solves every symbol that can be resolved from degree-1 packets.  This is
+        the cheap, incremental solver used on the per-packet hot path; the more
+        expensive inactivation step (if any) is deferred to ``solve()``.
+        """
+        while len(self.queue) > 0:
+            deg1_pkt = self.queue.popleft()
+            if deg1_pkt.get_degree() != 1:
+                # Reduce by known solved symbols
+                for sym_id in list(deg1_pkt.get_used_packets()):
+                    if sym_id in self.solved_symbols:
+                        deg1_pkt.xor_and_remove_packet(self.solved_symbols[sym_id])
+                if deg1_pkt.get_degree() != 1:
+                    if deg1_pkt.get_degree() > 1:
+                        for sym_id in deg1_pkt.get_used_packets():
+                            if sym_id not in self.symbol_to_packets:
+                                self.symbol_to_packets[sym_id] = set()
+                            self.symbol_to_packets[sym_id].add(deg1_pkt)
+                    continue
+
+            [sym_id] = deg1_pkt.get_used_packets()
+            if sym_id >= self.number_of_chunks:
+                continue
+
+            if sym_id in self.solved_symbols:
+                continue
+
+            # Store solved symbol
+            self.solved_symbols[sym_id] = deg1_pkt
+            if sym_id == 0 and self.use_headerchunk and self.headerChunk is None:
+                try:
+                    last_chunk_fmt = "I"
+                    if hasattr(self, "config_map") and self.config_map is not None:
+                        last_chunk_fmt = str(self.config_map.get("last_chunk_len_str", "I"))
+                    checksum_fmt = getattr(self, "checksum_len_str", "") or ""
+                    self.headerChunk = HeaderChunk(
+                        deg1_pkt,
+                        last_chunk_len_format=last_chunk_fmt,
+                        checksum_len_format=checksum_fmt,
+                    )
+                except Exception:
+                    pass
+            if sym_id != 0 or not self.use_headerchunk:
+                self.decodedPackets.add(deg1_pkt)
+
+            # Propagate symbol_id to all unreduced packets containing symbol_id
+            affected_packets = self.symbol_to_packets.pop(sym_id, set())
+            for other_pkt in affected_packets:
+                if other_pkt is deg1_pkt:
+                    # Never XOR a packet with itself: this would zero the just-solved symbol.
+                    continue
+                if sym_id in other_pkt.get_used_packets():
+                    other_pkt.xor_and_remove_packet(deg1_pkt)
+                    new_deg = other_pkt.get_degree()
+                    if new_deg == 1:
+                        self.queue.append(other_pkt)
+
         return self.is_decoded()
 
-    def _normalize_degree_packets(self, degree: int):
-        if not isinstance(self.degreeToPacket[degree], set):
-            self.degreeToPacket[degree] = set()
-        return self.degreeToPacket[degree]
+    def solve(self) -> bool:
+        return self._peel()
 
-    def _reduce_larger_degree_packets(self, packet: Packet) -> bool:
-        lookup: List[int] = [i for i in self.degreeToPacket.keys() if packet.get_degree() < i]
-        for degree in lookup:
-            degree_packets = self._normalize_degree_packets(degree)
-            for candidate in degree_packets.copy():
-                packet_used = packet.get_used_packets()
-                candidate_used = candidate.get_used_packets()
-                if len(packet_used) < len(candidate_used) and packet_used.issubset(candidate_used):
-                    degree_packets.remove(candidate)
-                    reduced_degree = self.compareAndReduce(candidate, packet)
-                    if isinstance(reduced_degree, bool) and reduced_degree is True:
-                        return True
-        return False
+    def removeAndXorAuxPackets(
+        self, packet: Union[Packet, RU10Packet, OnlinePacket]
+    ) -> Union[List[bool], Set[int]]:
+        return []
 
-    def _reduce_smaller_degree_packets(self, packet: Packet) -> bool:
-        degree: int = packet.get_degree()
-        lookup = [i for i in self.degreeToPacket.keys() if packet.get_degree() > i]
-        for lookup_degree in lookup:
-            self._normalize_degree_packets(lookup_degree)
-            for candidate in self.degreeToPacket[lookup_degree].copy():
-                packet_used = packet.get_used_packets()
-                candidate_used = candidate.get_used_packets()
-                if len(packet_used) > len(candidate_used) and candidate_used.issubset(packet_used):
-                    try:
-                        self.degreeToPacket[degree].remove(packet)
-                        degree = self.compareAndReduce(packet, candidate)
-                        if isinstance(degree, bool) and degree is True:
-                            return True
-                    except Exception:
-                        continue
-        return False
+    def is_decoded(self) -> bool:
+        return len(self.decodedPackets) + (1 if self.headerChunk is not None else 0) >= self.number_of_chunks

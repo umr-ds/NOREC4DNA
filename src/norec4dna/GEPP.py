@@ -33,6 +33,8 @@ class GEPP_intern:
 
     def __init__(self, A: BoolArray, b: UInt8Array):
         self.A: BoolArray = A  # input: A is an n x n np matrix
+        if b.ndim == 1:
+            b = np.array([b])
         self.b: UInt8Array = b  # b is an n x 1 np array
         self.chunk_to_used_packets: BoolArray = np.identity(
             max(self.A.shape[0], self.A.shape[1]), dtype=bool
@@ -47,7 +49,11 @@ class GEPP_intern:
         self.tmp_A: List[BoolArray] = []
         self.tmp_b: List[UInt8Array] = []
         self._update_input()  # method that validates input
-        self.result_mapping: Int32Array = np.zeros((np.int64(self.m), np.int64(1)), dtype=np.int32)
+        self.result_mapping: Int32Array = np.full((np.int64(self.m), np.int64(1)), -1, dtype=np.int32)
+
+    @property
+    def chunk_size(self) -> int:
+        return self.b.shape[1] if self.b.ndim > 1 else self.b.shape[0]
 
     def clone(self) -> "GEPP_intern":
         gepp_copy = GEPP(self.A, self.b)

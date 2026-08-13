@@ -108,7 +108,7 @@ class DNARules2:
         )
         payload["sequence"] = seq
         payload["asHTML"] = False
-        res = requests.post(MESA_URL, json=payload, headers=header)
+        res = requests.post(MESA_URL, json=payload, headers=header, timeout=30)
         res.raise_for_status()
         response = res.json()
         if not isinstance(response, dict):

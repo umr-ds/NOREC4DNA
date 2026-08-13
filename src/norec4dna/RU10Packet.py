@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import logging
 import struct
 import typing
 from importlib import import_module, util
@@ -114,16 +113,12 @@ class RU10Packet(Packet):
 
     def set_used_packets(self, u_packets: typing.Collection[int]):
         self.used_packets = u_packets
-        tmp_lst = np.zeros(self.total_number_of_chunks, dtype=bool)
-        valid_indices = np.array(u_packets)[np.array(u_packets) < self.total_number_of_chunks]
-        if len(u_packets) > 0:
-            tmp_lst[valid_indices] = True
-        else:
-            logging.warning(
-                "Degenerated Packet! - No valid indices found for used packets: " + str(u_packets)
-            )
-        self.internal_hash = hash(np.packbits(tmp_lst).tobytes())
-        self.bool_arrayused_packets = tmp_lst
+        # The full-length bool array is computed lazily (see
+        # get_bool_array_used_packets) so the belief-propagation peeling loop
+        # — which calls this on every XOR-reduction — stays near-linear instead
+        # of rebuilding an O(number_of_chunks) array per reduction.
+        self.bool_arrayused_packets = None
+        self.internal_hash = None
         self.update_degree()
 
     def prepare_and_pack(self) -> bytes:
@@ -226,11 +221,13 @@ class RU10Packet(Packet):
         return self.s
 
     def get_bool_array_used_packets(self) -> typing.Optional[typing.List[bool]]:
-        return (
-            self.bool_arrayused_packets.tolist()
-            if self.bool_arrayused_packets is not None
-            else None
-        )
+        if self.bool_arrayused_packets is None:
+            tmp_lst = np.zeros(self.total_number_of_chunks, dtype=bool)
+            for u in self.used_packets or []:
+                if u < self.total_number_of_chunks:
+                    tmp_lst[u] = True
+            self.bool_arrayused_packets = tmp_lst
+        return self.bool_arrayused_packets.tolist()
 
     def get_bool_array_all_used_packets(self) -> typing.List[bool]:
         used = self.used_packets or []

@@ -332,6 +332,31 @@ def xorArray(X: UInt8Array, Y: UInt8Array) -> UInt8Array:
     """
     ...
 
+def translate_quat_to_byte(dna_str: str) -> bytes:
+    """
+    Decode a DNA string (A/C/G/T, 2 bits per base) into bytes, 4 bases per byte.
+
+    This is the hot per-packet conversion used by every decoder's FASTA path.
+    The pure-Python equivalent builds one byte at a time through per-base
+    lookups and string slicing.
+
+    Args:
+        dna_str: DNA sequence containing only A, C, G, T. Length must be a
+            multiple of 4.
+
+    Returns:
+        The decoded bytes (len(dna_str) // 4 bytes).
+
+    Raises:
+        ValueError: If the input length is not a multiple of 4 or the input
+            contains characters other than A/C/G/T.
+
+    Example:
+        >>> translate_quat_to_byte("ACGTACGT")
+        b'\\x1b\\x1b'
+    """
+    ...
+
 # ============================================================================
 # Gaussian Elimination Functions
 # ============================================================================

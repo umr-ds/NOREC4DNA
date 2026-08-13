@@ -824,6 +824,54 @@ static PyObject* elimination_with_first_row(PyObject *self, PyObject *args) {
     return PyBool_FromLong(!dirty);
 }
 
+// ---------------------------------------------------------------------------
+// translate_quat_to_byte(dna_str) -> bytes
+//
+// Decodes a DNA string of A/C/G/T bases (2 bits per base) into bytes, 4 bases
+// per byte (A=00, C=01, G=10, T=11).  This is the hot per-packet conversion
+// used by every decoder's FASTA path; the pure-Python equivalent builds one
+// byte at a time through ~4 dict lookups + string slicing per byte.
+// ---------------------------------------------------------------------------
+static PyObject* translate_quat_to_byte(PyObject* self, PyObject* args) {
+    const char* text;
+    Py_ssize_t len;
+
+    if (UNLIKELY(!PyArg_ParseTuple(args, "s#", &text, &len))) {
+        return NULL;
+    }
+    if (UNLIKELY(len % 4 != 0)) {
+        PyErr_SetString(PyExc_ValueError, "input DNA length must be a multiple of 4");
+        return NULL;
+    }
+    PyObject* out = PyBytes_FromStringAndSize(NULL, len / 4);
+    if (UNLIKELY(!out)) {
+        return PyErr_NoMemory();
+    }
+    char* obuf = PyBytes_AS_STRING(out);
+    Py_ssize_t n_bytes = len / 4;
+    for (Py_ssize_t i = 0; i < n_bytes; i++) {
+        unsigned int b = 0;
+        const char* c = text + (i << 2);
+        for (int j = 0; j < 4; j++) {
+            unsigned int v;
+            switch (c[j]) {
+                case 'A': v = 0; break;
+                case 'C': v = 1; break;
+                case 'G': v = 2; break;
+                case 'T': v = 3; break;
+                default:
+                    Py_DECREF(out);
+                    PyErr_SetString(PyExc_ValueError,
+                                    "input contains characters other than A,C,G,T");
+                    return NULL;
+            }
+            b = (b << 2) | v;
+        }
+        obuf[i] = (char)b;
+    }
+    return out;
+}
+
 
 // Method definitions
 static char cdnarules_sat_docs[] =
@@ -856,6 +904,8 @@ static char elimination_with_first_row_docs[] =
     "elimination_with_first_row(A,b,packet_mapping, chunk_to_used_packets, first_row_idx=-1): performs gaussian elimination on A and b with optional first row index. If first_row_idx is provided and A[first_row_idx, 0] is True, that row will be used as the first pivot. returns true if solved; chunk_to_used_packets MUST be a square matrix >= max(A[rows], A[cols])";
 static char gc_content_docs[] =
     "gc_content(text): returns the percentage of GC in the given text";
+static char translate_quat_to_byte_docs[] =
+    "translate_quat_to_byte(dna_str): decodes a DNA string (A/C/G/T) into bytes, 4 bases per byte";
 
 static PyMethodDef cdnarules_funcs[] = {
    {"bitsSet", bitsSet, METH_VARARGS, bitsSet_docs},
@@ -870,10 +920,11 @@ static PyMethodDef cdnarules_funcs[] = {
    {"buildGraySequence", buildGraySequence, METH_VARARGS, buildGraySequence_docs},
    {"bitSet", bitSet, METH_VARARGS, bitSet_docs},
    {"xorArray", xor_array, METH_VARARGS, xorarray_docs},
-   {"elimination", elimination, METH_VARARGS, elimination_docs},
-   {"elimination_with_first_row", elimination_with_first_row, METH_VARARGS, elimination_with_first_row_docs},
-   {"gc_content", gc_content, METH_VARARGS, gc_content_docs},
-   {NULL, NULL, 0, NULL}
+    {"elimination", elimination, METH_VARARGS, elimination_docs},
+    {"elimination_with_first_row", elimination_with_first_row, METH_VARARGS, elimination_with_first_row_docs},
+    {"gc_content", gc_content, METH_VARARGS, gc_content_docs},
+    {"translate_quat_to_byte", translate_quat_to_byte, METH_VARARGS, translate_quat_to_byte_docs},
+    {NULL, NULL, 0, NULL}
 };
 
 static struct PyModuleDef cdnarules = {

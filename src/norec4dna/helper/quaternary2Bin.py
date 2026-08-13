@@ -7,7 +7,13 @@ T = 3
 """
 
 import typing
+from importlib import import_module
 from io import BytesIO
+
+try:
+    _translate_quat_to_byte_c = import_module("cdnarules").translate_quat_to_byte
+except (ImportError, AttributeError):
+    _translate_quat_to_byte_c = None
 
 
 def quaternary_to_bin(filename: str) -> None:
@@ -49,6 +55,8 @@ def quats_to_bytes(quats: str) -> bytes:
 
 
 def tranlate_quat_to_byte(in_txt: str):
+    if _translate_quat_to_byte_c is not None:
+        return _translate_quat_to_byte_c(in_txt)
     out = b""
     for i in range(0, len(in_txt), 4):
         out += quats_to_bytes(in_txt[i : i + 4])

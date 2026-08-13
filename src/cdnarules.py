@@ -15,6 +15,7 @@ from norec4dna.cdnarules import (
     repeatRegion,
     smallRepeatRegion,
     strContainsSub,
+    translate_quat_to_byte,
     xorArray,
 )
 
@@ -33,5 +34,6 @@ __all__ = [
     "repeatRegion",
     "smallRepeatRegion",
     "strContainsSub",
+    "translate_quat_to_byte",
     "xorArray",
 ]

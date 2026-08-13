@@ -12,7 +12,12 @@ from norec4dna.helper import (
     find_ceil_power_of_four,
     merge_parts,
 )
+from norec4dna.RU10BPDecoder import RU10BPDecoder
 from norec4dna.RU10Decoder import RU10Decoder
+
+# Both RU10 decoders expose the same packet-parse / save interface; the BP
+# decoder is selected when the config requests solver="bp".
+RU10DecoderLike = typing.Union[RU10Decoder, RU10BPDecoder]
 
 STATIC_NUM_CHUNKS = None  # 149
 ID_LEN_FORMAT = "I"
@@ -24,7 +29,7 @@ READ_ALL_BEFORE_DECODER = True
 
 class demo_decode:
     @staticmethod
-    def _save_partial_decode(decoder: RU10Decoder, null_is_terminator: bool):
+    def _save_partial_decode(decoder: RU10DecoderLike, null_is_terminator: bool):
         return decoder.saveDecodedFile(
             null_is_terminator=null_is_terminator,
             print_to_output=False,
@@ -33,7 +38,7 @@ class demo_decode:
         )
 
     @staticmethod
-    def _cleanup_decoded_output(decoder: RU10Decoder) -> None:
+    def _cleanup_decoded_output(decoder: RU10DecoderLike) -> None:
         if decoder.headerChunk is None:
             return
         try:
@@ -47,7 +52,7 @@ class demo_decode:
 
     @staticmethod
     def _retry_partial_decode(
-        decoder: RU10Decoder,
+        decoder: RU10DecoderLike,
         tmp_A,
         tmp_B,
         null_is_terminator: bool,
@@ -97,19 +102,45 @@ class demo_decode:
         mask_id: bool = True,
         store_parsed_packets: bool = False,
         config_map: typing.Optional[SectionProxy] = None,
-    ) -> typing.Union[RU10Decoder, bool, bytes, str]:
-        print("Pure Gauss-Mode")
-        x = RU10Decoder(
-            file,
-            use_headerchunk=use_header_chunk,
-            error_correction=error_correction,
-            static_number_of_chunks=number_of_chunks,
-            checksum_len_str=checksum_len_str,
-            xor_by_seed=xor_by_seed,
-            mask_id=mask_id,
-            id_spacing=id_spacing,
-            config_map=config_map,
-        )
+    ) -> typing.Union[RU10DecoderLike, bool, bytes, str]:
+        use_bp_decoder = False
+        if config_map is not None:
+            solver_val = str(config_map.get("solver", "")).lower()
+            use_bp_val = config_map.getboolean("use_bp", fallback=False)
+            algo_val = str(config_map.get("algorithm", "")).lower()
+            if (
+                solver_val in ("bp", "belief_propagation", "beliefpropagation")
+                or use_bp_val
+                or algo_val.endswith("bp")
+            ):
+                use_bp_decoder = True
+
+        if use_bp_decoder:
+            print("Belief Propagation Mode")
+            x = RU10BPDecoder(
+                file,
+                use_headerchunk=use_header_chunk,
+                error_correction=error_correction,
+                static_number_of_chunks=number_of_chunks,
+                checksum_len_str=checksum_len_str,
+                xor_by_seed=xor_by_seed,
+                mask_id=mask_id,
+                id_spacing=id_spacing,
+                config_map=config_map,
+            )
+        else:
+            print("Pure Gauss-Mode")
+            x = RU10Decoder(
+                file,
+                use_headerchunk=use_header_chunk,
+                error_correction=error_correction,
+                static_number_of_chunks=number_of_chunks,
+                checksum_len_str=checksum_len_str,
+                xor_by_seed=xor_by_seed,
+                mask_id=mask_id,
+                id_spacing=id_spacing,
+                config_map=config_map,
+            )
         x.read_all_before_decode = read_all
         x.decode(
             id_len_format=id_len_format,
