@@ -47,7 +47,13 @@ class RU10BPDecoder(RU10Shared, BPDecoder):
         id_spacing: int = 0,
         config_map: Optional[Any] = None,
     ):
-        super().__init__()
+        super().__init__(
+            file=file,
+            error_correction=error_correction,
+            use_headerchunk=use_headerchunk,
+            static_number_of_chunks=static_number_of_chunks,
+            use_method=use_method,
+        )
         if checksum_len_str is None:
             self.checksum_len_str = ""
         else:
@@ -147,12 +153,13 @@ class RU10BPDecoder(RU10Shared, BPDecoder):
             return file_name.split("\x00")[0]
         try:
             header_file_name = self.headerChunk.get_file_name()
-            resolved = (
-                header_file_name.decode("utf-8")
+            raw_name = (
+                header_file_name.decode("utf-8", errors="replace")
                 if isinstance(header_file_name, bytes)
-                else header_file_name
+                else str(header_file_name)
             )
-            return resolved.split("\x00")[0]
+            resolved_clean = raw_name.split("\x00")[0].strip()
+            return resolved_clean if resolved_clean else file_name.split("\x00")[0]
         except Exception as ex:
             logger.warning("%s", ex)
             return file_name.split("\x00")[0]
@@ -632,13 +639,26 @@ class RU10BPDecoder(RU10Shared, BPDecoder):
                 continue
             mask = np.zeros(len(unsolved), dtype=bool)
             mask[cols] = True
+            
+            d_raw = pkt.get_data()
+            if isinstance(d_raw, (bytes, bytearray)):
+                d_arr = np.frombuffer(d_raw, dtype=np.uint8).copy()
+            else:
+                d_arr = np.asarray(d_raw, dtype=np.uint8).copy()
+            # XOR out all symbols that were solved during BP peeling
+            for u in used:
+                if u in self.solved_symbols and u not in col_of:
+                    s_obj = self.solved_symbols[u]
+                    s_data = s_obj.get_data() if hasattr(s_obj, "get_data") else s_obj
+                    if isinstance(s_data, (bytes, bytearray)):
+                        s_arr = np.frombuffer(s_data, dtype=np.uint8)
+                    else:
+                        s_arr = np.asarray(s_data, dtype=np.uint8)
+                    n = min(len(d_arr), len(s_arr))
+                    if n:
+                        d_arr[:n] ^= s_arr[:n]
             residual_rows.append(mask)
-            d = pkt.get_data()
-            residual_data.append(
-                np.frombuffer(d, dtype=np.uint8).copy()
-                if isinstance(d, (bytes, bytearray))
-                else np.asarray(d, dtype=np.uint8).copy()
-            )
+            residual_data.append(d_arr)
         if not residual_rows:
             return
         rgepp = GEPP(np.array(residual_rows, dtype=bool), np.array(residual_data, dtype=np.uint8))
@@ -662,6 +682,7 @@ class RU10BPDecoder(RU10Shared, BPDecoder):
                 )
                 self.solved_symbols[sym] = pkt
                 self.decodedPackets.add(pkt)
+                self.queue.append(pkt)
 
     def _materialize_gepp_b(self) -> None:
         """Make ``GEPP.b`` chunk-indexed so the multi-version layer can read it.
@@ -700,8 +721,6 @@ class RU10BPDecoder(RU10Shared, BPDecoder):
 
     def _finalize_gepp(self) -> None:
         """Materialise the chunk-indexed GEPP once the solver has finished."""
-        if self._gepp_finalized:
-            return
         self._materialize_gepp_b()
         self._sync_gepp_to_decoded_packets()
         self._gepp_finalized = True
@@ -734,23 +753,32 @@ class RU10BPDecoder(RU10Shared, BPDecoder):
         return len(self.getSolvedChunkIds())
 
     def getSolvedChunkIds(self) -> set[int]:
-        """Return the set of chunk ids that have been uniquely solved.
+        """Return the set of chunk ids that have been uniquely solved."""
+        dec_len = len(self.decodedPackets)
+        sym_len = len(self.solved_symbols) if hasattr(self, "solved_symbols") and self.solved_symbols else 0
+        hdr_flag = self.headerChunk is not None
+        gepp_res = self.GEPP.result_mapping if (self.GEPP is not None and getattr(self.GEPP, "result_mapping", None) is not None) else None
+        gepp_id = id(gepp_res) if gepp_res is not None else None
 
-        ``decodedPackets`` only ever grows (packets are added, never removed or
-        mutated after being solved), so the result is cached and recomputed only
-        when the packet count changes.  This keeps ``is_decoded()`` — which is
-        polled once per fed packet — at O(1) instead of O(K) each call.
-        """
-        count = len(self.decodedPackets) + (1 if self.headerChunk is not None else 0)
-        if count != self._solved_cache_len:
-            chunks: set[int] = set()
-            for pkt in self.decodedPackets:
-                chunks.update(pkt.get_used_packets())
-            if self.headerChunk is not None:
-                chunks.add(0)
-            self._solved_cache = chunks
-            self._solved_cache_len = count
-        return self._solved_cache
+        cache_state = (dec_len, sym_len, hdr_flag, gepp_id)
+        if getattr(self, "_solved_cache_state", None) == cache_state:
+            return self._solved_cache
+
+        chunks: set[int] = set()
+        for pkt in self.decodedPackets:
+            chunks.update(pkt.get_used_packets())
+        if sym_len > 0:
+            chunks.update(self.solved_symbols.keys())
+        if hdr_flag:
+            chunks.add(0)
+        if gepp_res is not None:
+            for cid, row in enumerate(gepp_res):
+                row_idx = int(row[0]) if getattr(row, "ndim", 0) > 0 else int(row)
+                if row_idx >= 0:
+                    chunks.add(cid)
+        self._solved_cache = chunks
+        self._solved_cache_state = cache_state
+        return chunks
 
     def getNextValidPacket(
         self,
@@ -1063,21 +1091,51 @@ class RU10BPDecoder(RU10Shared, BPDecoder):
         file_name = self._resolve_output_file_name()
         output_concat = b""
         with open(file_name, "wb") as f:
-            sorted_packets = sorted(
-                self.decodedPackets,
-                key=lambda p: min(p.get_used_packets()) if p.get_used_packets() else 0,
+            chunk_size = getattr(self, "chunk_size", 0) or (
+                self.GEPP.b.shape[1] if self.GEPP is not None and hasattr(self.GEPP, "b") and self.GEPP.b.ndim > 1 else 0
             )
-            for decoded in sorted_packets:
-                [num] = decoded.get_used_packets()
+            last_chunk_len = (
+                self.headerChunk.get_last_chunk_length()
+                if self.headerChunk is not None and hasattr(self.headerChunk, "get_last_chunk_length")
+                else chunk_size
+            )
+            missing_chunks = 0
+            for num in range(1, self.number_of_chunks):
                 if not self._should_write_decoded_packet(num):
                     continue
-                output_bytes, stop_writing = self._packet_output_bytes(
-                    decoded, num, null_is_terminator
-                )
+                if num in self.solved_symbols:
+                    decoded = self.solved_symbols[num]
+                    output_bytes, stop_writing = self._packet_output_bytes(
+                        decoded, num, null_is_terminator
+                    )
+                elif self.GEPP is not None and hasattr(self.GEPP, "result_mapping") and num < len(self.GEPP.result_mapping):
+                    row_idx = int(self.GEPP.result_mapping[num][0]) if getattr(self.GEPP.result_mapping[num], "ndim", 0) > 0 else int(self.GEPP.result_mapping[num])
+                    if 0 <= row_idx < len(self.GEPP.b):
+                        chunk_data = bytes(self.GEPP.b[row_idx])
+                        if num == self.number_of_chunks - 1 and last_chunk_len and last_chunk_len > 0:
+                            chunk_data = chunk_data[:last_chunk_len]
+                        output_bytes = chunk_data
+                        stop_writing = False
+                    else:
+                        missing_chunks += 1
+                        output_bytes = b"\x00" * (chunk_size or 1)
+                        stop_writing = False
+                else:
+                    missing_chunks += 1
+                    output_bytes = b"\x00" * (chunk_size or 1)
+                    stop_writing = False
+
                 output_concat += output_bytes
                 f.write(output_bytes)
                 if stop_writing:
                     break
+        if missing_chunks:
+            logger.warning(
+                "Decode was NOT fully finished: %d/%d data chunks could not be recovered "
+                "and were written as 0x00 padding.",
+                missing_chunks,
+                self.number_of_chunks - 1,
+            )
         logger.info("Saved file as '%s'", file_name)
         self._validate_checksum(file_name, ignore_crc)
         if print_to_output:

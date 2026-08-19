@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Type, TypeVar
 
 import progressbar
+import sys
 
 T = TypeVar("T", bound="Decoder")
 
@@ -38,9 +39,18 @@ class Decoder(ABC):
             " ",
             progressbar.Timer(),
         ]
-        return progressbar.ProgressBar(
-            max_value=max_value, widgets=widgets, max_error=False, redirect_stdout=True
-        ).start()
+        fd = sys.stderr if not getattr(sys.stderr, "closed", False) else sys.stdout
+        try:
+            return progressbar.ProgressBar(
+                max_value=max_value,
+                widgets=widgets,
+                max_error=False,
+                redirect_stdout=False,
+                redirect_stderr=False,
+                fd=fd,
+            ).start()
+        except Exception:
+            return progressbar.NullBar(max_value=max_value)
 
     @classmethod
     def pseudo_decoder(
@@ -53,13 +63,9 @@ class Decoder(ABC):
         if number_of_chunks is not None:
             pseudo.number_of_chunks = number_of_chunks
         pseudo.isPseudo = True
+        for method_name in cls._PSEUDO_BLOCKED_METHODS:
+            setattr(pseudo, method_name, pseudo._warn_pseudo_operation)
         return pseudo
-
-    def __getattribute__(self, name: str) -> Any:
-        attr = super().__getattribute__(name)
-        if name in Decoder._PSEUDO_BLOCKED_METHODS and super().__getattribute__("isPseudo"):
-            return self._warn_pseudo_operation
-        return attr
 
     def _warn_pseudo_operation(self, *args: Any, **kwargs: Any) -> None:
         del args, kwargs

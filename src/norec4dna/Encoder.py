@@ -11,6 +11,7 @@ from zipfile import ZipFile
 
 import numpy as np
 import progressbar
+import sys
 from numpy.typing import NDArray
 from PIL import Image
 
@@ -66,9 +67,18 @@ class Encoder(ABC):
             " ",
             progressbar.Timer(),
         ]
-        return progressbar.ProgressBar(
-            max_value=max_value, widgets=widgets, max_error=False, redirect_stdout=False
-        ).start()
+        fd = sys.stderr if not getattr(sys.stderr, "closed", False) else sys.stdout
+        try:
+            return progressbar.ProgressBar(
+                max_value=max_value,
+                widgets=widgets,
+                max_error=False,
+                redirect_stdout=False,
+                redirect_stderr=False,
+                fd=fd,
+            ).start()
+        except Exception:
+            return progressbar.NullBar(max_value=max_value)
 
     @abstractmethod
     def encode_to_packets(self) -> typing.Any:

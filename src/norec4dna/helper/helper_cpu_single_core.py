@@ -54,20 +54,28 @@ def xor_numpy(
     p1: Union[bytes, bytearray, UInt8Array, Int64Array, BoolArray],
     p2: Union[bytes, bytearray, UInt8Array, Int64Array, BoolArray],
 ) -> Union[UInt8Array, Int64Array, BoolArray]:
-    if (isinstance(p2, numpy.ndarray) and isinstance(p1, numpy.ndarray)) and (
-        (p1.dtype == numpy.uint8 and p2.dtype == numpy.uint8)
-        or (p1.dtype == numpy.int64 and p2.dtype == numpy.int64)
-        or (p1.dtype == bool and p2.dtype == bool)
-    ):
+    if type(p1) is numpy.ndarray and type(p2) is numpy.ndarray:
+        if p1.dtype == p2.dtype and (p1.dtype == numpy.uint8 or p1.dtype == numpy.int64 or p1.dtype == bool):
+            return p1 ^ p2
         return numpy.bitwise_xor(p1, p2)
-    n_p1 = numpy.frombuffer(p1, dtype="uint8")
-    n_p2 = numpy.frombuffer(p2, dtype="uint8")
+    n_p1 = p1 if isinstance(p1, numpy.ndarray) else numpy.frombuffer(p1, dtype=numpy.uint8)
+    n_p2 = p2 if isinstance(p2, numpy.ndarray) else numpy.frombuffer(p2, dtype=numpy.uint8)
     if xor_numpy_uint8_internal is not None:
         return xor_numpy_uint8_internal(n_p1, n_p2)
-    return numpy.bitwise_xor(n_p1, n_p2)
+    return n_p1 ^ n_p2
 
 
 def listXOR(plist: list) -> Any:
+    n = len(plist)
+    if n == 1:
+        return plist[0]
+    if n == 2:
+        return xor_numpy(plist[0], plist[1])
+    if all(type(p) is numpy.ndarray for p in plist):
+        res = plist[0].copy()
+        for p in plist[1:]:
+            res ^= p
+        return res
     return reduce(xor_numpy, plist)
 
 

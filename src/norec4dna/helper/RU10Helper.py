@@ -23,6 +23,10 @@ int63 = int(pow(2, 63) - 1)
 int31 = int(pow(2, 31) - 1)
 
 
+_PACKET_NUMBERS_CACHE: typing.Dict[typing.Tuple[int, int, bool, typing.Optional[int]], typing.List[int]] = {}
+_TRIPLE_CACHE: typing.Dict[typing.Tuple[int, int], typing.Tuple[int, int, int]] = {}
+
+
 def choose_packet_numbers(
     number_of_chunks: int,
     code_block_index: int,
@@ -30,6 +34,11 @@ def choose_packet_numbers(
     systematic: bool = False,
     max_l: typing.Optional[int] = None,
 ) -> typing.List[int]:
+    cache_key = (number_of_chunks, code_block_index, systematic, max_l)
+    cached = _PACKET_NUMBERS_CACHE.get(cache_key)
+    if cached is not None:
+        return list(cached)
+
     if systematic:
         d, a, b = systematic_ru10_triple_generator(number_of_chunks, code_block_index, dist)
     else:
@@ -54,7 +63,9 @@ def choose_packet_numbers(
         while b >= total_intermediate_symbols:
             b = (b + a) % lprime
         indices[idx] = b
-    return sorted(indices)
+    res = sorted(indices)
+    _PACKET_NUMBERS_CACHE[cache_key] = res
+    return list(res)
 
 
 @lru_cache(maxsize=None)
@@ -82,13 +93,19 @@ def ru10_triple_generator(
     else:
         total_intermediate_symbols = max_l
     lprime = dist.smallestPrimeGreaterOrEqual(total_intermediate_symbols)
+    cache_key = (lprime, x)
+    cached = _TRIPLE_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
     rng: RandomWithRandInt = np.random
     rng.seed(x)
     v = np.uint32(r_int63(rng) % 1048576)
     a = np.uint32(1 + (r_int63(rng) % (lprime - 1)))
     b = np.uint32(r_int63(rng) % lprime)
     d = dist.deg(int(v))
-    return d, int(a), int(b)
+    res = (d, int(a), int(b))
+    _TRIPLE_CACHE[cache_key] = res
+    return res
 
 
 def systematic_ru10_triple_generator(
@@ -116,6 +133,8 @@ def r_int63(rng: RandomWithRandInt) -> int:
 def from_true_false_list(
     tf_list: typing.Union[typing.List[bool], BoolArray],
 ) -> typing.List[int]:
+    if isinstance(tf_list, np.ndarray):
+        return np.flatnonzero(tf_list).tolist()
     return [i for i, x in enumerate(tf_list) if x]
 
 

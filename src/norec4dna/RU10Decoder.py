@@ -392,20 +392,20 @@ class RU10Decoder(RU10Shared, Decoder):
 
 
     def _resolve_output_file_name(self) -> str:
-        file_name = "DEC_" + os.path.basename(self.file) if self.file is not None else "RU10.BIN"
+        fallback = "DEC_" + os.path.basename(self.file) if self.file is not None else "RU10.BIN"
         if self.headerChunk is None:
-            return file_name.split("\x00")[0]
+            return fallback.split("\x00")[0]
         try:
             header_file_name = self.headerChunk.get_file_name()
             resolved = (
-                header_file_name.decode("utf-8")
-                if isinstance(header_file_name, bytes)
-                else header_file_name
-            )
-            return resolved.split("\x00")[0]
+                header_file_name.decode("utf-8", errors="replace")
+                if isinstance(header_file_name, (bytes, bytearray))
+                else str(header_file_name)
+            ).split("\x00")[0].strip()
+            return resolved if resolved else fallback
         except Exception as ex:
             logger.warning("%s", ex)
-            return file_name.split("\x00")[0]
+            return fallback.split("\x00")[0]
 
     def _write_output_chunk(
         self, gepp: GEPP_intern, x: int, null_is_terminator: bool

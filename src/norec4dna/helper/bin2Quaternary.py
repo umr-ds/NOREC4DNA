@@ -48,6 +48,7 @@ def _load_quat_helpers() -> (
 
 
 byte2QUATS, getQUAT = _load_quat_helpers()
+_BYTE2QUATS_LOOKUP: typing.Tuple[str, ...] = tuple(byte2QUATS(i) for i in range(256))
 
 
 def bin2Quaternary(filename: str) -> None:
@@ -62,7 +63,8 @@ def bin2Quaternary(filename: str) -> None:
 def string2QUATS(text: typing.Union[str, bytes]) -> List[str]:
     if isinstance(text, str):
         text = text.encode("utf-8")
-    return [byte2QUATS(x) for x in text]
+    lookup = _BYTE2QUATS_LOOKUP
+    return [lookup[x] for x in text]
 
 
 def str2bool(s: str) -> bool:

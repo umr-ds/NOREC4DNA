@@ -38,12 +38,7 @@ def longestSequenceOfChar(text: str, char_x: str = "*") -> Tuple[str, int]:
 
 
 def strContainsSub(text: str, sequence: str) -> bool:
-    if cdnarules is None:
-        return strContainsSub_python(text, sequence)
-    try:
-        return cdnarules.strContainsSub(text, sequence)
-    except AttributeError:
-        return strContainsSub_python(text, sequence)
+    return sequence in text
 
 
 debug = False
@@ -55,7 +50,7 @@ def switch(name: str) -> Callable[[str, Any, Any], int]:
         "longestSequenceOfChar": (
             lambda x, y, z: 1 if int(z) <= longestSequenceOfChar(x, y)[1] else 0
         ),
-        "strContainsSub": (lambda x, y, z: 1 if strContainsSub(x, y) else 0),
+        "strContainsSub": (lambda x, y, z: 1 if y in x else 0),
         "strContainsSubRegex": (lambda x, y, z: 1 if strContainsSubRegex(x, y) else 0),
         "strContainsIllegalChars": (lambda x, y, z: 1 if strContainsIllegalChars(x, y) else 0),
         "charCountBiggerEqualThanX": (
@@ -75,19 +70,20 @@ def switch(name: str) -> Callable[[str, Any, Any], int]:
     return handler
 
 
+_cdnarules_gc = getattr(cdnarules, "gc_content", None) if cdnarules is not None else None
+
+
 def gc_content(text: str) -> float:
-    if cdnarules is None:
-        return gc_content_python(text)
-    try:
-        return float(cdnarules.gc_content(text))
-    except AttributeError:
-        return gc_content_python(text)
+    if _cdnarules_gc is not None:
+        return float(_cdnarules_gc(text))
+    return gc_content_python(text)
 
 
 def gc_content_python(text: str) -> float:
-    counter = Counter(text)
-    count = counter["G"] + counter["C"]
-    return (count / len(text)) * 100
+    n = len(text)
+    if n == 0:
+        return 0.0
+    return ((text.count("G") + text.count("C")) / n) * 100
 
 
 def iupac_replace(sequence: str) -> Pattern[str]:

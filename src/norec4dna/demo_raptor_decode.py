@@ -103,17 +103,17 @@ class demo_decode:
         store_parsed_packets: bool = False,
         config_map: typing.Optional[SectionProxy] = None,
     ) -> typing.Union[RU10DecoderLike, bool, bytes, str]:
-        use_bp_decoder = False
+        use_bp_decoder = True
         if config_map is not None:
             solver_val = str(config_map.get("solver", "")).lower()
-            use_bp_val = config_map.getboolean("use_bp", fallback=False)
-            algo_val = str(config_map.get("algorithm", "")).lower()
-            if (
-                solver_val in ("bp", "belief_propagation", "beliefpropagation")
-                or use_bp_val
-                or algo_val.endswith("bp")
+            try:
+                use_bp_val = config_map.getboolean("use_bp", fallback=True)
+            except AttributeError:
+                use_bp_val = str(config_map.get("use_bp", "True")).lower() in ("true", "1", "yes", "on")
+            if solver_val in ("gepp", "gauss", "gaussian") or (
+                "use_bp" in config_map and not use_bp_val
             ):
-                use_bp_decoder = True
+                use_bp_decoder = False
 
         if use_bp_decoder:
             print("Belief Propagation Mode")

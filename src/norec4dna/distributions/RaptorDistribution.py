@@ -24,6 +24,11 @@ def comb(n: int, r: int, *, exact: bool = False) -> typing.Union[int, float]:
     return float(math.comb(n, r))
 
 
+_SMALLEST_PRIME_CACHE: typing.Dict[int, int] = {}
+_RAPTOR_F: typing.Tuple[int, ...] = (0, 10241, 491582, 712794, 831695, 948446, 1032189, 1048576)
+_RAPTOR_D: typing.Tuple[int, ...] = (0, 1, 2, 3, 4, 10, 11, 40)
+
+
 class RaptorDistribution(Distribution):
     smallPrimes: typing.List[int] = [
         2,
@@ -10084,7 +10089,6 @@ class RaptorDistribution(Distribution):
         super().__init__()
         self.rng: RandomWithSeed = np.random
         self.rng.seed(number_of_chunks)
-        self._smallest_prime_cache: typing.Dict[int, int] = {}
         self.S: int = number_of_chunks
         self.f: Int32Array = np.array(
             [0, 10241, 491582, 712794, 831695, 948446, 1032189, 1048576], dtype=np.int32
@@ -10092,19 +10096,20 @@ class RaptorDistribution(Distribution):
         self.d: Int8Array = np.array([0, 1, 2, 3, 4, 10, 11, 40], dtype=np.int8)
 
     def smallestPrimeGreaterOrEqual(self, x: int) -> int:
-        cached = self._smallest_prime_cache.get(x)
+        cached = _SMALLEST_PRIME_CACHE.get(x)
         if cached is not None:
             return cached
-        if x <= self.smallPrimes[len(self.smallPrimes) - 1]:
-            p = next(i for i, v in enumerate(self.smallPrimes) if v >= x)
-            result = self.smallPrimes[p]
-            self._smallest_prime_cache[x] = result
+        if x <= self.smallPrimes[-1]:
+            idx = bisect.bisect_left(self.smallPrimes, x)
+            result = self.smallPrimes[idx]
+            _SMALLEST_PRIME_CACHE[x] = result
             return result
 
-        while not self.isPrime(x):
-            x = x + 1
-        self._smallest_prime_cache[x] = x
-        return x
+        curr = x
+        while not self.isPrime(curr):
+            curr += 1
+        _SMALLEST_PRIME_CACHE[x] = curr
+        return curr
 
     def set_seed(self, seed: int):
         self.rng.seed(seed)
@@ -10138,10 +10143,10 @@ class RaptorDistribution(Distribution):
     # Deg function from section 5.4.4.2
     # deg calculates the degree to be used in code block generation.
     def deg(self, v: int) -> int:
-        try:
-            return int(self.d[bisect.bisect_right(self.f, v)])
-        except IndexError:
-            return int(self.d[-1])
+        idx = bisect.bisect_right(_RAPTOR_F, v)
+        if idx < len(_RAPTOR_D):
+            return _RAPTOR_D[idx]
+        return _RAPTOR_D[-1]
 
     def get_config_string(self) -> str:
         return "RaptorDistribution_S=" + str(self.S)

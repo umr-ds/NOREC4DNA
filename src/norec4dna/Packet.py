@@ -243,8 +243,13 @@ class Packet:
         return self.degree
 
     def remove_packets(self, packet_set: Set[int]) -> None:
-        self.set_used_packets(self.used_packets.difference(packet_set))
-        self.update_degree()
+        if isinstance(self.used_packets, set):
+            self.used_packets.difference_update(packet_set)
+            self.degree = len(self.used_packets)
+            self.bool_arrayused_packets = None
+            self.internal_hash = None
+        else:
+            self.set_used_packets(set(self.used_packets).difference(packet_set))
         self.did_change = True  # CRC is no longer valid
 
     def xor_and_remove_packet(self, packet: "Packet") -> None:

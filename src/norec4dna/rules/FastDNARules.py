@@ -167,22 +167,12 @@ class FastDNARules:
             self.extra_motifs.append((seq, error_prob))
 
     def _motif_search(self, data: str) -> float:
-        """Instance wrapper around ``motif_search`` that also checks ``extra_motifs``.
-
-        Delegates to the static ``motif_search`` for the built-in catalogue, then
-        checks any sequences registered via ``extra_motifs`` / ``add_forbidden_sequences``.
-
-        Args:
-            data: DNA string to evaluate.
-
-        Returns:
-            Combined error probability, capped at 1.0.
-        """
+        """Instance wrapper around ``motif_search`` that also checks ``extra_motifs``."""
         drop = FastDNARules.motif_search(data)
-        if drop >= 1.0:
-            return 1.0
+        if drop >= 1.0 or not self.extra_motifs:
+            return min(1.0, drop)
         for motif, prob in self.extra_motifs:
-            if strContainsSub(data, motif):
+            if motif in data:
                 drop += prob
                 if drop >= 1.0:
                     return 1.0
@@ -243,18 +233,14 @@ class FastDNARules:
         res_arr = [x(dna_data) for x in self.active_rules]
         return sum(res_arr), res_arr, packet
 
+    _DEFAULT_HOMOPOLYMER_PROBS: Tuple[float, ...] = (0.0, 0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0)
+
     @staticmethod
     def homopolymers(data: str, probs: Optional[List[float]] = None) -> float:
-        """
-        Calculates the dropchance based on the chance of homopolymers to mutate. Homopolymers are repeats of the same
-        single unit and have a higher chance to mutate than regular polymers.
-        :param data: The DNA sequence to check for homopolymers.
-        :return: The dropchance based on the occurence of homopolymers.
-        """
-        if probs is None:
-            probs = [0.0, 0.0, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
+        """Calculates the dropchance based on homopolymer run length."""
+        p = probs if probs is not None else FastDNARules._DEFAULT_HOMOPOLYMER_PROBS
         homopolymer_length = longestSequenceOfChar(data, "*")[1]
-        return min(1.0, probs[homopolymer_length] if homopolymer_length < len(probs) else 1.0)
+        return min(1.0, p[homopolymer_length] if homopolymer_length < len(p) else 1.0)
 
     @staticmethod
     def dinucleotid_runs(data):
@@ -399,78 +385,68 @@ class FastDNARules:
         ]
         return min(1.0, max(chunks))
 
-    @staticmethod
-    def motif_search(data):
-        """
-        Searches for undesired motifs with given error probabilities.
-        :param data:
-        :return:
-        """
-        undes_motifs = [
-            ("CTCGTAGACTGCGTACCA", 1.01),
-            ("GACGATGAGTCCTGAGTA", 1.01),
-            ("CTGTCTCTTATACACATCT", 1.01),
-            ("TCGTCGGCAGCGTCAGATGTGTATAAGAGACAG", 1.01),
-            ("GTCTCGTGGGCTCGGAGATGTGTATAAGAGACAG", 1.01),
-        ]
+    _UNDES_MOTIFS_CATALOGUE: Tuple[Tuple[str, float], ...] = (
+        # Promoter recognition motif (Euk).
+        ("TATAAA", 1.01),
+        # Promoter recognition motifs (Prok).
+        ("TTGACA", 1.05),
+        ("TGTATAATG", 1.05),
+        # Polyadenylation signals (Euk).
+        ("AATAAA", 1.01),
+        ("TTGTGTGTTG", 1.01),
+        # Lox sites.
+        ("ATAACTTCGTATAGCATACATTATACGAAGTTAT", 1.01),
+        ("ATAACTTCGTATAGCATACATTATACGAACGGTA", 1.01),
+        ("TACCGTTCGTATAGCATACATTATACGAAGTTAT", 1.01),
+        ("TACCGTTCGTATAGCATACATTATACGAACGGTA", 1.01),
+        ("TACCGTTCGTATATGGTATTATATACGAAGTTAT", 1.01),
+        ("TACCGTTCGTATATTCTATCTTATACGAAGTTAT", 1.01),
+        ("TACCGTTCGTATAGGATACTTTATACGAAGTTAT", 1.01),
+        ("TACCGTTCGTATATACTATACTATACGAAGTTAT", 1.01),
+        ("TACCGTTCGTATACTATAGCCTATACGAAGTTAT", 1.01),
+        ("ATAACTTCGTATATGGTATTATATACGAACGGTA", 1.01),
+        ("ATAACTTCGTATAGTATACCTTATACGAAGTTAT", 1.01),
+        # Lox site spacers not covered by the Lox sites.
+        ("AGGTATGC", 1.01),
+        ("TTGTATGG", 1.01),
+        ("GGATAGTA", 1.01),
+        ("GTGTATTT", 1.01),
+        ("GGTTACGG", 1.01),
+        ("TTTTAGGT", 1.01),
+        ("GTACACAT", 1.01),
+        # Restriction enzyme recognition motifs.
+        # BpiI
+        ("GAAGAC", 1.01),
+        # inverse BpiI
+        ("CTTCTG", 1.01),
+        # BsaI
+        ("GGTCTC", 1.01),
+        # inverse BsaI
+        ("CCAGAG", 1.01),
+        ("CGTCTC", 1.01),
+        ("GCGATG", 1.01),
+        ("GCTCTTC", 1.01),
+        # Oligo Adapters.
+        ("CTCGTAGACTGCGTACCA", 1.01),
+        ("GACGATGAGTCCTGAGTA", 1.01),
+        # 5' extensions.
+        ("GGTTCCACGTAAGCTTCC", 1.01),
+        ("GCGATTACCCTGTACACC", 1.01),
+        ("GCCAGTACATCAATTGCC", 1.01),
+        # Twister Adapters:
+        ("GAAGTGCCATTCCGCCTGACCT", 1.0),  # Twister 5' Adapter
+        ("AGGCTAGGTGGAGGCTCAGTG", 1.0),  # Twister 3' Adapter
+    )
 
-        undes_motifs = [
-            # Promoter recognition motif (Euk).
-            ("TATAAA", 1.01),
-            # Promoter recognition motifs (Prok).
-            ("TTGACA", 1.05),
-            ("TGTATAATG", 1.05),
-            # Polyadenylation signals (Euk).
-            ("AATAAA", 1.01),
-            ("TTGTGTGTTG", 1.01),
-            # Lox sites.
-            ("ATAACTTCGTATAGCATACATTATACGAAGTTAT", 1.01),
-            ("ATAACTTCGTATAGCATACATTATACGAACGGTA", 1.01),
-            ("TACCGTTCGTATAGCATACATTATACGAAGTTAT", 1.01),
-            ("TACCGTTCGTATAGCATACATTATACGAACGGTA", 1.01),
-            ("TACCGTTCGTATATGGTATTATATACGAAGTTAT", 1.01),
-            ("TACCGTTCGTATATTCTATCTTATACGAAGTTAT", 1.01),
-            ("TACCGTTCGTATAGGATACTTTATACGAAGTTAT", 1.01),
-            ("TACCGTTCGTATATACTATACTATACGAAGTTAT", 1.01),
-            ("TACCGTTCGTATACTATAGCCTATACGAAGTTAT", 1.01),
-            ("ATAACTTCGTATATGGTATTATATACGAACGGTA", 1.01),
-            ("ATAACTTCGTATAGTATACCTTATACGAAGTTAT", 1.01),
-            # Lox site spacers not covered by the Lox sites.
-            ("AGGTATGC", 1.01),
-            ("TTGTATGG", 1.01),
-            ("GGATAGTA", 1.01),
-            ("GTGTATTT", 1.01),
-            ("GGTTACGG", 1.01),
-            ("TTTTAGGT", 1.01),
-            ("GTACACAT", 1.01),
-            # Restriction enzyme recognition motifs.
-            # BpiI
-            ("GAAGAC", 1.01),
-            # inverse BpiI
-            ("CTTCTG", 1.01),
-            # BsaI
-            ("GGTCTC", 1.01),
-            # inverse BsaI
-            ("CCAGAG", 1.01),
-            ("CGTCTC", 1.01),
-            ("GCGATG", 1.01),
-            ("GCTCTTC", 1.01),
-            # Oligo Adapters.
-            ("CTCGTAGACTGCGTACCA", 1.01),
-            ("GACGATGAGTCCTGAGTA", 1.01),
-            # 5' extensions.
-            ("GGTTCCACGTAAGCTTCC", 1.01),
-            ("GCGATTACCCTGTACACC", 1.01),
-            ("GCCAGTACATCAATTGCC", 1.01),
-            # Twister Adapters:
-            ("GAAGTGCCATTCCGCCTGACCT", 1.0),  # Twister 5' Adapter
-            ("AGGCTAGGTGGAGGCTCAGTG", 1.0),  # Twister 3' Adapter
-        ]
-        # undes_motifs = FastDNARules.add_reverse_complementary(undes_motifs)
+    @staticmethod
+    def motif_search(data: str) -> float:
+        """Searches for undesired motifs with given error probabilities."""
         dropchance = 0.0
-        for motif in undes_motifs:
-            if strContainsSub(data, motif[0]):
-                dropchance += motif[1]
+        for motif_seq, prob in FastDNARules._UNDES_MOTIFS_CATALOGUE:
+            if motif_seq in data:
+                dropchance += prob
+                if dropchance >= 1.0:
+                    return 1.0
         return min(1.0, dropchance)
 
     @staticmethod
