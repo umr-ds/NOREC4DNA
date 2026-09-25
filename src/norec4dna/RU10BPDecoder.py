@@ -254,13 +254,19 @@ class RU10BPDecoder(RU10Shared, BPDecoder):
             _, _, dna_str = entry
             # Strip appended version fields if enabled (mirrors RU10Decoder)
             dna_str_stripped = self.strip_appended_version_fields(dna_str)
-            new_pack = self._decode_fasta_packet(
-                dna_str_stripped,
-                packet_len_format,
-                crc_len_format,
-                number_of_chunks_len_format,
-                id_len_format,
-            )
+            try:
+                new_pack = self._decode_fasta_packet(
+                    dna_str_stripped,
+                    packet_len_format,
+                    crc_len_format,
+                    number_of_chunks_len_format,
+                    id_len_format,
+                )
+            except Exception:
+                # Unparseable strand (e.g. an indel changed its length): skip it as
+                # corrupt, exactly like RU10Decoder, instead of aborting the decode.
+                self.corrupt += 1
+                new_pack = None
             if new_pack is not None:
                 decoded = self.input_new_packet(new_pack)
         if not decoded:

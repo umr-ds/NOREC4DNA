@@ -11,6 +11,9 @@ from .distributions.Distribution import Distribution
 from .distributions.RaptorDistribution import RaptorDistribution
 from .helper import logical_xor
 from .helper.helper import xor_with_seed
+from .ErrorCorrection import get_error_correction_encode
+from .helper.bin2Quaternary import string2QUATS
+from .helper.quaternary2Bin import tranlate_quat_to_byte
 from .helper.RU10Helper import choose_packet_numbers, from_true_false_list
 from .RU10Packet import RU10Packet
 
@@ -178,45 +181,67 @@ class RU10Shared:
             return res
         return dna_str
 
+    def _config_flag(self, key: str, default: bool) -> bool:
+        value = self.config_map.get(key, default) if self.config_map is not None else default
+        if isinstance(value, str):
+            return value.lower() in ("true", "1", "yes", "on")
+        return bool(value)
+
+    def _appended_tail_bases(self) -> int:
+        """Number of bases occupied by appended version fields (0 if disabled)."""
+        if self.config_map is None or not self._config_flag("append_version_fields", False):
+            return 0
+        try:
+            total_bits = sum(
+                int(self.config_map.get(key, default))
+                for key, default in (
+                    ("version_bits", 8),
+                    ("chunk_idx_bits", 8),
+                    ("algo_id_bits", 3),
+                    ("iter_pos_bits", 5),
+                )
+            )
+        except (TypeError, ValueError):
+            return 0
+        total_bases = ((total_bits + 7) // 8) * 4
+        if self._config_flag("append_version_include_magic", True):
+            total_bases += len(self.config_map.get("magic_string", "GAGCCAGTGAGTCGTA"))
+        return total_bases
+
+    def open_appended_codeword(self, dna_str: str) -> Tuple[str, str]:
+        """Split a strand of the appended-fields layout into (packet DNA, appended DNA).
+
+        The appended fields are part of the error-correction codeword:
+        ``strand = EC(message || fields)``.  The error correction is undone over the
+        whole codeword, so it also repairs the fields; the message is re-encoded
+        into an ordinary packet strand ``EC(message)``.  Without error correction
+        the fields are simply the last bases of the strand.  A strand that cannot
+        be decoded is split positionally and will be rejected as corrupt later.
+        """
+        n_bases = self._appended_tail_bases()
+        if not n_bases or len(dna_str) < n_bases:
+            return dna_str, ""
+        ec_name = str(self.config_map.get("error_correction", "nocode"))
+        positional = (dna_str[:-n_bases], dna_str[-n_bases:])
+        if ec_name == "nocode" or ec_name == "dna_reedsolomon":
+            return positional
+        if int(self.config_map.get("id_spacing", 0) or 0) != 0 or len(dna_str) % 4:
+            return positional
+        try:
+            message = self.error_correction(tranlate_quat_to_byte(dna_str))
+        except Exception:
+            return positional
+        tail_bytes = n_bases // 4
+        if len(message) <= tail_bytes:
+            return positional
+        encode = get_error_correction_encode(ec_name, int(self.config_map.get("repair_symbols", 2)))
+        packet_dna = "".join(string2QUATS(encode(bytes(message[:-tail_bytes]))))
+        tail_dna = "".join(string2QUATS(bytes(message[-tail_bytes:])))
+        return packet_dna, tail_dna
+
     def strip_appended_version_fields(self, dna_str: str) -> str:
         """Strip appended version fields from DNA string if enabled in config."""
-        if self.config_map is None:
-            return dna_str
-
-        append_version_fields = self.config_map.get("append_version_fields", False)
-        if isinstance(append_version_fields, str):
-            append_version_fields = append_version_fields.lower() in ("true", "1", "yes", "on")
-
-        if not append_version_fields:
-            return dna_str
-
-        try:
-            version_bits = int(self.config_map.get("version_bits", 8))
-            chunk_idx_bits = int(self.config_map.get("chunk_idx_bits", 8))
-            algo_id_bits = int(self.config_map.get("algo_id_bits", 3))
-            iter_pos_bits = int(self.config_map.get("iter_pos_bits", 5))
-            append_version_include_magic = self.config_map.get("append_version_include_magic", True)
-            if isinstance(append_version_include_magic, str):
-                append_version_include_magic = append_version_include_magic.lower() in (
-                    "true",
-                    "1",
-                    "yes",
-                    "on",
-                )
-
-            total_bits = version_bits + chunk_idx_bits + algo_id_bits + iter_pos_bits
-            total_bytes = (total_bits + 7) // 8
-            total_bases = total_bytes * 4
-
-            if append_version_include_magic:
-                magic_string = self.config_map.get("magic_string", "GAGCCAGTGAGTCGTA")
-                total_bases += len(magic_string)
-
-            if total_bases > 0 and len(dna_str) >= total_bases:
-                return dna_str[:-total_bases]
-        except Exception:
-            pass
-        return dna_str
+        return self.open_appended_codeword(dna_str)[0]
 
     # ── aux-block index helpers (used by removeAndXorAuxPackets_from_indices) ──
 
