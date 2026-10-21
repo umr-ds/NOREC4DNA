@@ -35,7 +35,7 @@ class HeaderChunk:
         else:
             checksum_struct_len = 0
         data: bytes = self.data
-        end_of_file_name: int = data.find(0x00, last_chunk_struct_len + 1)
+        end_of_file_name: int = data.find(0x00, last_chunk_struct_len + checksum_struct_len)
         if end_of_file_name < 0:
             end_of_file_name = len(data)
         if self.checksum_len_format is not None and self.checksum_len_format != "":
