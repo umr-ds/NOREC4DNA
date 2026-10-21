@@ -214,6 +214,7 @@ class GEPP_intern:
         returns a list of packets that are used to reconstruct all chunks in chunk_id_lst
         :param chunk_id_lst: list of chunk ids that contain invalid data (corrupted)
         :param valid_chunks_lst: list of chunk ids that contain valid data (not corrupted)
+        :param multi_error_packet_mode: use the union of contributing packets instead of their intersection
         """
         # TODO: if there is no combination of packets that were used for all defined chunks, then return the minimum list of packets that were used for these chunks
         # additionally one could define an additional paramter with a list of all known _GOOD_ chunks,
@@ -222,7 +223,7 @@ class GEPP_intern:
             valid_chunks_lst = []
         if self.chunk_to_used_packets is None:
             return None
-        res = np.ones(len(self.chunk_to_used_packets[0]), dtype=bool)
+        res = np.full(len(self.chunk_to_used_packets[0]), not multi_error_packet_mode, dtype=bool)
         for i in chunk_id_lst:
             if multi_error_packet_mode:
                 res = np.logical_or(res, self.chunk_to_used_packets[i])
